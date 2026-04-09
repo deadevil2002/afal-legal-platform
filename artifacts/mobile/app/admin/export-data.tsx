@@ -17,7 +17,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import * as FileSystem from "expo-file-system";
+// expo-file-system v18+ (SDK 54) split the API: the main entry no longer
+// exports cacheDirectory, documentDirectory, writeAsStringAsync, EncodingType,
+// or StorageAccessFramework. All of those live in the /legacy sub-path.
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import ExcelJS from "exceljs";
 import { Icon } from "@/components/Icon";
@@ -624,10 +627,19 @@ export default function ExportDataScreen() {
           }
 
         } else {
-          // ── iOS: cacheDirectory is always valid + shareAsync ──────────────
-          // On iOS cacheDirectory never returns null; we use it + the share sheet.
+          // ── iOS: cacheDirectory via legacy API + shareAsync ───────────────
+          // With expo-file-system/legacy, cacheDirectory is always a valid
+          // string on iOS. The null guard below is a safety net for edge cases
+          // (e.g. very restrictive Expo Go builds) and shows a friendly message.
           const dir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
-          if (!dir) throw new Error("cacheDirectory and documentDirectory are both unavailable on this iOS device.");
+          if (!dir) {
+            Alert.alert(
+              t("error"),
+              "File system access is unavailable in this preview environment.\n\n" +
+              "Excel export works in a full development or production build.",
+            );
+            return;
+          }
           const fileUri = dir.endsWith("/") ? `${dir}${filename}` : `${dir}/${filename}`;
           console.log("[Export][ios] writing to:", fileUri);
 
