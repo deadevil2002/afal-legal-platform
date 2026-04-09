@@ -1,0 +1,61 @@
+The app is still not stable.
+Your previous fix did NOT fully solve it.
+
+The screenshots still show expo-notifications in the call stack, and the app still crashes.
+So do NOT assume it is fixed.
+
+We need a hard stabilization pass now.
+
+==================================================
+GOAL
+==================================================
+
+Completely stop push notifications from affecting app startup in any way.
+
+For now, I want app stability first.
+Push can come back later in a proper development build / production build.
+
+==================================================
+REQUIRED ACTION
+==================================================
+
+1) TEMPORARILY FULLY DISABLE PUSH NOTIFICATIONS
+- remove / bypass all push-notification initialization from app startup
+- do not register push tokens
+- do not configure notification handlers at startup
+- do not call push helpers from layout/provider boot flow
+- do not allow any push-related module to load during Expo Go startup
+
+Important:
+This is not just “lazy require”.
+I want push completely isolated so Expo Go cannot touch it at all right now.
+
+2) KEEP THE REST OF THE CHANGES
+Do NOT remove the other working improvements:
+- auth error mapping
+- rounded custom UI
+- per-user green dot
+- previous working features
+
+3) REMOVE ANY STARTUP DEPENDENCY
+Check all of these carefully:
+- app/_layout.tsx
+- any PushSetup component
+- any root/provider boot logic
+- any helper imported by startup files
+- any utility that still imports or references expo-notifications directly or indirectly
+
+If needed:
+- comment out / feature-flag the entire push system for now
+- make it impossible for Expo Go startup to reach expo-notifications
+
+4) IMPORTANT
+Do NOT keep telling me it is fixed unless the app opens normally again without the crash.
+
+5) OUTPUT REQUIRED
+After fixing, tell me clearly:
+- exactly which startup path was still touching expo-notifications
+- exactly what was disabled
+- which files were changed
+- confirm that push is now fully disabled temporarily
+- confirm that the rest of the app changes were preserved

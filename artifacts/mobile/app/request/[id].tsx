@@ -1,6 +1,5 @@
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { getAdminPushTokens, getUserPushToken, sendPushNotification } from "@/lib/pushNotifications";
 import {
   addDoc,
   collection,
@@ -244,40 +243,6 @@ export default function RequestDetailScreen() {
         ),
       });
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      // Push notification — best effort, non-fatal
-      try {
-        const senderName = profile.displayName;
-        const snippet = text ? (text.length > 60 ? text.slice(0, 57) + "…" : text) : "📎 Attachment";
-        if (isAdmin) {
-          // Admin sent message → notify the request creator
-          const ownerId = request.userId ?? request.createdBy ?? "";
-          if (ownerId && ownerId !== user.uid) {
-            const token = await getUserPushToken(ownerId);
-            if (token) {
-              await sendPushNotification({
-                to: token,
-                title: `${senderName} replied`,
-                body: snippet,
-                data: { requestId: id },
-              });
-            }
-          }
-        } else {
-          // User sent message → notify all admins
-          const adminTokens = await getAdminPushTokens();
-          if (adminTokens.length > 0) {
-            await sendPushNotification({
-              to: adminTokens,
-              title: `New reply: ${request.title ?? "Request"}`,
-              body: `${senderName}: ${snippet}`,
-              data: { requestId: id },
-            });
-          }
-        }
-      } catch (_pushErr) {
-        // Push is best-effort, never block the user
-      }
     } catch (_e) {
       // ignore
     } finally {

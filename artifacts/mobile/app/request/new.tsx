@@ -118,20 +118,6 @@ export default function NewRequestScreen() {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Notify admins — best effort
-      try {
-        const { getAdminPushTokens, sendPushNotification } = await import("@/lib/pushNotifications");
-        const tokens = await getAdminPushTokens();
-        if (tokens.length > 0) {
-          await sendPushNotification({
-            to: tokens,
-            title: `New Request: ${title.trim()}`,
-            body: `${profile.displayName} submitted a new ${category} request.`,
-            data: {},
-          });
-        }
-      } catch (_) {}
-
       Alert.alert(t("success"), t("requestCreated"), [
         { text: t("ok"), onPress: () => router.back() },
       ]);
