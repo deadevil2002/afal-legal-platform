@@ -1,0 +1,68 @@
+We now have a conclusive result.
+
+Current logs prove:
+- the guard is no longer the root problem
+- pickingRef resets correctly in finally
+- getDocumentAsync is still failing on iPhone with:
+  "Different document picking in progress"
+
+So the remaining issue is a native iOS presentation conflict.
+
+==================================================
+TARGETED FIX — STRUCTURAL, DOCUMENT PICKER ONLY
+==================================================
+
+Do NOT touch the working image picker path.
+
+The iPhone document picker must no longer be launched directly from inside the modal option handler.
+
+New required flow:
+
+1) User taps "Document"
+2) Close SourcePickerModal only
+3) Store a pending action like:
+   pendingPickerAction = "document"
+4) Wait until the modal is fully dismissed
+5) Only AFTER the modal dismissal completes, launch:
+   DocumentPicker.getDocumentAsync(...)
+
+Important:
+- use the modal's real dismissal completion path (onDismiss / parent-state-driven flow)
+- do NOT rely on more arbitrary delays alone
+- do NOT call getDocumentAsync from the modal button handler itself anymore
+
+==================================================
+IMPLEMENTATION EXPECTATION
+==================================================
+
+A correct structure would be something like:
+- AttachmentPicker keeps:
+  - pickerVisible
+  - pendingPickerAction
+- onPress Document:
+  - setPendingPickerAction("document")
+  - setPickerVisible(false)
+- when modal dismissal is completed:
+  - if pendingPickerAction === "document"
+    then call a separate launchDocumentPicker() function
+  - then clear pendingPickerAction
+
+Do the same pattern only if needed for image picker later, but do NOT modify the working image picker path right now unless absolutely necessary.
+
+==================================================
+KEEP
+==================================================
+
+- current logging
+- current guard
+- Android behavior unchanged
+
+==================================================
+OUTPUT REQUIRED
+==================================================
+
+Tell me clearly:
+- how you moved document picker launch out of the modal handler
+- where modal dismissal is detected
+- which files changed
+- whether image picker path was left unchanged

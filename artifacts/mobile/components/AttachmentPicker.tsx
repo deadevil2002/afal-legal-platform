@@ -20,7 +20,6 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Animated,
-  InteractionManager,
   Linking,
   Modal,
   Platform,
@@ -89,6 +88,9 @@ export function AttachmentPicker({
   const [pickerVisible, setPickerVisible] = useState(false);
   // Prevents concurrent picker calls ("Different document picking in progress" on iOS)
   const pickingRef = useRef(false);
+  // iOS: set true when user taps Document in the modal; cleared by handleModalDismiss
+  // so getDocumentAsync is never called while the modal ViewController is still live.
+  const pendingDocRef = useRef(false);
 
   const canAdd = attachments.length + uploading.length < maxFiles && !disabled;
 
@@ -232,13 +234,24 @@ export function AttachmentPicker({
     }
   };
 
-  // ── Document picker (DocumentPicker) ────────────────────────────────────
-  // Uses expo-document-picker which opens the iOS Files / iCloud UI.
-  // On iOS: type "*/*" is used because the MIME→UTType mapping is fragile
-  //   and causes the picker to throw before opening on some iOS/Expo Go versions.
-  // On Android: explicit MIME types are kept for a better filtered picker UI.
-  // copyToCacheDirectory: true ensures the local URI is readable for upload.
-  const pickDocument = async () => {
+  // ── Document picker — split into three parts ────────────────────────────
+  //
+  // iOS root cause: UIDocumentPickerViewController throws "Different document
+  // picking in progress" when presented while the SourcePickerModal's native
+  // ViewController is still live (even after setPickerVisible(false)).
+  // setTimeout / InteractionManager delays are insufficient because the native
+  // animation may not have committed to the ViewController stack yet.
+  //
+  // Fix: the modal button only closes the modal and marks a pending intent.
+  // getDocumentAsync is called exclusively from handleModalDismiss, which is
+  // wired to Modal's onDismiss prop — a native callback that fires only after
+  // iOS has fully removed the ViewController from the hierarchy.
+  //
+  // Android: onDismiss does not fire. The button handler calls launchDocumentPicker
+  // directly with a 300ms delay (the existing approach that works on Android).
+
+  // 1) Called by the Document button inside SourcePickerModal.
+  const requestDocument = () => {
     console.log("[DIAG] pickDocument: entered. pickingRef.current =", pickingRef.current);
     if (pickingRef.current) {
       console.log("[DIAG] pickDocument: GUARD BLOCKED — returning immediately");
@@ -247,22 +260,31 @@ export function AttachmentPicker({
     pickingRef.current = true;
     console.log("[DIAG] pickDocument: guard passed, ref set to true");
     setPickerVisible(false);
-    // iOS: UIDocumentPickerViewController requires the presenting ViewController
-    // to be fully settled — stricter than PHPickerViewController (image picker).
-    // setTimeout alone guesses at animation duration; InteractionManager.runAfterInteractions
-    // waits for all pending JS interaction callbacks (including Modal slide-out
-    // completion), then we add 300ms for the native ViewController stack to settle.
-    // Android: plain 300ms timeout is sufficient.
     if (Platform.OS === "ios") {
-      await new Promise<void>((resolve) => {
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(resolve, 300);
-        });
-      });
+      // iOS: mark intent — getDocumentAsync will be called from handleModalDismiss
+      // after the native ViewController is fully gone.
+      pendingDocRef.current = true;
+      console.log("[DIAG] pickDocument: iOS — pending flag set, waiting for onDismiss");
     } else {
-      await new Promise((r) => setTimeout(r, 300));
+      // Android: onDismiss does not fire; use existing 300ms delay path.
+      console.log("[DIAG] pickDocument: Android — scheduling launchDocumentPicker after 300ms");
+      setTimeout(() => launchDocumentPicker(), 300);
     }
-    console.log("[DIAG] pickDocument: delay done. Platform:", Platform.OS);
+  };
+
+  // 2) Wired to SourcePickerModal's onDismiss → Modal's onDismiss prop (iOS only).
+  //    Fires after the native slide-out animation is fully committed.
+  const handleModalDismiss = () => {
+    console.log("[DIAG] pickDocument: handleModalDismiss fired. pendingDocRef =", pendingDocRef.current);
+    if (pendingDocRef.current) {
+      pendingDocRef.current = false;
+      launchDocumentPicker();
+    }
+  };
+
+  // 3) The actual async document picker — called only when the modal is gone.
+  const launchDocumentPicker = async () => {
+    console.log("[DIAG] pickDocument: launchDocumentPicker called. Platform:", Platform.OS);
     try {
       console.log("[DIAG] pickDocument: calling getDocumentAsync...");
       // Safety timeout: if getDocumentAsync hangs, reset the guard after 25s.
@@ -440,7 +462,8 @@ export function AttachmentPicker({
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
         onPickImage={pickImage}
-        onPickDocument={pickDocument}
+        onPickDocument={requestDocument}
+        onDismiss={handleModalDismiss}
         isRTL={isRTL}
         colors={colors}
         t={t}
@@ -486,6 +509,10 @@ interface SourcePickerModalProps {
   onClose: () => void;
   onPickImage: () => void;
   onPickDocument: () => void;
+  // iOS only: fires after the native slide-out animation is fully committed.
+  // Used to launch getDocumentAsync only after UIDocumentPickerViewController
+  // can safely present (i.e. the previous ViewController is fully gone).
+  onDismiss: () => void;
   isRTL: boolean;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   t: (key: import("@/i18n/translations").TranslationKey) => string;
@@ -496,6 +523,7 @@ function SourcePickerModal({
   onClose,
   onPickImage,
   onPickDocument,
+  onDismiss,
   isRTL,
   colors,
   t,
@@ -506,6 +534,7 @@ function SourcePickerModal({
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
       statusBarTranslucent
     >
       <TouchableWithoutFeedback onPress={onClose}>
