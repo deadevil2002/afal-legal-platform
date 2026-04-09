@@ -1,0 +1,75 @@
+Do not fix anything yet.
+
+We need a diagnosis-only pass first.
+
+Important clarification:
+On iPhone, the error appears immediately when the user taps the attachment button.
+It happens BEFORE choosing any file.
+So this is not yet an upload failure.
+It is earlier in the flow.
+
+Your task now is ONLY to inspect and report the current attachment-button flow on iPhone.
+
+Do not change logic yet.
+Do not patch blindly.
+Do not refactor.
+
+==================================================
+DIAGNOSIS TASK ONLY
+==================================================
+
+Please inspect exactly what happens when the attachment button is tapped on iPhone.
+
+Trace the full current flow from:
+- tapping the attachment button
+to:
+- opening any action sheet / options modal / picker / permission prompt
+
+I need you to identify the current code path and exact failure point.
+
+==================================================
+CHECK ALL OF THESE
+==================================================
+
+1) Which function runs first when the attachment button is pressed?
+2) Does it open:
+   - an Alert
+   - ActionSheet
+   - custom modal
+   - image picker directly
+   - document picker directly
+3) Is the crash/error happening:
+   - before picker open
+   - during permission check
+   - during action-sheet option creation
+   - during iOS-specific branch logic
+4) Inspect whether the attachment button uses:
+   - Alert.alert
+   - ActionSheetIOS
+   - expo-image-picker
+   - expo-document-picker
+   - Linking
+   - any custom picker wrapper
+
+5) For iPhone specifically:
+   - identify the exact line/function causing the error
+   - identify the exact current error message / exception source
+   - explain whether the problem is:
+     - permission logic
+     - ActionSheetIOS flow
+     - picker invocation
+     - unsupported API in current runtime
+     - bad iOS conditional branch
+
+==================================================
+OUTPUT REQUIRED
+==================================================
+
+Do not fix yet.
+
+Just tell me clearly:
+- the exact current flow when tapping attachment button
+- which file(s) control that flow
+- the exact failing function / line / branch on iPhone
+- whether the failure happens before picker open or inside picker open
+- your recommended fix after inspection
