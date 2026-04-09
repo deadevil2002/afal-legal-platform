@@ -30,6 +30,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [department, setDepartment] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +40,7 @@ export default function RegisterScreen() {
   const emailRef = useRef<TextInput>(null);
   const empNumRef = useRef<TextInput>(null);
   const deptRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
   const pwRef = useRef<TextInput>(null);
   const confirmPwRef = useRef<TextInput>(null);
 
@@ -46,11 +48,11 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     setErrorMsg(null);
-    if (!fullName || !email || !employeeNumber || !password || !confirmPassword) {
+    if (!fullName || !email || !employeeNumber || !phone || !password || !confirmPassword) {
       setErrorMsg(
         language === "ar"
-          ? "جميع الحقول بما فيها رقم الموظف مطلوبة"
-          : "All fields including Employee Number are required."
+          ? "جميع الحقول مطلوبة بما فيها رقم الموظف ورقم الهاتف"
+          : "All fields including Employee Number and Phone are required."
       );
       return;
     }
@@ -69,7 +71,8 @@ export default function RegisterScreen() {
         password,
         fullName,
         department,
-        employeeNumber.trim()
+        employeeNumber.trim(),
+        phone.trim()
       );
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
@@ -205,6 +208,31 @@ export default function RegisterScreen() {
                 placeholder={t("department")}
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => phoneRef.current?.focus()}
+                blurOnSubmit={false}
+              />
+            </View>
+          </View>
+
+          {/* Phone */}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
+              {t("phone")} *
+            </Text>
+            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+              <View style={styles.icon}>
+                <Icon name="phone" size={16} color={colors.mutedForeground} />
+              </View>
+              <TextInput
+                ref={phoneRef}
+                style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
+                value={phone}
+                onChangeText={(v) => { setPhone(v); clearError(); }}
+                placeholder={isRTL ? "مثال: 0501234567" : "e.g. +966 50 123 4567"}
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="phone-pad"
                 autoCorrect={false}
                 returnKeyType="next"
                 onSubmitEditing={() => pwRef.current?.focus()}

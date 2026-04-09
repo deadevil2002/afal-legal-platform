@@ -1,0 +1,75 @@
+We have a profile update bug in the Legal Requests System.
+
+Current problem:
+- A normal user creates an account successfully
+- Then goes to Profile and tries to save changes (for example phone number)
+- Firestore returns permission-denied on update
+
+Observed console output:
+- updateUserProfile is sending a profile object that includes:
+  - uid
+  - email
+  - role
+  - employeeNumber
+  - createdAt: null
+  - department
+  - displayName
+  - language
+  - isActive
+- Firestore rules require createdAt to remain exactly equal to the existing stored value
+- So sending createdAt: null causes the update to fail
+
+Your task:
+Fix profile creation + profile update carefully without breaking the current logic.
+
+Requirements:
+
+1) Registration screen
+- Add phone number field to sign-up
+- Make phone number required at registration
+- Save it into the user Firestore document on account creation
+- Keep existing registration flow intact
+
+2) Profile update
+- Ensure normal users can successfully update their allowed editable fields:
+  - displayName
+  - department
+  - phone
+  - language
+  - employeeNumber
+- Do NOT allow editing:
+  - email
+  - uid
+  - role
+  - createdAt
+  - isActive
+
+3) Critical fix
+- Do NOT send createdAt: null during profile updates
+- Do NOT send protected fields with invalid/null values
+- If the app currently writes the full profile object back to Firestore, change it so profile update writes only the allowed editable fields plus updatedAt
+- Use a partial Firestore update payload, not a full unsafe object overwrite
+
+4) Audit current profile code
+Check:
+- sign-up screen/component
+- AuthContext profile creation function
+- updateUserProfile function
+- profile screen save handler
+- any profile state mapping that may be defaulting createdAt to null
+
+5) Output required
+After finishing, report:
+- Which files were changed
+- Where phone was added in sign-up
+- Exact fields saved on initial user document creation
+- Exact fields sent during profile update
+- Confirmation that createdAt is no longer sent as null
+- Confirmation that a normal user can now update phone successfully
+
+Important:
+- Do not change AttachmentPicker
+- Do not change request logic
+- Do not weaken Firestore rules
+- Do not rework roles
+- Keep the fix minimal and safe

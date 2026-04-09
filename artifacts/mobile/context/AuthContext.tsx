@@ -80,7 +80,8 @@ interface AuthContextType {
     password: string,
     displayName: string,
     department?: string,
-    employeeNumber?: string
+    employeeNumber?: string,
+    phone?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
@@ -356,7 +357,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     displayName: string,
     department?: string,
-    employeeNumber?: string
+    employeeNumber?: string,
+    phone?: string
   ) => {
     if (email.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
       throw new Error(
@@ -373,6 +375,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       employeeNumber: employeeNumber?.trim() || "",
       role: "user",
       department: department || "",
+      phone: phone?.trim() || "",
       isActive: true,
       createdAt: now,
       updatedAt: now,
