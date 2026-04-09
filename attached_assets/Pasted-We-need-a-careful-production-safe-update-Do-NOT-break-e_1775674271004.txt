@@ -1,0 +1,105 @@
+We need a careful production-safe update. Do NOT break existing logic.
+
+Apply the following fixes:
+
+1) FIX PROFILE UPDATE PERMISSIONS ERROR
+Users currently get "Missing or insufficient permissions" when saving profile changes.
+
+Root issue:
+Firestore rules require immutable fields (uid, email, role, employeeNumber, createdAt) to remain unchanged, but the frontend is sending incomplete data.
+
+Fix:
+- Ensure profile updates use updateDoc() instead of setDoc() overwrite
+- OR use setDoc(..., { merge: true })
+- Only send allowed editable fields:
+  displayName, department, phone, language, updatedAt, isActive
+
+Do NOT send uid/email/role/employeeNumber/createdAt in updates.
+
+2) FIX SUPER ADMIN HOME DATA LOADING
+Super Admin does not see requests on first load, only after refresh.
+
+Fix:
+- Delay requests fetching until user.role is fully loaded
+- Use useEffect dependency on user.role
+- Prevent query execution when role is undefined
+
+3) FIX FILTER CHIPS TEXT CUT-OFF (RTL UI ISSUE)
+Top filter chips are visually cut and cramped.
+
+Fix:
+- Wrap filters inside horizontal ScrollView
+- Add proper spacing between chips
+- Apply RTL-safe styling:
+  textAlign: 'right'
+  writingDirection: 'rtl'
+  flexShrink: 1
+
+Ensure no Arabic text is clipped.
+
+4) IMPLEMENT ATTACHMENT OPENING (CRITICAL)
+Attachments currently do nothing.
+
+Implement:
+
+- Images:
+  Open inside app using full-screen viewer (modal or screen)
+
+- PDFs:
+  Open using Linking.openURL()
+
+- Word files:
+  Open using Linking.openURL()
+
+- Fallback:
+  Use Sharing.shareAsync() if file cannot be previewed
+
+Ensure each attachment has:
+{
+  url,
+  name,
+  type
+}
+
+Handle behavior based on file type.
+
+5) ADD FULL ADMIN STATUS WORKFLOW
+Requests must support proper status transitions.
+
+Implement status options:
+- Submitted
+- Under Review
+- Employee Contacted
+- In Progress
+- Proposed Resolution
+- Employee Feedback
+- Resolved / Closed
+- Escalated
+
+Admin must be able to update status via UI (dialog or bottom sheet).
+
+Update fields:
+- status
+- statusChangedAt
+- statusChangedBy
+
+6) SETTINGS SCREEN IMPROVEMENT
+In Settings/Profile screen:
+- Show ALL user data entered during registration:
+  - Full Name
+  - Email
+  - Employee Number
+  - Department
+  - Phone (if exists)
+
+These should be visible (read-only or editable where allowed).
+
+7) DO NOT BREAK EXISTING FIRESTORE SECURITY LOGIC
+
+8) OUTPUT REQUIRED
+After changes, clearly explain:
+- how profile update was fixed
+- how attachments now open
+- how status workflow works
+- how super admin loading was fixed
+- what UI fixes were applied

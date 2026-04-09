@@ -1,0 +1,92 @@
+We need a polishing pass for two UI/export issues.
+
+Do NOT break existing logic.
+
+==================================================
+1) IMPROVE THE EXPORTED EXCEL FILE DESIGN
+==================================================
+
+The Excel export works, but it still looks too plain and not professional enough.
+
+Current problem:
+- headers and data look too similar
+- same font size / weak visual hierarchy
+- not polished for business/admin use
+
+Improve the Excel workbook styling to make it look clean, professional, and easy to read/edit in Microsoft Excel.
+
+Requirements:
+
+A) VISUAL HIERARCHY
+- Header row must be clearly different from data rows
+- Make header row:
+  - bold
+  - larger font size than normal data rows
+  - centered vertically
+  - with a solid background fill
+  - with contrasting text color
+- Data rows should use a smaller regular font
+
+B) SHEET FORMATTING
+- Freeze the header row
+- Auto-size or set good column widths
+- Use text wrapping for long text fields like Description
+- Align date columns consistently
+- Keep sheet names clean:
+  - Requests
+  - Users
+  - Deletion Requests
+  - Audit Logs
+
+C) TABLE QUALITY
+- Add borders or subtle cell styling so it looks like a real report
+- Alternate row shading (zebra rows) if supported by the library
+- Keep it business-like and simple, not flashy
+
+D) DATA CLEANUP
+- Keep export in English only
+- Keep attachment values as readable labels only:
+  PDF / WORD / PICTURE / FILE
+- Keep empty values blank
+- Keep timestamps readable and consistent
+
+E) IF THE CURRENT XLSX LIBRARY DOES NOT SUPPORT STYLING WELL
+- switch to a better .xlsx generation approach/library that supports cell styling properly
+- but keep the output as editable .xlsx for desktop Excel
+
+After implementing, tell me:
+- what styling improvements were applied
+- what library is now used for styling/export
+- whether alternating rows / bold headers / fill colors were applied
+- which files were changed
+
+==================================================
+2) MOVE THE CREATE (+) BUTTON TO A BETTER POSITION
+==================================================
+
+Current problem:
+For non-super-admin users, the floating + button at the bottom-right is not the best placement.
+
+Requirement:
+- For all users except Super Admin, move the create request action higher in the screen
+- Preferred position:
+  near the "Recent Requests" / "الطلبات الأخيرة" section title
+- Make it look professional and intentional, not random
+
+Behavior:
+- Super Admin must still NOT see the create button
+- Normal users / other allowed users should see it
+- Keep the action working exactly the same
+
+Preferred UI:
+- small clean action button near the section title
+- visually balanced with the heading
+- responsive on different phone sizes
+- should not overlap cards or bottom navigation
+
+Do not keep the bottom floating button if the top placement is implemented cleanly.
+
+After implementing, tell me:
+- where the create button now appears
+- which screens/files were changed
+- how the role logic still hides it for Super Admin

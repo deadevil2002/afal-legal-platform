@@ -1,0 +1,78 @@
+We still have 2 blocking issues.
+
+Fix them carefully WITHOUT breaking existing logic.
+
+Important:
+The Firestore rules were updated and deployed.
+Now inspect the real frontend behavior and fix the actual causes.
+
+========================
+1) PROFILE SAVE STILL FAILS
+========================
+
+Any profile change still shows an error.
+
+What you must do:
+- inspect the exact payload being sent to Firestore during profile save
+- log the exact keys
+- confirm the app sends ONLY the allowed editable fields:
+  displayName,
+  department,
+  phone,
+  language,
+  employeeNumber,
+  updatedAt,
+  isActive
+
+Do NOT send:
+  uid,
+  email,
+  role,
+  createdAt
+
+Also verify:
+- updateUserProfile uses updateDoc(), not full overwrite
+- no other layer is mutating the payload before save
+- Settings screen saves employeeNumber correctly
+
+Fix the profile save so it actually works in the real app.
+
+========================
+2) ATTACHMENTS STILL DO NOT OPEN OR DOWNLOAD
+========================
+
+Files upload to Cloudinary, but tapping attachments still does not actually open them.
+
+Do a real end-to-end inspection:
+
+- inspect the exact attachment object saved in Firestore
+- tell me exactly which fields are stored for each attachment
+- confirm the app uses the real Cloudinary secure URL
+- confirm the tap handler is wired and actually called
+- confirm the URL opens on device
+
+Required behavior:
+- images: open normally
+- pdf/doc/other files: open externally using the real file URL
+- if open fails: show a visible fallback button for open externally / download
+
+Important:
+Do NOT just say Linking.openURL is used.
+Actually verify:
+- attachment URL exists
+- it is the correct Cloudinary URL
+- onPress is connected
+- handler is executed
+- URL opens on device
+
+========================
+3) OUTPUT REQUIRED
+========================
+
+After fixing, tell me clearly:
+
+- exact reason profile save was failing
+- exact payload now sent for profile updates
+- exact attachment object structure stored in Firestore
+- exact Cloudinary URL field used for opening
+- which files were changed

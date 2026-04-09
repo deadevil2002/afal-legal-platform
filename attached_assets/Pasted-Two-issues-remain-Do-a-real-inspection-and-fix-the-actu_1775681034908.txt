@@ -1,0 +1,98 @@
+Two issues remain. Do a real inspection and fix the actual cause.
+
+Important:
+Do NOT change Firestore rules again unless you can prove they are the cause.
+At this point, the remaining issues are most likely in frontend logic / document shape / Cloudinary URL handling.
+
+==================================================
+1) SUPER ADMIN PROFILE SAVE STILL FAILS
+==================================================
+
+Normal user profile save works.
+Only Super Admin profile save still fails with:
+"Missing or insufficient permissions"
+
+This strongly suggests the problem is NOT the general Firestore rule anymore.
+
+Inspect the real cause:
+
+- inspect the exact Firestore document for the super admin user
+- print/log the exact super admin user document shape
+- verify it includes all expected immutable fields:
+  uid, email, role, createdAt, employeeNumber
+- inspect the exact payload sent when super admin presses Save
+- compare it with the normal user payload (which works)
+- verify whether the super admin settings screen is also trying to save any admin/system settings in the same action
+- verify whether the save flow touches any document other than /users/{uid}
+
+Fix requirement:
+- super admin profile save must update only the allowed user profile fields:
+  displayName,
+  department,
+  phone,
+  language,
+  employeeNumber,
+  updatedAt,
+  isActive
+- do NOT send:
+  uid,
+  email,
+  role,
+  createdAt
+- do NOT save unrelated admin settings in the same write
+
+After fixing, tell me the exact root cause.
+
+==================================================
+2) PDF ATTACHMENT URL IS WRONG / RETURNS 401
+==================================================
+
+Images work, but PDF does not open.
+The current Cloudinary URL shows a duplicated folder path like:
+
+.../afal/requests/pending/afal/requests/pending/....
+
+So this is not a Firestore rules issue.
+This is a Cloudinary upload / URL construction / stored attachment object issue.
+
+You must inspect the full attachment flow end-to-end:
+
+- inspect how PDF files are uploaded to Cloudinary
+- inspect the actual Cloudinary API response used after upload
+- confirm whether secure_url is returned
+- confirm exactly what is stored in Firestore for PDF attachments
+- confirm whether the app stores:
+  fileUrl,
+  publicId,
+  folder,
+  resourceType,
+  fileType
+
+Most likely bug:
+- folder is being included twice
+- or the URL is being manually constructed instead of using Cloudinary's secure_url directly
+
+Fix requirement:
+- NEVER manually build the delivery URL if secure_url already exists
+- Store and use the exact secure_url returned by Cloudinary upload response
+- Ensure PDFs use the correct raw file URL without duplicated path
+- Ensure tapping a PDF opens the real file URL
+- Keep image behavior working as-is
+
+Also verify:
+- request-level attachments
+- message-level attachments
+
+==================================================
+3) OUTPUT REQUIRED
+==================================================
+
+After fixing, tell me clearly:
+
+- exact super admin Firestore document shape
+- exact super admin save payload
+- exact reason only super admin save was failing
+- exact stored attachment object shape for PDF
+- exact Cloudinary field now used for PDF opening
+- whether URL construction was removed and secure_url is now used directly
+- which files were changed

@@ -1,0 +1,76 @@
+We still need another important production-quality pass.
+
+Please fix all of the following carefully.
+
+1) REMOVE THE HOME FAB FOR SUPER ADMIN
+On the Home screen only, the floating + button is not needed for the Super Admin.
+Remove/hide the FAB from the Home screen for Super Admin users.
+Do not break it elsewhere if it is needed in other screens.
+
+2) ATTACHMENT OPEN / PREVIEW / DOWNLOAD FLOW IS STILL NOT COMPLETE
+Attachments are uploaded, but opening/preview/downloading is still not properly working.
+
+Implement the most practical cross-platform behavior for Android and iPhone:
+
+- Images:
+  preview directly inside the app in a polished viewer
+- PDF:
+  open directly using the device-native viewer / browser / PDF handler
+- Word documents (doc/docx):
+  open using the native app if available, otherwise allow share/open/download fallback
+- If direct preview is not supported:
+  provide a clean fallback to open / share / download
+
+Important:
+I want the most practical and reliable mobile UX for all phones.
+Do not make it overly complex.
+Make it work smoothly and professionally.
+
+3) ADMIN ACTIONS PER REQUEST ARE MISSING
+Admin must have clear actions for each request.
+
+Implement a proper admin action flow so the admin can:
+- update request status
+- mark as under review
+- mark as employee contacted
+- mark as in progress
+- mark as proposed resolution
+- mark as employee feedback
+- mark as resolved / closed
+- mark as escalated
+
+The app currently behaves as if open requests just remain “In Progress” / “قيد المعالجة”, which is wrong.
+
+Each request must support a real status workflow based on admin action.
+
+4) TEXT CUT-OFF / LAYOUT ISSUES
+Some Arabic text is still visually cut off or cramped in the UI.
+Fix all layout issues related to:
+- RTL text rendering
+- line height
+- vertical spacing
+- chip/filter sizing
+- card content spacing
+- bottom text clipping
+- button/container sizing
+- responsive layout on different phone sizes
+
+The Arabic UI must look clean and balanced, with no cut text.
+
+5) QUALITY REQUIREMENT
+This app is for a large company.
+Everything must feel polished and production-ready:
+- no dead attachment behavior
+- no missing admin controls
+- no incorrect request status behavior
+- no clipped Arabic text
+- no unnecessary FAB on Home for Super Admin
+
+6) OUTPUT
+After fixing, tell me clearly:
+- how attachment opening now works for images, PDFs, and Word files
+- what fallback is used if a file cannot be previewed directly
+- what admin actions/status workflow were added
+- how the Home FAB logic was changed for Super Admin
+- which layout/text clipping issues were fixed
+- which files were changed

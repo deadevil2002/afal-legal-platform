@@ -1,0 +1,133 @@
+We are much closer now.
+
+Current status:
+
+WORKING:
+- normal user profile save works
+- super admin can load requests
+- filters/chips are working
+
+STILL NOT WORKING:
+1) Super Admin profile save still fails with permissions error
+2) Attachments still have no usable UI in request details
+3) Super Admin user management needs:
+   - tapping a user opens full profile details
+   - search by name OR employee number OR email
+
+Do a real inspection and fix these carefully WITHOUT breaking existing logic.
+
+==================================================
+1) FIX SUPER ADMIN PROFILE SAVE ONLY
+==================================================
+
+Important:
+Normal user profile save already works.
+So do NOT assume Firestore rules are globally wrong.
+
+You must inspect why ONLY the super admin profile save fails.
+
+Check all of the following:
+
+- inspect the exact Firestore document shape for the super admin user
+- verify whether the super admin document is missing:
+  - employeeNumber
+  - createdAt
+  - any required immutable field
+- inspect the exact payload sent when super admin presses Save
+- verify whether the super admin settings screen is sending any disallowed fields
+- verify whether profile save for super admin is mixed with system settings save
+
+Most likely causes:
+- super admin bootstrap document missing required fields
+- payload includes forbidden fields
+- settings screen saves extra fields together
+
+Fix requirement:
+- super admin profile save must work exactly like normal user profile save
+- allowed editable fields only:
+  displayName,
+  department,
+  phone,
+  language,
+  employeeNumber,
+  updatedAt,
+  isActive
+- do NOT send:
+  uid,
+  email,
+  role,
+  createdAt
+
+After fixing, tell me the exact root cause for why ONLY super admin was failing.
+
+==================================================
+2) IMPLEMENT ATTACHMENTS UI IN REQUEST DETAILS
+==================================================
+
+Right now, opening a request does not show a real attachment area or action buttons.
+I need practical UI inside the request details screen.
+
+Implement this properly:
+
+- If the request has attachments:
+  show an "Attachments" section clearly in the request details screen
+- For each attachment show:
+  - file name
+  - file type badge if available
+  - open button
+  - download/open externally button if appropriate
+
+Behavior:
+- image:
+  open preview
+- pdf/doc/other:
+  open using the real Cloudinary file URL
+- fallback:
+  visible "Open externally" button
+
+Do a real end-to-end check:
+- inspect how request attachments are stored
+- inspect how message attachments are stored
+- confirm which field contains the real URL
+- wire the UI so pressing the attachment actually calls the handler
+
+Do NOT only fix helper logic.
+I need the actual visible attachment UI in the request details screen.
+
+==================================================
+3) SUPER ADMIN USER MANAGEMENT IMPROVEMENTS
+==================================================
+
+In the Super Admin "Manage Users" screen:
+
+A) Add search
+Search must work by:
+- full name
+- employee number
+- email
+
+B) Make each user card clickable
+When I tap any user, open a proper user profile/details screen or modal showing the full profile info, including:
+- full name
+- email
+- employee number
+- department
+- phone
+- role
+- active status if stored
+
+C) Keep current promotion controls working
+Do not break promote/demote/admin actions.
+
+==================================================
+4) OUTPUT REQUIRED
+==================================================
+
+After fixing, tell me clearly:
+- exact reason only super admin profile save was failing
+- exact fields stored in the super admin user document
+- exact fields sent in super admin profile update payload
+- how the request attachments UI was added
+- which attachment URL field is used
+- how user search works
+- which files were changed

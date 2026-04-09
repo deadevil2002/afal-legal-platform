@@ -1,0 +1,55 @@
+The icon font approach is no longer acceptable.
+
+Even after the font-loading fixes, the icons still break on real mobile runtime. We must stop using font-based icons for critical UI elements.
+
+I want a world-class, production-grade solution like major apps use.
+
+NEW REQUIREMENT:
+Replace the current font-based icon system for the critical app UI with a fully reliable cross-platform approach using SVG icons or custom icon components that do NOT depend on glyph fonts.
+
+DO THIS NOW:
+
+1) REMOVE FONT-DEPENDENT ICONS FROM CRITICAL UI
+Do not rely on Ionicons font rendering for:
+- Login email icon
+- Login password/eye icons
+- Bottom tab icons
+- Floating new request button icon
+- Admin / Settings core icons
+- Empty state icon
+
+2) USE A ROBUST GLOBAL-APP APPROACH
+Implement a cross-platform icon system using one of these:
+- SVG icons via react-native-svg
+- custom local SVG/icon components
+- another non-font-based vector approach that renders identically on Android, iPhone, Expo Go, and web
+
+3) CONSISTENCY
+The icons must:
+- render identically across all devices
+- scale cleanly on different screen sizes
+- support active/inactive states for tabs
+- fit a premium enterprise mobile app
+- be mobile-friendly and visually polished
+
+4) RESPONSIVE / MOBILE-FRIENDLY
+Improve overall mobile consistency:
+- proper sizing on small and large phones
+- safe spacing
+- no layout shift
+- no icon misalignment
+- no dependency on runtime font loading for critical navigation/actions
+
+5) KEEP THE CURRENT BRANDING
+Do not change the logo or color palette.
+Keep the official Arabian Fal branding exactly as approved.
+
+6) EXPLAIN THE CHANGE CLEARLY
+After implementing, tell me:
+- what icon system replaced the old font-based one
+- which files were changed
+- which icons are now SVG/custom instead of font icons
+- how this guarantees consistent rendering across Android, iPhone, Expo Go, and web
+
+I do not want another font-loading workaround.
+I want a stable, world-class, mobile-friendly icon solution.

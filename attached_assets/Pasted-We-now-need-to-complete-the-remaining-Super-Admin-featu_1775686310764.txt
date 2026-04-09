@@ -1,0 +1,66 @@
+We now need to complete the remaining Super Admin features.
+
+Do NOT break existing logic.
+
+1) FIX WRONG NAVIGATION
+In Super Admin settings, tapping:
+"Manage Assistant Admins"
+currently navigates to request management.
+This is wrong.
+
+Fix it so it navigates to the Users Management tab/screen directly.
+
+2) IMPLEMENT EXPORT DATA
+The "Export Data" item currently shows:
+"This feature will be available in a future release."
+
+Implement it now.
+
+Requirements:
+- Super Admin only
+- Export requests data
+- Export users data
+- practical format is fine (CSV or JSON)
+- allow download/share/export from the device
+- keep it simple and reliable
+
+3) IMPLEMENT DELETION REQUESTS
+The "Deletion Requests" item currently shows a placeholder.
+Implement it now.
+
+Requirements:
+- list all deletion requests
+- show requester name/email if available
+- show status
+- allow Super Admin to review each request
+- allow approve / reject / close flow
+- keep using the existing deletion_requests collection
+- do not weaken security
+
+4) VERIFY SUPER ADMIN TRANSFER FEATURE
+The "Transfer Super Admin" screen exists.
+Do a real inspection and confirm whether it is actually implemented or still placeholder / incomplete.
+
+Check:
+- whether the action really updates Firestore
+- whether it updates user roles correctly
+- whether it creates an audit log entry
+- whether it requires password confirmation
+- whether it prevents invalid transfers
+- whether it is blocked by current Firestore rules
+
+If anything is missing, implement it properly.
+
+5) FIRESTORE / INDEX CHECK
+Check whether any of the new screens/queries require composite indexes.
+If yes, tell me exactly which indexes are needed.
+If not, say no extra indexes are needed.
+
+6) OUTPUT REQUIRED
+After finishing, tell me clearly:
+- which file/screen caused the wrong navigation
+- how export was implemented
+- how deletion requests were implemented
+- whether transfer super admin is fully working or what was missing
+- whether any Firestore indexes are required
+- which files were changed

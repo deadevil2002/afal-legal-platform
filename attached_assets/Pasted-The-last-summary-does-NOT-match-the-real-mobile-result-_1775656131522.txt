@@ -1,0 +1,84 @@
+The last summary does NOT match the real mobile result.
+
+I tested again on the phone and there are still important unresolved issues.
+
+1) ARABIC LOCALIZATION IS STILL INCOMPLETE
+Arabic mode is still mixed with English in multiple places.
+
+Examples still visible on the device:
+- ACCOUNT ACTIONS
+- Request Account Deletion
+- All
+- category labels like amicaable_settlement
+- dashboard/stat labels still mixed
+- logout confirmation still shows “Are you sure?”
+
+This is not acceptable.
+
+Requirement:
+When Arabic is selected, the entire app must be fully Arabic.
+When English is selected, the entire app must be fully English.
+No mixed-language UI anywhere.
+
+Do a FULL audit again, including:
+- settings sections
+- request list filters
+- request cards
+- category labels
+- dashboard stats
+- logout dialogs
+- alerts
+- helper texts
+- dynamic labels
+- any hardcoded strings left in cards/components/context
+
+2) ADMIN SCREEN HOOKS ERROR
+There is a real runtime crash in admin.tsx:
+
+Rendered fewer hooks than expected.
+This may be caused by an accidental early return statement.
+
+You must fix this properly.
+Do a full hook-order audit in admin.tsx and any related component it depends on.
+Make sure hooks are always called in the same order on every render.
+No conditional hook calls, no early return before hooks complete.
+
+3) PROFILE UPDATE PERMISSION ERROR
+Editing/saving the profile currently throws:
+“Missing or insufficient permissions.”
+
+This means the profile update flow is not compatible with the Firestore rules or is attempting to update forbidden fields.
+
+Fix this properly:
+- audit exactly which fields Settings/Edit Profile is sending on save
+- align the write payload with Firestore rules
+- make sure normal users can update only the allowed profile fields
+- do not send forbidden fields such as role/email/uid/employeeNumber unless explicitly allowed
+- keep admin-managed fields protected
+
+4) LOGOUT / ALERT UI QUALITY
+The logout confirmation dialog is still too raw and not polished enough.
+It also still contains mixed language.
+
+Improve all alerts/dialogs:
+- fully localized
+- rounded corners
+- cleaner spacing
+- premium enterprise feel
+- consistent with the rest of the app design
+- no default rough-looking system dialog style where avoidable
+
+5) REQUEST LIST / CATEGORY LABEL CONSISTENCY
+In Arabic mode, request categories and filter chips must also be displayed in Arabic properly.
+No raw stored keys like:
+- amicaable_settlement
+or English labels when Arabic is active.
+
+6) OUTPUT
+After fixing, tell me clearly:
+- which remaining mixed-language areas were corrected
+- what caused the admin hooks crash
+- what exact profile fields were blocked by Firestore rules
+- how the profile update flow was fixed
+- which dialog/alert components were redesigned
+- which files were changed

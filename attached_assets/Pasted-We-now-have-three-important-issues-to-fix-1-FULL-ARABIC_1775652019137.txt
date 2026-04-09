@@ -1,0 +1,73 @@
+We now have three important issues to fix.
+
+1) FULL ARABIC LOCALIZATION
+Arabic mode is still incomplete.
+When the user switches to Arabic, the entire app must become fully Arabic, not partially translated.
+
+This includes:
+- screen titles
+- buttons
+- placeholders
+- labels
+- status names
+- request types
+- validation messages
+- error alerts
+- success alerts
+- attachment picker labels
+- modal text
+- all admin screens
+- all request/message screens
+
+Requirement:
+Arabic mode must be fully Arabic across the whole app.
+English mode must remain fully English.
+
+2) ATTACHMENT PICKER UI IS NOT PROFESSIONAL
+The current attachment source picker / modal looks too raw and not enterprise-grade.
+
+Please redesign it to feel polished and professional:
+- rounded corners
+- better spacing
+- proper visual hierarchy
+- clean action buttons
+- mobile-friendly layout
+- proper RTL support in Arabic
+- premium look suitable for a large company
+
+Use a modern bottom sheet or polished modal style, not a rough default-looking dialog.
+
+3) REQUEST SUBMIT ERROR AFTER ATTACHMENT UPLOAD
+Cloudinary upload is working, but request submission fails with this Firestore error:
+
+serverTimestamp() is not currently supported inside arrays
+
+This means Firestore metadata storage is failing after successful upload.
+
+Fix this properly:
+- do NOT use serverTimestamp() inside attachment objects stored in arrays
+- use a Firestore-safe structure
+- if needed, use Timestamp.now() for attachment items
+- or store only request-level createdAt/updatedAt timestamps
+- or move attachments to a cleaner structure if needed
+
+Most important:
+The request must save successfully after attachment upload.
+
+4) ERROR / ALERT UX
+The current error popup is not professional enough.
+
+Please improve:
+- error alert design
+- Arabic translation of errors when Arabic is active
+- cleaner user-friendly messaging
+- no raw technical message shown directly to end users if avoidable
+- keep developer logs separate from user-facing alerts
+
+5) OUTPUT
+After fixing, tell me clearly:
+- which translation files/keys were completed for Arabic
+- what UI component is now used for attachment selection
+- how the Firestore attachment metadata structure was changed
+- why the previous serverTimestamp array error happened
+- whether request submission with attachments now works correctly

@@ -1,0 +1,190 @@
+Make these corrections now and keep the app ready for future Cloudflare Admin Panel integration.
+
+CRITICAL REQUIREMENTS:
+
+1) INITIAL SUPER ADMIN
+Set the one and only initial Super Admin email to:
+Naimi.salem@gmail.com
+
+Do not use:
+admin@arabianfal.com
+or any other placeholder admin email.
+
+The app must treat Naimi.salem@gmail.com as the initial Super Admin everywhere:
+- auth flow
+- role logic
+- UI permissions
+- admin tab visibility
+- request status controls
+- assistant admin management
+- settings access
+
+2) ROLE MODEL
+Use a clean role model that is compatible with current app logic and future backend/admin expansion.
+
+Roles:
+- super_admin
+- assistant_admin
+- user
+
+Rules:
+- Naimi.salem@gmail.com = initial super_admin
+- super_admin can add/remove assistant_admin users
+- assistant_admin can manage requests, reply, and update statuses
+- user can only access their own requests
+- no client-side self-promotion
+- no UI-only admin check; all logic must be centralized and backend-compatible
+
+3) SUPER ADMIN TRANSFER (VERY IMPORTANT)
+Add a secure Settings feature that allows the current Super Admin to transfer Super Admin ownership to another email address.
+
+Requirements:
+- This option must be visible only to the current super_admin
+- The current super_admin can enter a target email address
+- Transfer must require password confirmation of the current super_admin
+- Transfer must not be allowed without re-authentication / password confirmation
+- After successful transfer:
+  - the new target email becomes super_admin
+  - the previous super_admin is downgraded to assistant_admin or regular user based on a clean business rule
+- The transfer must be stored in Firestore in a clean, auditable way
+- Add fields such as:
+  - transferredBy
+  - transferredAt
+  - previousSuperAdmin
+  - newSuperAdmin
+- Keep the implementation compatible with future backend enforcement and Cloudflare admin panel integration
+
+Important:
+- Do not hardcode Naimi.salem@gmail.com forever in a way that blocks future transfer
+- Use it as the initial bootstrap super admin only
+- After transfer, the app must respect the new super_admin identity cleanly
+
+4) PREPARE FOR FUTURE CLOUDFLARE ADMIN PANEL
+The mobile app must be structured so that a future Cloudflare-based admin web panel can control the same system without breaking compatibility.
+
+So please:
+- keep Firestore collections clean and predictable
+- keep document fields normalized
+- do not hardcode UI-only state that cannot be shared with a future admin panel
+- make the data model ready for external admin control later
+
+Use a structure like this if not already implemented:
+
+users
+- uid
+- fullName
+- email
+- mobileNumber
+- idNumber
+- department
+- role
+- isActive
+- createdAt
+- updatedAt
+
+requests
+- id
+- userId
+- title
+- category
+- description
+- concernedParties
+- status
+- priority (optional if already present)
+- createdAt
+- updatedAt
+- closedAt
+- closedBy
+- statusChangedAt
+- statusChangedBy
+
+request_messages
+- id
+- requestId
+- userId
+- senderId
+- senderRole
+- text
+- attachmentUrl
+- attachmentType
+- createdAt
+
+settings/app
+- assistantAdmins
+- superAdminEmail
+- previousSuperAdminEmail
+- superAdminTransferredAt
+- superAdminTransferredBy
+- system flags if needed later
+
+deletion_requests
+- id
+- userId
+- reason
+- status
+- createdAt
+- reviewedBy
+- reviewedAt
+
+5) REQUEST TYPES
+Make sure the request types are exactly these and nothing else:
+- Amicable Settlement
+- Complaint
+- Legal Consultation
+- Investigation Request
+- Contract Issue
+- Violation Report
+
+6) LANGUAGE
+Default language must be English.
+Arabic must be optional through settings only.
+
+7) BRANDING
+Keep the official Arabian Fal logo exactly as provided.
+Do not alter, redraw, reinterpret, simplify, or replace it.
+Do not use any custom legal icon.
+Use only the approved brand colors already provided.
+
+8) FIRESTORE / SECURITY COMPATIBILITY
+Update the code so it matches stricter Firestore security rules.
+The app should not assume open database access.
+
+Make sure:
+- users only read/write their own allowed data
+- admins can manage requests according to role
+- role checks are centralized
+- request ownership is respected
+- status changes are made in a way compatible with backend validation
+- future Cloudflare admin panel can work on the same records cleanly
+
+9) ADMIN SETTINGS
+Inside Settings, for super_admin only, include:
+- Change language
+- Manage assistant admins
+- Transfer super admin ownership to another email
+- Export data
+- Review deletion requests
+
+The Transfer Super Admin screen must:
+- accept target email
+- verify password of current super_admin
+- confirm the action clearly before applying
+- show success/failure state
+- update the stored super admin reference cleanly
+
+10) TESTING READINESS
+After the changes:
+- make sure the app still runs in preview / mobile test mode
+- verify login/register works
+- verify Naimi.salem@gmail.com is treated as initial super admin
+- verify super admin transfer works correctly
+- verify normal users do not see admin controls
+- verify request creation, request details, and messaging still work
+
+11) OUTPUT
+After making the changes, give me a short summary of:
+- what changed
+- where the initial super admin email was updated
+- how super admin transfer is implemented
+- whether the app is ready for future Cloudflare admin panel integration
+- whether any Firebase rule assumptions still need adjustment

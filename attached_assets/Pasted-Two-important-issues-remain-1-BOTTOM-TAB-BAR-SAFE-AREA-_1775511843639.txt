@@ -1,0 +1,50 @@
+Two important issues remain.
+
+1) BOTTOM TAB BAR / SAFE AREA ISSUE
+On the real mobile device, the bottom tab bar is too close to the system navigation area and visually conflicts with the phone’s bottom controls.
+
+This must be fixed to feel like a professional global app.
+
+Requirements:
+- make the bottom tab bar fully safe-area aware
+- ensure it does not visually or functionally conflict with Android system navigation buttons
+- ensure proper spacing from the bottom edge on all devices
+- support different phone sizes and system UI configurations
+- make it feel like a polished production mobile app
+- keep tab icons and labels clearly visible and comfortable to tap
+- verify on real Android devices, not only in web preview
+
+Use a proper mobile-safe layout approach:
+- safe area bottom insets
+- dynamic bottom padding/margin
+- correct tab bar height
+- no overlap with system navigation area
+
+2) HOME SCREEN DATA CONSISTENCY ISSUE
+The Home screen says “No requests yet” while the Requests screen already shows an existing request.
+
+This is a real data consistency bug.
+
+Fix this properly:
+- Home screen and Requests screen must use consistent request data logic
+- if a request exists in Requests, it must also appear correctly in Home recent requests
+- do not show an empty state on Home when requests already exist
+- make sure old and new schema fields are handled consistently
+- align all filters / fetch logic / deduplication logic between Home and Requests
+- verify the dashboard counters and recent requests section both reflect real data correctly
+
+3) QUALITY REQUIREMENT
+This app is for a large company, so both issues must be fixed at production quality:
+- mobile-friendly
+- safe on all phone sizes
+- consistent across Android and iPhone
+- no conflicting navigation layout
+- no inconsistent data between screens
+
+4) OUTPUT
+After fixing, tell me clearly:
+- what changed in the tab bar layout
+- how safe-area handling is implemented
+- why Home and Requests were inconsistent
+- what exact data/query logic was corrected
+- whether this was verified on a real mobile runtime

@@ -1,0 +1,220 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function authEmail() {
+      return signedIn() && request.auth.token.email != null
+        ? request.auth.token.email
+        : "";
+    }
+
+    function bootstrapSuperAdminEmail() {
+      return "Naimi.salem@gmail.com";
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function userExists(uid) {
+      return exists(userPath(uid));
+    }
+
+    function userDoc(uid) {
+      return get(userPath(uid));
+    }
+
+    function currentUserExists() {
+      return signedIn() && userExists(request.auth.uid);
+    }
+
+    function currentUserRole() {
+      return currentUserExists()
+        ? userDoc(request.auth.uid).data.role
+        : null;
+    }
+
+    // السوبر أدمن الابتدائي من الإيميل
+    // وبعدها إذا صار فيه نقل ملكية، يعتمد كذلك على role داخل users
+    function isSuperAdmin() {
+      return signedIn() && (
+        authEmail() == bootstrapSuperAdminEmail() ||
+        currentUserRole() == "super_admin"
+      );
+    }
+
+    function isAssistantAdmin() {
+      return signedIn() && currentUserRole() == "assistant_admin";
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || isAssistantAdmin();
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validRole(role) {
+      return role in ["user", "assistant_admin", "super_admin"];
+    }
+
+    function validRequestCategory(category) {
+      return category in [
+        "Amicable Settlement",
+        "Complaint",
+        "Legal Consultation",
+        "Investigation Request",
+        "Contract Issue",
+        "Violation Report"
+      ];
+    }
+
+    function validRequestStatus(status) {
+      return status in [
+        "Submitted",
+        "Under Review",
+        "Employee Contacted",
+        "In Progress",
+        "Proposed Resolution",
+        "Employee Feedback",
+        "Resolved / Closed",
+        "Escalated"
+      ];
+    }
+
+    // =========================
+    // users
+    // =========================
+    match /users/{uid} {
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == authEmail()
+        && validRole(request.resource.data.role)
+        && (
+          request.resource.data.role == "user" ||
+          (
+            authEmail() == bootstrapSuperAdminEmail() &&
+            request.resource.data.role == "super_admin"
+          )
+        );
+
+      // المستخدم يقدر يعدل بياناته الشخصية فقط
+      // بدون تغيير role أو email أو uid
+      allow update: if
+        (
+          isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+        )
+        ||
+        // الأدمن يقدر يدير المستخدمين
+        isAdmin();
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // requests
+    // =========================
+    match /requests/{requestId} {
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && validRequestCategory(request.resource.data.category)
+        && validRequestStatus(request.resource.data.status);
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // المستخدم يقدر يعدل طلبه بشرط ما يغير status ولا حقول الإدارة
+      // الأدمن يقدر يعدل الحالة والحقول الإدارية
+      allow update: if signedIn() && (
+        (
+          resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.statusChangedBy == resource.data.statusChangedBy
+          && request.resource.data.statusChangedAt == resource.data.statusChangedAt
+          && request.resource.data.closedBy == resource.data.closedBy
+          && request.resource.data.closedAt == resource.data.closedAt
+          && request.resource.data.category == resource.data.category
+        )
+        ||
+        (
+          isAdmin()
+          && validRequestCategory(request.resource.data.category)
+          && validRequestStatus(request.resource.data.status)
+        )
+      );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // request_messages
+    // =========================
+    match /request_messages/{messageId} {
+
+      allow create: if signedIn() &&
+        (
+          request.resource.data.userId == request.auth.uid ||
+          isAdmin()
+        );
+
+      allow read: if signedIn() &&
+        (
+          resource.data.userId == request.auth.uid ||
+          isAdmin()
+        );
+
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // deletion_requests
+    // =========================
+    match /deletion_requests/{docId} {
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // settings
+    // =========================
+    match /settings/{docId} {
+      // نسمح بالقراءة للمسجلين لأن التطبيق قد يحتاج settings/app
+      allow read: if signedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // =========================
+    // audit_logs
+    // =========================
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

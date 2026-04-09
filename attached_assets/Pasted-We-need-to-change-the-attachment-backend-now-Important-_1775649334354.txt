@@ -1,0 +1,97 @@
+We need to change the attachment backend now.
+
+Important:
+Do NOT continue using Firebase Storage for attachments.
+In my current project setup, Firebase Storage is not practical because billing activation is blocked.
+
+New requirement:
+Use Cloudinary for attachments instead.
+
+Keep:
+- Firebase Authentication
+- Firestore Database
+
+Replace only:
+- attachment upload / storage backend
+
+REQUIREMENTS:
+
+1) USE CLOUDINARY FOR ATTACHMENTS
+Use Cloudinary as the attachment storage provider for:
+- request attachments
+- request message / reply attachments
+
+2) DO NOT PUT API SECRET IN THE MOBILE APP
+The mobile app must NOT contain any Cloudinary API secret.
+
+Allowed on client side only:
+- cloud_name
+- upload preset
+
+Do not expose:
+- api_secret
+- signed upload secrets
+- server-only credentials
+
+3) USE A DEDICATED CLOUDINARY PROJECT/ENVIRONMENT FOR AFAL
+Keep attachment storage isolated for this AFAL Legal Platform project only.
+
+4) ALLOWED FILE TYPES
+Support these attachment types only:
+- PDF
+- Word documents
+- Images
+
+Reject unsupported file types cleanly in the UI.
+
+5) ORGANIZED FOLDER STRUCTURE
+Store uploads in a clean structure such as:
+- afal/requests/{requestId}/...
+- afal/messages/{requestId}/...
+
+Use a naming and folder structure that is clean and future-proof.
+
+6) STORE ATTACHMENT METADATA IN FIRESTORE
+After each upload, store metadata in Firestore linked to the related request or message, including fields such as:
+- fileName
+- fileType
+- fileUrl
+- publicId
+- uploadedAt
+- uploadedByUid
+- requestId
+- messageId (if applicable)
+
+7) KEEP IT READY FOR FUTURE CLOUDFLARE HARDENING
+Implement it in a way that can later be upgraded to signed uploads through a Cloudflare Worker without breaking the data model.
+
+So:
+- current version can use unsigned preset
+- but structure the code cleanly for future signed upload flow
+
+8) UI / UX
+Keep the attachment experience polished and enterprise-grade:
+- upload button
+- progress state
+- success state
+- remove/cancel option
+- upload error state
+- clear attachment display in requests and messages
+
+9) DO NOT BREAK EXISTING FEATURES
+Do not break:
+- request creation
+- message replies
+- employee-to-legal flow
+- legal-to-employee flow
+- role logic
+- admin workflows
+
+10) OUTPUT
+After the migration, tell me clearly:
+- which files were changed
+- where Firebase Storage usage was removed
+- how Cloudinary upload is now implemented
+- what client-side variables are required from me
+- what Firestore metadata fields are being stored
+- what should be upgraded later when we add Cloudflare Worker signed uploads

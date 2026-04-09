@@ -1,0 +1,114 @@
+I tested the app and found multiple issues that must be corrected now.
+
+This app must be enterprise-grade, polished, and suitable for a large company.
+
+Please make the following corrections carefully:
+
+1) FORGOT PASSWORD
+- Forgot Password is currently missing or not accessible in the actual app flow
+- Add a proper Forgot Password screen and link from Login
+- It must use Firebase sendPasswordResetEmail
+- The UX must be clear, polished, and production-ready
+
+2) INTERNAL ICONS
+- Several internal icons are broken or rendering as invalid symbols
+- Fix all icons across:
+  - bottom tab navigation
+  - headers
+  - action buttons
+  - floating new request button
+- Use proper Expo vector icons (Ionicons or MaterialCommunityIcons)
+- Do not use broken glyphs, placeholder text, or missing fonts
+- Icons must look premium and consistent with a corporate app
+
+3) HOME / REQUESTS LOADING STATE
+- The Home / My Requests section currently hangs in loading and does not clearly show either:
+  - existing requests
+  - or a proper empty state
+- Fix the Firestore query flow so it handles:
+  - loading
+  - empty state
+  - permission error
+  - successful data load
+- Do not leave the UI stuck on a spinner
+- If a Firestore composite index is required, identify the exact index clearly
+
+4) SUPER ADMIN LOGIC
+- The initial bootstrap Super Admin must be exactly:
+  Naimi.salem@gmail.com
+
+- Do not use any other admin email
+- Make sure the app consistently treats this email as the initial super admin
+- Login / signup / role detection / admin visibility must all align with this email
+
+5) ROLE MODEL
+Use only these roles:
+- super_admin
+- assistant_admin
+- user
+
+Make sure:
+- normal users never see admin controls
+- assistant admins can manage requests
+- super admin can manage assistant admins and transfer super admin ownership
+
+6) REQUEST TYPES
+Use exactly these request types and nothing else:
+- Amicable Settlement
+- Complaint
+- Legal Consultation
+- Investigation Request
+- Contract Issue
+- Violation Report
+
+7) UI / UX QUALITY
+This app must feel premium and suitable for a large enterprise:
+- smooth scrolling
+- smooth navigation transitions
+- polished spacing
+- clean hierarchy
+- no broken icons
+- no confusing admin messaging
+- no hanging loading states
+- professional look and feel
+
+8) SETTINGS
+Inside Settings:
+- normal user:
+  - change language
+  - edit profile
+  - request account deletion
+- super_admin:
+  - manage assistant admins
+  - transfer super admin ownership
+  - export data
+  - review deletion requests
+
+9) FIREBASE / SECURITY COMPATIBILITY
+Make sure the app works correctly with stricter Firestore rules.
+Do not assume open database access.
+Make sure the code handles:
+- permission-safe reads
+- permission-safe writes
+- proper fallback states
+- proper role-based access checks
+
+10) TESTING
+After the fixes:
+- verify login works
+- verify forgot password works
+- verify Naimi.salem@gmail.com works as initial super admin
+- verify normal users do not see admin controls
+- verify requests load correctly
+- verify request creation works
+- verify request details and messaging work
+- verify all icons render correctly
+- verify scrolling and navigation feel smooth
+
+11) OUTPUT
+After making the fixes, give me a short summary of:
+- what was fixed
+- whether forgot password is now working
+- which icons were replaced/fixed
+- whether Home / My Requests loading is fixed
+- whether any Firestore index is still required

@@ -1,0 +1,81 @@
+There is still a critical cross-platform issue.
+
+The icons look correct in the web preview, but on the real mobile device (Expo Go / Android) they render as broken symbols or wrong glyphs.
+
+This means the problem is not just icon choice — it is a real icon font / asset loading issue on native devices.
+
+Fix this properly now.
+
+REQUIREMENTS:
+
+1) ICONS MUST WORK CONSISTENTLY ON ALL PLATFORMS
+Make sure icons render correctly and consistently on:
+- Android phones
+- iPhones
+- Expo Go
+- Web preview
+
+2) FIX THE ROOT CAUSE
+Do not just swap icon names again.
+Investigate and fix the actual cause, which is likely one of:
+- icon font not preloaded correctly
+- wrong icon library setup on native
+- fallback font rendering instead of the icon font
+- rendering before fonts/assets are fully loaded
+
+3) USE A STABLE CROSS-PLATFORM APPROACH
+Use a single reliable icon library and make sure it is initialized correctly for native devices.
+If needed:
+- preload icon fonts properly in the root layout
+- wait for fonts/assets before rendering the app
+- avoid any web-only icon assumptions
+- avoid SF Symbols/native-only assumptions
+- avoid platform-specific icon code that breaks on Android
+
+4) VERIFY ALL ICONS
+Fix and verify all icons in:
+- Login screen
+- Password field icons
+- Forgot password screen
+- Home tab
+- Requests tab
+- Admin tab
+- Settings tab
+- Empty state icon
+- New Request button icon
+- Header/action icons
+- Any other icon across the app
+
+5) RESPONSIVE / MOBILE FRIENDLY
+The app must be properly mobile-friendly across different device sizes.
+
+Please improve:
+- responsive spacing
+- tab bar layout
+- button sizing
+- icon sizing
+- safe alignment across small and large phones
+- Android and iPhone consistency
+
+6) ENTERPRISE QUALITY
+This app is for a large company, so the UI must feel polished and production-ready:
+- no broken icons
+- no layout shift
+- no platform inconsistencies
+- no oversized or tiny elements
+- consistent rendering on real phones, not just browser preview
+
+7) TESTING
+After fixing:
+- verify icons on actual mobile runtime, not just web preview
+- verify Android and iPhone compatibility
+- verify Expo Go runtime specifically
+- verify the layout is responsive across different screen sizes
+
+8) OUTPUT
+After the fix, tell me clearly:
+- what the root cause was
+- what icon system/library is now used
+- how icon fonts/assets are loaded
+- what was changed in the root layout or app initialization
+- whether this was verified on native mobile runtime, not just web preview

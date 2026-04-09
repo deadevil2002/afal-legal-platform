@@ -1,0 +1,75 @@
+We still have 3 important quality issues to fix.
+
+Please fix them carefully without breaking the current improved attachment picker UI.
+
+1) FULL LANGUAGE CONSISTENCY
+Language switching is still not fully consistent.
+
+Requirement:
+- if Arabic is selected, the ENTIRE app must be Arabic
+- if English is selected, the ENTIRE app must be English
+
+This includes:
+- screen titles
+- cards
+- request categories shown to users
+- status labels
+- filters
+- placeholders
+- validation messages
+- alerts
+- empty states
+- dashboard counters
+- request list cards
+- admin screens
+- settings
+- dynamic labels and helper text
+
+Do a full audit and remove any mixed-language UI.
+The app must behave like a world-class app: one language at a time, fully consistent.
+
+2) HOME SCREEN MUST LOAD REQUESTS AUTOMATICALLY AFTER LOGIN
+Right now, after login, the Home screen does not immediately show the existing requests until a manual refresh happens.
+
+This is not acceptable.
+
+Fix this properly:
+- after successful login and profile resolution, Home must automatically load the real request data
+- no manual refresh should be required
+- Home and Requests must stay fully consistent
+- if a request exists, it must appear immediately in Home recent requests
+- no stale empty state after login
+
+3) ATTACHMENTS MUST OPEN / PREVIEW / DOWNLOAD PROPERLY
+Uploaded files must be usable by the user and by Legal/Admin.
+
+Requirements:
+- attached files must be tappable
+- they must open correctly from the app
+- if supported by the device, preview the file
+- otherwise allow download / handoff to the appropriate viewer
+- support at least:
+  - images
+  - PDF
+  - Word documents
+- use a polished and reliable mobile flow
+
+Important:
+- keep the current improved attachment picker UI
+- do NOT revert the current attachment picker modal/bottom sheet
+- only improve the attachment viewing/downloading behavior and the underlying logic
+
+4) QUALITY
+This app must feel production-grade and enterprise-ready:
+- no mixed-language screens
+- no manual refresh needed to see fresh data after login
+- no dead attachment links
+- clean and polished user experience
+
+5) OUTPUT
+After fixing, tell me clearly:
+- which remaining mixed-language areas were corrected
+- what caused Home to require manual refresh after login
+- how attachment opening/downloading is now handled
+- which files were changed
+- confirm that the current improved attachment picker UI was preserved

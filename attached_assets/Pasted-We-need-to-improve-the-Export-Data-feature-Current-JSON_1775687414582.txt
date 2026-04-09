@@ -1,0 +1,142 @@
+We need to improve the Export Data feature.
+
+Current JSON export is not suitable for normal business/admin use.
+Replace it with a professional Excel export (.xlsx) that is easy to open and edit in Microsoft Excel on desktop.
+
+Requirements:
+
+1) EXPORT FORMAT
+- Export as .xlsx, not JSON
+- Must work cleanly for normal users/admins who open the file in Excel
+- Use a reliable Excel library suitable for Expo / React Native / web
+
+2) LANGUAGE
+- The exported Excel file must ALWAYS be in English
+- This must be true even if the app UI language is Arabic
+- Column names, sheet names, status labels, type labels, section titles: all in English only
+
+3) MULTI-SHEET STRUCTURE
+Create a professional workbook with separate sheets:
+
+- Requests
+- Users
+- Deletion Requests
+- Audit Logs (if available / accessible to Super Admin)
+
+4) REQUESTS SHEET
+Use clean English column headers.
+Suggested columns:
+
+- Request ID
+- Title
+- Description
+- Category
+- Priority
+- Status
+- Created At
+- Updated At
+- Employee Name
+- Employee Email
+- Employee Number
+- Target Employee Name
+- Target Employee Email
+- Created By Admin
+- Admin Creator UID
+- Attachments
+- Messages Count
+
+Important for Attachments column:
+- Do NOT export raw URLs
+- Do NOT place long Cloudinary links in cells
+- Instead, export readable attachment type labels only, for example:
+  - PDF
+  - WORD
+  - PICTURE
+  - FILE
+- If there are multiple attachments, join them like:
+  PDF, PICTURE
+  or
+  WORD, PDF, FILE
+
+Attachment type mapping:
+- image/* -> PICTURE
+- application/pdf -> PDF
+- doc/docx -> WORD
+- anything else -> FILE
+
+5) USERS SHEET
+Use clear business-friendly headers:
+
+- User ID
+- Full Name
+- Email
+- Employee Number
+- Department
+- Phone
+- Role
+- Active
+- Language
+- Created At
+- Updated At
+
+6) DELETION REQUESTS SHEET
+Suggested columns:
+
+- Request ID
+- User ID
+- Full Name
+- Email
+- Employee Number
+- Reason
+- Status
+- Created At
+- Reviewed At
+- Reviewed By
+
+7) AUDIT LOGS SHEET
+If available and readable for Super Admin, export:
+
+- Log ID
+- Action
+- Actor UID
+- Actor Email
+- Target UID
+- Target Email
+- Created At
+- Details
+
+8) EXCEL STYLING
+Make the workbook look professional:
+
+- Header row bold
+- Header row larger font than data rows
+- Freeze the header row
+- Auto-fit / reasonable column widths
+- Wrap long text where needed
+- Dates formatted cleanly
+- Keep data rows plain and readable
+- Use clear sheet names
+- Do not over-design; keep it clean, business-like, and easy to edit
+
+9) DATA NORMALIZATION
+- Convert Firestore timestamps to readable Excel-friendly date/time strings
+- Convert booleans to YES / NO
+- Convert empty values to blank cells
+- Do not export internal objects/raw JSON into cells if avoidable
+- Flatten nested values into readable text
+
+10) DOWNLOAD / SAVE
+- On web: download the .xlsx file directly
+- On native: save/share the .xlsx file properly so it can be opened on a computer later
+
+11) KEEP SECURITY
+- Keep Super Admin only access
+- Do not weaken any existing security logic
+
+12) OUTPUT REQUIRED
+After implementation, tell me clearly:
+- which library was used for .xlsx export
+- workbook sheet names
+- final exported columns for each sheet
+- how attachment labels are generated
+- which files were changed

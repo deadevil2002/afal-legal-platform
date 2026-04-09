@@ -1,0 +1,124 @@
+We need the next enterprise-grade update now.
+
+Please implement all of the following carefully and keep the app production-quality, mobile-friendly, and suitable for a large company.
+
+1) KEYBOARD / INPUT BUG (CRITICAL)
+There is a serious mobile UX issue:
+when typing in Settings (and possibly other forms), the keyboard dismisses or drops unexpectedly after entering characters.
+
+This must be fixed across the whole app, not just one screen.
+
+Please audit and fix all form/input screens, including:
+- Login
+- Register
+- Forgot Password
+- Settings
+- Edit Profile
+- New Request
+- Any admin form
+
+Requirements:
+- keyboard must stay open normally while typing
+- no dismiss on every character
+- no input losing focus
+- smooth typing experience like major production apps
+- proper handling of ScrollView / KeyboardAvoidingView / focus state / re-renders
+- test on real mobile runtime
+
+2) ATTACHMENTS (USE FIREBASE STORAGE)
+We now need proper attachment support.
+
+Use Firebase Storage, NOT Cloudinary.
+
+Requirements:
+- support attachments in requests
+- support attachments in request messages/replies
+- allowed file types:
+  - PDF
+  - Word documents
+  - images
+- store file metadata cleanly with the related request/message
+- handle upload progress, success, and error states professionally
+- UI must feel polished and enterprise-friendly
+
+3) EMPLOYEE NUMBER
+Add a required employeeNumber field for each registered user.
+It must be stored in the users collection and used for internal employee lookup.
+
+Requirements:
+- employeeNumber is required at registration
+- employeeNumber is stored in profile/user record
+- employeeNumber is available for admin workflows later
+- keep the field clean and enterprise-ready
+
+4) LEGAL DEPARTMENT → EMPLOYEE FLOW
+This is very important:
+
+The Super Admin should NOT create a request on behalf of the employee.
+
+Instead, we need a separate workflow:
+Legal Department / Super Admin sends a new request or legal inquiry TO a specific employee.
+
+This means:
+- employees already send requests to Legal automatically
+- those requests are received by Super Admin or Assistant Admin
+- but Super Admin must also be able to create a new internal request directed to a selected employee
+
+Implement this as a dedicated feature:
+
+- Super Admin opens “Create Request for Employee” or “Send Internal Legal Request”
+- Super Admin enters or searches by employeeNumber
+- system finds the matching employee
+- Super Admin writes:
+  - title
+  - category
+  - description
+  - optional attachments
+- the request is sent to that employee’s account
+
+5) REQUEST AUDIT / OWNERSHIP FIELDS
+For legal-to-employee requests, store fields such as:
+- createdByAdmin: true
+- createdByAdminUid
+- targetEmployeeUid
+- targetEmployeeNumber
+- createdAt
+- updatedAt
+
+The employee must see this request in their own request list and be able to open it and reply inside the same thread.
+
+6) KEEP EXISTING FLOW
+Do NOT break the original employee-to-legal workflow.
+
+We need BOTH directions:
+- Employee → Legal
+- Legal → Employee
+
+7) UI / RESPONSIVE / MOBILE-FRIENDLY
+Keep the app polished and consistent:
+- smooth scrolling
+- stable keyboard behavior
+- responsive layout across different phone sizes
+- no overlapping with system navigation
+- no broken input behavior
+- enterprise-grade UX on Android and iPhone
+
+8) FIREBASE / RULES COMPATIBILITY
+Update the code so it remains compatible with stricter Firestore rules and Firebase Storage rules.
+
+Requirements:
+- regular users can only access their own allowed data
+- admins can manage requests based on role
+- super admin can send requests to employees
+- assistant admin can continue managing incoming employee requests
+- attachments must respect secure access rules
+
+9) OUTPUT
+After implementation, tell me clearly:
+- what caused the keyboard bug
+- which screens were fixed
+- how attachments are implemented in Firebase Storage
+- what was added for employeeNumber
+- how the legal-to-employee request flow works
+- which Firestore fields were added
+- whether Firestore rules and Storage rules need updates
