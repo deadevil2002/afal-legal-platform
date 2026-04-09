@@ -142,11 +142,19 @@ export function AttachmentPicker({
     await new Promise((r) => setTimeout(r, 300));
     try {
       if (Platform.OS === "ios") {
-        const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        let permStatus: string;
+        try {
+          const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          permStatus = status;
+        } catch (permErr: unknown) {
+          console.error("[AttachmentPicker] requestMediaLibraryPermissionsAsync failed:", permErr);
+          Alert.alert(t("error"), t("errGeneric"));
+          return;
+        }
 
         // "granted" = full access, "limited" = iOS 14+ selected photos — both are fine.
-        if (status !== "granted" && status !== "limited") {
+        if (permStatus !== "granted" && permStatus !== "limited") {
           Alert.alert(
             t("permissionDenied"),
             t("iosPhotoPermissionDenied"),
@@ -161,11 +169,20 @@ export function AttachmentPicker({
           return;
         }
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.85,
-        allowsMultipleSelection: false,
-      });
+
+      let result: ImagePicker.ImagePickerResult;
+      try {
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.85,
+          allowsMultipleSelection: false,
+        });
+      } catch (pickerErr: unknown) {
+        console.error("[AttachmentPicker] launchImageLibraryAsync failed:", pickerErr);
+        Alert.alert(t("error"), t("errGeneric"));
+        return;
+      }
+
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       await doUpload(
@@ -174,31 +191,39 @@ export function AttachmentPicker({
         asset.mimeType || "image/jpeg"
       );
     } catch (e: unknown) {
+      console.error("[AttachmentPicker] pickImage unexpected error:", e);
       Alert.alert(t("error"), t("errGeneric"));
     }
   };
 
   // ── Document picker (DocumentPicker) ────────────────────────────────────
   // Uses expo-document-picker which opens the iOS Files / iCloud UI.
-  // Only PDF and Word types — images go through the image picker above.
+  // On iOS: type "*/*" is used because the MIME→UTType mapping is fragile
+  //   and causes the picker to throw before opening on some iOS/Expo Go versions.
+  // On Android: explicit MIME types are kept for a better filtered picker UI.
   // copyToCacheDirectory: true ensures the local URI is readable for upload.
   const pickDocument = async () => {
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
+      const result = await DocumentPicker.getDocumentAsync(
+        Platform.OS === "ios"
+          ? { type: "*/*", copyToCacheDirectory: true, multiple: false }
+          : {
+              type: [
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              ],
+              copyToCacheDirectory: true,
+              multiple: false,
+            }
+      );
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       await doUpload(asset.uri, asset.name, asset.mimeType || "application/octet-stream");
     } catch (e: unknown) {
+      console.error("[AttachmentPicker] pickDocument failed:", e);
       Alert.alert(t("error"), t("errGeneric"));
     }
   };
