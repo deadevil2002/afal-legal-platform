@@ -151,7 +151,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           recentRequests.map((req) => (
-            <RequestCard key={req.id} request={req} showUser={isAdmin} isAdmin={isAdmin} />
+            <RequestCard key={req.id} request={req} showUser={isAdmin} currentUserId={user?.uid} />
           ))
         )}
       </View>

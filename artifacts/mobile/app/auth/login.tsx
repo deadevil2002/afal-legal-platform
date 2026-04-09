@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,10 +17,11 @@ import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { mapFirebaseAuthError } from "@/lib/firebaseErrorMapper";
 
 export default function LoginScreen() {
   const colors = useColors();
-  const { t, isRTL } = useT();
+  const { t, isRTL, language } = useT();
   const { login } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -30,10 +30,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleLogin = async () => {
+    setErrorMsg(null);
     if (!email || !password) {
-      Alert.alert(t("error"), t("required"));
+      setErrorMsg(
+        language === "ar" ? "يرجى إدخال البريد الإلكتروني وكلمة المرور" : "Please enter your email and password."
+      );
       return;
     }
     setLoading(true);
@@ -41,8 +45,7 @@ export default function LoginScreen() {
       await login(email.trim().toLowerCase(), password);
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
-      const msg = (e as { message?: string }).message || t("error");
-      Alert.alert(t("error"), msg);
+      setErrorMsg(mapFirebaseAuthError(e, language));
     } finally {
       setLoading(false);
     }
@@ -73,19 +76,27 @@ export default function LoginScreen() {
             {t("login")}
           </Text>
 
+          {/* Inline error banner */}
+          {!!errorMsg && (
+            <View style={[styles.errorBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+              <Icon name="alert-circle" size={15} color="#DC2626" />
+              <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errorMsg}</Text>
+            </View>
+          )}
+
           {/* Email Field */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
               {t("email")}
             </Text>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+            <View style={[styles.inputWrap, { borderColor: errorMsg ? "#FECACA" : colors.border, backgroundColor: colors.muted }]}>
               <View style={styles.icon}>
                 <Icon name="mail" size={16} color={colors.mutedForeground} />
               </View>
               <TextInput
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
                 placeholder={t("email")}
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="email-address"
@@ -100,14 +111,14 @@ export default function LoginScreen() {
             <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
               {t("password")}
             </Text>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+            <View style={[styles.inputWrap, { borderColor: errorMsg ? "#FECACA" : colors.border, backgroundColor: colors.muted }]}>
               <View style={styles.icon}>
                 <Icon name="lock" size={16} color={colors.mutedForeground} />
               </View>
               <TextInput
                 style={[styles.input, { color: colors.foreground }]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); setErrorMsg(null); }}
                 placeholder={t("password")}
                 placeholderTextColor={colors.mutedForeground}
                 secureTextEntry={!showPassword}
@@ -162,7 +173,7 @@ const styles = StyleSheet.create({
   logoContainer: { alignItems: "center", marginBottom: 32 },
   tagline: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 8 },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     padding: 24,
     shadowColor: "#000",
@@ -171,7 +182,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  heading: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 24 },
+  heading: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 20 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "#DC2626",
+    lineHeight: 18,
+  },
   field: { marginBottom: 16 },
   label: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 6 },
   forgotRow: { alignSelf: "flex-end", marginTop: 8 },
@@ -181,14 +209,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   icon: { marginRight: 8 },
   input: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
   btn: {
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 8,

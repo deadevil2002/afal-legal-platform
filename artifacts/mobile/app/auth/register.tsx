@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,10 +17,11 @@ import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import { mapFirebaseAuthError } from "@/lib/firebaseErrorMapper";
 
 export default function RegisterScreen() {
   const colors = useColors();
-  const { t, isRTL } = useT();
+  const { t, isRTL, language } = useT();
   const { register } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,6 +34,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const emailRef = useRef<TextInput>(null);
   const empNumRef = useRef<TextInput>(null);
@@ -41,17 +42,24 @@ export default function RegisterScreen() {
   const pwRef = useRef<TextInput>(null);
   const confirmPwRef = useRef<TextInput>(null);
 
+  const clearError = () => setErrorMsg(null);
+
   const handleRegister = async () => {
+    setErrorMsg(null);
     if (!fullName || !email || !employeeNumber || !password || !confirmPassword) {
-      Alert.alert(t("error"), "All fields including Employee Number are required.");
+      setErrorMsg(
+        language === "ar"
+          ? "جميع الحقول بما فيها رقم الموظف مطلوبة"
+          : "All fields including Employee Number are required."
+      );
       return;
     }
     if (password.length < 8) {
-      Alert.alert(t("error"), t("passwordMin"));
+      setErrorMsg(t("passwordMin"));
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(t("error"), t("passwordMatch"));
+      setErrorMsg(t("passwordMatch"));
       return;
     }
     setLoading(true);
@@ -65,7 +73,7 @@ export default function RegisterScreen() {
       );
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as { message?: string }).message || t("error"));
+      setErrorMsg(mapFirebaseAuthError(e, language));
     } finally {
       setLoading(false);
     }
@@ -97,6 +105,14 @@ export default function RegisterScreen() {
             {t("register")}
           </Text>
 
+          {/* Inline error banner */}
+          {!!errorMsg && (
+            <View style={[styles.errorBanner, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+              <Icon name="alert-circle" size={15} color="#DC2626" />
+              <Text style={[styles.errorText, isRTL && styles.textRTL]}>{errorMsg}</Text>
+            </View>
+          )}
+
           {/* Full Name */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
@@ -109,7 +125,7 @@ export default function RegisterScreen() {
               <TextInput
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(v) => { setFullName(v); clearError(); }}
                 placeholder={t("fullName")}
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="words"
@@ -134,7 +150,7 @@ export default function RegisterScreen() {
                 ref={emailRef}
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => { setEmail(v); clearError(); }}
                 placeholder={t("email")}
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="email-address"
@@ -150,7 +166,7 @@ export default function RegisterScreen() {
           {/* Employee Number */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
-              Employee Number *
+              {t("employeeNumber")} *
             </Text>
             <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
               <View style={styles.icon}>
@@ -160,7 +176,7 @@ export default function RegisterScreen() {
                 ref={empNumRef}
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
                 value={employeeNumber}
-                onChangeText={setEmployeeNumber}
+                onChangeText={(v) => { setEmployeeNumber(v); clearError(); }}
                 placeholder="e.g. EMP-00123"
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="characters"
@@ -185,7 +201,7 @@ export default function RegisterScreen() {
                 ref={deptRef}
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
                 value={department}
-                onChangeText={setDepartment}
+                onChangeText={(v) => { setDepartment(v); clearError(); }}
                 placeholder={t("department")}
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="words"
@@ -210,7 +226,7 @@ export default function RegisterScreen() {
                 ref={pwRef}
                 style={[styles.input, { color: colors.foreground }]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); clearError(); }}
                 placeholder={t("password")}
                 placeholderTextColor={colors.mutedForeground}
                 secureTextEntry={!showPassword}
@@ -240,7 +256,7 @@ export default function RegisterScreen() {
                 ref={confirmPwRef}
                 style={[styles.input, { color: colors.foreground }]}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(v) => { setConfirmPassword(v); clearError(); }}
                 placeholder={t("confirmPassword")}
                 placeholderTextColor={colors.mutedForeground}
                 secureTextEntry={!showPassword}
@@ -285,7 +301,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, flexGrow: 1 },
   logoContainer: { alignItems: "center", marginBottom: 24 },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     padding: 24,
     shadowColor: "#000",
@@ -294,20 +310,37 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  heading: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 20 },
+  heading: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 16 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "#DC2626",
+    lineHeight: 18,
+  },
   field: { marginBottom: 14 },
   label: { fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 6 },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   icon: { marginRight: 8 },
   input: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
-  btn: { borderRadius: 10, paddingVertical: 14, alignItems: "center", marginTop: 8 },
+  btn: { borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 8 },
   btnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
   switchBtn: { marginTop: 16, alignItems: "center" },
   switchText: { fontSize: 13, fontFamily: "Inter_400Regular" },

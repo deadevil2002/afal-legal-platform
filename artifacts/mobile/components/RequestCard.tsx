@@ -55,21 +55,21 @@ export interface Request {
     resourceType?: string;
     folder?: string;
   }>;
-  viewedByAdmin?: boolean;
+  viewedBy?: Record<string, boolean>;
 }
 
 interface RequestCardProps {
   request: Request;
   showUser?: boolean;
-  isAdmin?: boolean;
+  currentUserId?: string;
 }
 
-export function RequestCard({ request, showUser = false, isAdmin = false }: RequestCardProps) {
+export function RequestCard({ request, showUser = false, currentUserId }: RequestCardProps) {
   const colors = useColors();
   const router = useRouter();
   const { t, isRTL } = useT();
 
-  const showNewDot = isAdmin && !request.viewedByAdmin;
+  const showNewDot = !!currentUserId && !request.viewedBy?.[currentUserId];
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {

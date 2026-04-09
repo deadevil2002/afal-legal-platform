@@ -59,6 +59,7 @@
     "exceljs": "^4.4.0",
     "expo-document-picker": "^14.0.8",
     "expo-file-system": "~19.0.21",
+    "expo-notifications": "^55.0.17",
     "expo-sharing": "^14.0.8",
     "firebase": "^12.11.0",
     "xlsx": "0.18.5"

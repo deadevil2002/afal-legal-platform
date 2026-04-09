@@ -22,7 +22,7 @@ import { useT } from "@/hooks/useT";
 
 export default function ForgotPasswordScreen() {
   const colors = useColors();
-  const { t, isRTL } = useT();
+  const { t, isRTL, language } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -45,8 +45,9 @@ export default function ForgotPasswordScreen() {
       await sendPasswordResetEmail(auth, trimmed);
       setSent(true);
     } catch (e: unknown) {
-      const msg = (e as { message?: string }).message || t("error");
-      Alert.alert(t("error"), msg);
+      const { mapFirebaseAuthError } = await import("@/lib/firebaseErrorMapper");
+      const mapped = mapFirebaseAuthError(e, language);
+      Alert.alert(t("error"), mapped);
     } finally {
       setLoading(false);
     }

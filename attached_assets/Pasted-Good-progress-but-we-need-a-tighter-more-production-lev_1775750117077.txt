@@ -1,0 +1,106 @@
+Good progress, but we need a tighter, more production-level polish and some corrections.
+
+Please apply the following updates carefully.
+
+==================================================
+1) AUTH ERROR MESSAGE (IMPORTANT UX FIX)
+==================================================
+
+Current issue:
+When login fails (wrong password), the error is:
+"Firebase: Error (auth/invalid-credential)."
+This is not user-friendly or professional.
+
+Fix:
+- Do NOT show raw Firebase error messages to users
+- Map errors to clean, clear, professional messages
+
+Examples:
+- auth/invalid-credential → "البريد الإلكتروني أو كلمة المرور غير صحيحة"
+- auth/user-not-found → "الحساب غير موجود"
+- auth/too-many-requests → "عدد محاولات كبير، حاول لاحقاً"
+
+Requirements:
+- Show localized Arabic messages (and English if needed)
+- Keep the message short, clear, and professional
+- No technical codes shown to the user
+
+==================================================
+2) GLOBAL UI STYLE — NO SHARP CORNERS
+==================================================
+
+Current issue:
+Error alerts and some UI elements still have sharp corners.
+
+Fix:
+- ALL UI elements must use modern rounded corners
+- Especially:
+  - Alerts
+  - Modals
+  - Cards
+  - Buttons
+
+Requirements:
+- Replace default Alert.alert where needed with a custom styled modal
+- Use consistent borderRadius across the app
+- Match a clean enterprise modern UI
+
+==================================================
+3) GREEN DOT — FOR ALL USERS (NOT ONLY ADMIN)
+==================================================
+
+Update requirement:
+
+The green glowing dot should NOT be only for admins.
+
+It must apply to:
+- Super Admin
+- Admin
+- Employees (all users)
+
+Behavior:
+- Any new request NOT opened by the user → show green glowing dot
+- When the user opens the request → remove the dot
+
+Implementation:
+- Do NOT use viewedByAdmin anymore
+- Replace with a generic field like:
+  - viewedBy: { userId: true }
+  OR
+  - lastViewedByUserId / per-user tracking
+
+Requirement:
+- Each user has their own "seen/unseen" state
+- Persist in database (not UI only)
+- Do NOT break existing request logic
+
+==================================================
+4) PUSH NOTIFICATIONS (NO IN-APP NOTIFICATIONS)
+==================================================
+
+We do NOT want in-app notification system.
+
+Only:
+- Push notifications to the mobile device
+
+Requirements:
+- Trigger push notification when:
+  - New request created
+  - New message added to a request
+- Use Expo Notifications (since this is Expo app)
+- Store user push tokens properly
+- Send only relevant notifications (not spam)
+
+The green dot will handle in-app awareness.
+
+==================================================
+5) CONFIRMATION REQUIRED
+==================================================
+
+After finishing, clearly confirm:
+
+- how auth error mapping is implemented
+- how custom alert/modal UI replaced default alerts
+- how green dot now works per-user (data structure)
+- how push notifications are implemented (flow + trigger points)
+- which files were changed

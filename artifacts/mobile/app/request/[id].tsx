@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { getAdminPushTokens, getUserPushToken, sendPushNotification } from "@/lib/pushNotifications";
 import {
   addDoc,
   collection,
@@ -165,9 +166,9 @@ export default function RequestDetailScreen() {
         if (snap.exists()) {
           const data = { id: snap.id, ...snap.data() } as Request;
           setRequest(data);
-          // Mark as viewed by admin — clears the green "new request" dot
-          if (isAdmin && !data.viewedByAdmin) {
-            updateDoc(doc(db, "requests", id), { viewedByAdmin: true }).catch(() => {});
+          // Mark as viewed by this user — clears the green "new request" dot for them
+          if (user && !data.viewedBy?.[user.uid]) {
+            updateDoc(doc(db, "requests", id), { [`viewedBy.${user.uid}`]: true }).catch(() => {});
           }
         }
         setLoading(false);
@@ -236,8 +237,47 @@ export default function RequestDetailScreen() {
       await updateDoc(doc(db, "requests", id), {
         messageCount: increment(1),
         updatedAt: serverTimestamp(),
+        // Clear the viewed state for all OTHER parties so they see the dot again
+        ...(isAdmin
+          ? { [`viewedBy.${request.userId ?? request.createdBy}`]: false }
+          : {}
+        ),
       });
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Push notification — best effort, non-fatal
+      try {
+        const senderName = profile.displayName;
+        const snippet = text ? (text.length > 60 ? text.slice(0, 57) + "…" : text) : "📎 Attachment";
+        if (isAdmin) {
+          // Admin sent message → notify the request creator
+          const ownerId = request.userId ?? request.createdBy ?? "";
+          if (ownerId && ownerId !== user.uid) {
+            const token = await getUserPushToken(ownerId);
+            if (token) {
+              await sendPushNotification({
+                to: token,
+                title: `${senderName} replied`,
+                body: snippet,
+                data: { requestId: id },
+              });
+            }
+          }
+        } else {
+          // User sent message → notify all admins
+          const adminTokens = await getAdminPushTokens();
+          if (adminTokens.length > 0) {
+            await sendPushNotification({
+              to: adminTokens,
+              title: `New reply: ${request.title ?? "Request"}`,
+              body: `${senderName}: ${snippet}`,
+              data: { requestId: id },
+            });
+          }
+        }
+      } catch (_pushErr) {
+        // Push is best-effort, never block the user
+      }
     } catch (_e) {
       // ignore
     } finally {
