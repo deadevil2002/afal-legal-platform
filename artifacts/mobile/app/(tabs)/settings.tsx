@@ -145,6 +145,189 @@ function AdminActionRow({
   );
 }
 
+// ── Change Password Modal ──────────────────────────────────────────────────
+// Defined at module level to ensure stable component identity across parent
+// re-renders, keeping TextInput focus intact (same reason as FieldRow).
+interface ChangePasswordModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onChangePassword: (current: string, newPwd: string) => Promise<void>;
+}
+
+function ChangePasswordModal({ visible, onClose, onChangePassword }: ChangePasswordModalProps) {
+  const colors = useColors();
+  const { t } = useT();
+
+  const [currentPwd, setCurrentPwd] = React.useState("");
+  const [newPwd, setNewPwd] = React.useState("");
+  const [confirmPwd, setConfirmPwd] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const reset = () => {
+    setCurrentPwd("");
+    setNewPwd("");
+    setConfirmPwd("");
+    setError("");
+    setLoading(false);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    // Client-side validation
+    if (!currentPwd.trim()) {
+      setError(t("currentPassword") + " " + t("required").toLowerCase());
+      return;
+    }
+    if (!newPwd.trim()) {
+      setError(t("newPassword") + " " + t("required").toLowerCase());
+      return;
+    }
+    if (newPwd.length < 8) {
+      setError(t("passwordMin"));
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setError(t("passwordMatch"));
+      return;
+    }
+    setLoading(true);
+    try {
+      await onChangePassword(currentPwd, newPwd);
+      reset();
+      onClose();
+      Alert.alert(t("success"), t("passwordChanged"));
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setError(t("wrongPassword"));
+      } else if (err.code === "auth/weak-password") {
+        setError(t("passwordMin"));
+      } else {
+        setError(err.message ?? t("errGeneric"));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable style={styles.cpOverlay} onPress={handleClose}>
+          <Pressable style={[styles.cpSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.cpHandle} />
+            <View style={styles.cpHeader}>
+              <View style={[styles.cpIconWrap, { backgroundColor: colors.primary + "15" }]}>
+                <Icon name="lock" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cpTitle, { color: colors.foreground }]}>
+                  {t("changePassword")}
+                </Text>
+                <Text style={[styles.cpSubtitle, { color: colors.mutedForeground }]}>
+                  {t("changePasswordSubtitle")}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleClose} style={styles.cpCloseBtn}>
+                <Icon name="close" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Password */}
+            <View style={[styles.cpField, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Icon name="lock" size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.cpInput, { color: colors.foreground }]}
+                placeholder={t("currentPassword")}
+                placeholderTextColor={colors.mutedForeground}
+                value={currentPwd}
+                onChangeText={(v) => { setCurrentPwd(v); setError(""); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* New Password */}
+            <View style={[styles.cpField, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Icon name="lock" size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.cpInput, { color: colors.foreground }]}
+                placeholder={t("newPassword")}
+                placeholderTextColor={colors.mutedForeground}
+                value={newPwd}
+                onChangeText={(v) => { setNewPwd(v); setError(""); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* Confirm New Password */}
+            <View style={[styles.cpField, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Icon name="shield-check" size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.cpInput, { color: colors.foreground }]}
+                placeholder={t("confirmNewPassword")}
+                placeholderTextColor={colors.mutedForeground}
+                value={confirmPwd}
+                onChangeText={(v) => { setConfirmPwd(v); setError(""); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+              />
+            </View>
+
+            {/* Inline error */}
+            {!!error && (
+              <View style={styles.cpErrorRow}>
+                <Icon name="alert-circle" size={14} color="#DC2626" />
+                <Text style={styles.cpErrorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* Submit */}
+            <TouchableOpacity
+              style={[
+                styles.cpSubmitBtn,
+                { backgroundColor: colors.primary },
+                loading && { opacity: 0.7 },
+              ]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.cpSubmitText}>{t("changePassword")}</Text>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ── Polished confirmation modal ────────────────────────────────────────────
 interface ConfirmModalProps {
   visible: boolean;
@@ -231,6 +414,7 @@ export default function SettingsScreen() {
     logout,
     updateUserProfile,
     setLanguage,
+    changePassword,
   } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -253,6 +437,7 @@ export default function SettingsScreen() {
   const [requestingDeletion, setRequestingDeletion] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   const handleRequestDeletion = () => {
     setShowDeletionModal(true);
@@ -475,6 +660,22 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Security — visible to all users */}
+        <SectionHeader title={t("security")} />
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <AdminActionRow
+            icon="lock"
+            label={t("changePassword")}
+            subtitle={t("changePasswordSubtitle")}
+            onPress={() => setShowChangePasswordModal(true)}
+          />
+        </View>
+
         {/* Super Admin Settings */}
         {isSuperAdmin && (
           <>
@@ -604,6 +805,13 @@ export default function SettingsScreen() {
         loading={requestingDeletion}
         onConfirm={confirmDeletion}
         onCancel={() => setShowDeletionModal(false)}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        visible={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+        onChangePassword={changePassword}
       />
     </KeyboardAvoidingView>
   );
@@ -756,6 +964,95 @@ const styles = StyleSheet.create({
   modalBtnConfirm: {},
   modalBtnText: {
     fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  // Change Password Modal
+  cpOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  cpSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+    gap: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  cpHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  cpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cpIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cpTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  cpSubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  cpCloseBtn: {
+    padding: 6,
+  },
+  cpField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  cpInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    paddingVertical: 2,
+  },
+  cpErrorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cpErrorText: {
+    color: "#DC2626",
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  cpSubmitBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  cpSubmitText: {
+    color: "#fff",
+    fontSize: 15,
     fontFamily: "Inter_600SemiBold",
   },
 });

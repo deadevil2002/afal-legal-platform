@@ -121,7 +121,7 @@ export const translations = {
     demotedSuccess: "is now a regular user",
 
     // ── Send to Employee ──────────────────────────────────────────────────
-    sendToEmployee: "Send Request to Employee",
+    sendToEmployee: "Send to Employee",
     sendToEmployeeDesc: "Admin creates a request on behalf of an employee",
     selectEmployee: "Select Employee",
     searchEmployee: "Search by name, email, or employee number",
@@ -211,11 +211,26 @@ export const translations = {
     openFileFailed: "Could not open file. Try Download instead.",
     staffBadge: "Staff",
 
+    // ── Request deletion (Super Admin only) ───────────────────────────────
+    deleteRequest: "Delete Request",
+    deleteRequestConfirmTitle: "Delete This Request?",
+    deleteRequestConfirmMsg: "This will permanently delete the request and ALL related messages. This cannot be undone.",
+    deleteRequestSuccess: "Request deleted successfully.",
+    deletingRequest: "Deleting…",
+
+    // ── Security / Change Password ────────────────────────────────────────
+    security: "Security",
+    currentPassword: "Current Password",
+    newPassword: "New Password",
+    confirmNewPassword: "Confirm New Password",
+    passwordChanged: "Your password has been updated successfully.",
+    changePasswordSubtitle: "Update your account password securely",
+    wrongPassword: "Current password is incorrect. Please try again.",
+
     // ── Request detail ────────────────────────────────────────────────────
     requestNotFound: "Request not found",
     goBack: "Go back",
     you: "You",
-    sendToEmployee: "Send to Employee",
     changeStatus: "Update Status",
     adminActions: "Admin Actions",
     statusUpdated: "Status updated successfully",
@@ -417,7 +432,7 @@ export const translations = {
     demotedSuccess: "أصبح الآن مستخدماً عادياً",
 
     // ── Send to Employee ──────────────────────────────────────────────────
-    sendToEmployee: "إرسال طلب إلى موظف",
+    sendToEmployee: "إرسال للموظف",
     sendToEmployeeDesc: "ينشئ المسؤول طلباً نيابةً عن موظف",
     selectEmployee: "اختيار الموظف",
     searchEmployee: "بحث بالاسم أو البريد أو رقم الموظف",
@@ -507,11 +522,26 @@ export const translations = {
     openFileFailed: "تعذّر فتح الملف. جرّب التنزيل بدلاً من ذلك.",
     staffBadge: "فريق العمل",
 
+    // ── Request deletion (Super Admin only) ───────────────────────────────
+    deleteRequest: "حذف الطلب",
+    deleteRequestConfirmTitle: "حذف هذا الطلب؟",
+    deleteRequestConfirmMsg: "سيتم حذف الطلب وجميع الرسائل المرتبطة به نهائياً. لا يمكن التراجع عن هذا الإجراء.",
+    deleteRequestSuccess: "تم حذف الطلب بنجاح.",
+    deletingRequest: "جارٍ الحذف…",
+
+    // ── Security / Change Password ────────────────────────────────────────
+    security: "الأمان",
+    currentPassword: "كلمة المرور الحالية",
+    newPassword: "كلمة المرور الجديدة",
+    confirmNewPassword: "تأكيد كلمة المرور الجديدة",
+    passwordChanged: "تم تحديث كلمة المرور بنجاح.",
+    changePasswordSubtitle: "تحديث كلمة مرور حسابك بأمان",
+    wrongPassword: "كلمة المرور الحالية غير صحيحة. يرجى المحاولة مجدداً.",
+
     // ── Request detail ────────────────────────────────────────────────────
     requestNotFound: "لم يُعثر على الطلب",
     goBack: "العودة",
     you: "أنت",
-    sendToEmployee: "إرسال للموظف",
     changeStatus: "تحديث الحالة",
     adminActions: "إجراءات المسؤول",
     statusUpdated: "تم تحديث الحالة بنجاح",

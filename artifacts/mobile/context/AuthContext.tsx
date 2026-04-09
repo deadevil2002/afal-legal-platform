@@ -6,6 +6,7 @@ import {
   reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   updateProfile,
   User,
 } from "firebase/auth";
@@ -88,6 +89,7 @@ interface AuthContextType {
   promoteToAssistantAdmin: (targetUid: string) => Promise<void>;
   demoteFromAdmin: (targetUid: string) => Promise<void>;
   transferSuperAdmin: (targetEmail: string, currentPassword: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   getAllUsers: () => Promise<UserProfile[]>;
 }
 
@@ -587,6 +589,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * ALL USERS — securely change password using Firebase re-authentication.
+   * Requires the user's current password before the new password is applied.
+   * This uses reauthenticateWithCredential (same pattern as transferSuperAdmin)
+   * followed by updatePassword — no Firestore writes required.
+   */
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user || !user.email) {
+      throw new Error("You must be signed in to change your password.");
+    }
+    // Step 1: Re-authenticate with current credentials to confirm identity
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    // Step 2: Update password via Firebase Auth (enforces minimum length server-side)
+    await updatePassword(user, newPassword);
+  };
+
+  /**
    * ADMIN/SUPER ADMIN ONLY — fetch all registered users.
    */
   const getAllUsers = async (): Promise<UserProfile[]> => {
@@ -619,6 +638,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         promoteToAssistantAdmin,
         demoteFromAdmin,
         transferSuperAdmin,
+        changePassword,
         getAllUsers,
       }}
     >

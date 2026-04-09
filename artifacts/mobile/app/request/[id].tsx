@@ -3,7 +3,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   increment,
   onSnapshot,
   orderBy,
@@ -11,6 +13,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -115,6 +118,7 @@ export default function RequestDetailScreen() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const updateRequestStatus = async (newStatus: RequestStatus) => {
@@ -154,6 +158,56 @@ export default function RequestDetailScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: unknown) {
       Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+    }
+  };
+
+  // SUPER ADMIN ONLY — permanently delete a request + all its messages.
+  // Two-step Alert confirmation before any data is touched.
+  const handleDeleteRequest = () => {
+    if (!isSuperAdmin || !id) return;
+    Alert.alert(
+      t("deleteRequestConfirmTitle"),
+      t("deleteRequestConfirmMsg"),
+      [
+        { text: t("cancel"), style: "cancel" },
+        {
+          text: t("deleteRequest"),
+          style: "destructive",
+          onPress: () => {
+            // Second confirmation — adds friction for an irreversible action
+            Alert.alert(
+              t("deleteRequestConfirmTitle"),
+              "Are you absolutely sure? All messages will be permanently lost.",
+              [
+                { text: t("cancel"), style: "cancel" },
+                { text: t("delete"), style: "destructive", onPress: performDelete },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const performDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      // 1. Fetch ALL related messages in the top-level request_messages collection
+      const msgsSnap = await getDocs(
+        query(collection(db, "request_messages"), where("requestId", "==", id))
+      );
+      // 2. Batch delete: all messages + the request document atomically
+      const batch = writeBatch(db);
+      msgsSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, "requests", id));
+      await batch.commit();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Navigate back — the request no longer exists
+      router.back();
+    } catch (e: unknown) {
+      Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+      setDeleting(false);
     }
   };
 
@@ -382,6 +436,19 @@ export default function RequestDetailScreen() {
             <StatusBadge priority={request.priority} />
           </View>
         </View>
+        {isSuperAdmin && (
+          <TouchableOpacity
+            style={styles.deleteHeaderBtn}
+            onPress={handleDeleteRequest}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <ActivityIndicator color="#FF6B6B" size="small" />
+            ) : (
+              <Icon name="trash" size={20} color="#FF6B6B" />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Request Info Bar */}
@@ -716,6 +783,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: { padding: 4 },
+  deleteHeaderBtn: { padding: 8 },
   headerInfo: { flex: 1 },
   headerTitle: {
     color: "#fff",
