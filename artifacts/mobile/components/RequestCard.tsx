@@ -62,9 +62,10 @@ interface RequestCardProps {
   request: Request;
   showUser?: boolean;
   currentUserId?: string;
+  onSenderPress?: (userId: string) => void;
 }
 
-export function RequestCard({ request, showUser = false, currentUserId }: RequestCardProps) {
+export function RequestCard({ request, showUser = false, currentUserId, onSenderPress }: RequestCardProps) {
   const colors = useColors();
   const router = useRouter();
   const { t, isRTL } = useT();
@@ -153,11 +154,25 @@ export function RequestCard({ request, showUser = false, currentUserId }: Reques
         </View>
       )}
       <View style={[styles.footer, { borderTopColor: colors.border }, isRTL && styles.footerRTL]}>
-        {showUser && request.createdByName && (
-          <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-            {request.createdByName}
-          </Text>
-        )}
+        {showUser && request.createdByName && (() => {
+          const senderUid = request.userId ?? request.createdBy ?? null;
+          const canTap = !!onSenderPress && !!senderUid;
+          return canTap ? (
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation?.(); onSenderPress!(senderUid!); }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              activeOpacity={0.65}
+            >
+              <Text style={[styles.meta, styles.tappableName, { color: colors.primary }]}>
+                {request.createdByName}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+              {request.createdByName}
+            </Text>
+          );
+        })()}
         <Text style={[styles.meta, { color: colors.mutedForeground }]}>
           {formatDate(request.createdAt)}
         </Text>
@@ -245,6 +260,7 @@ const styles = StyleSheet.create({
   footerRTL: { flexDirection: "row-reverse" },
   footerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   meta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  tappableName: { fontFamily: "Inter_500Medium", textDecorationLine: "underline" },
   textRTL: { textAlign: "right" },
   messageCount: { flexDirection: "row", alignItems: "center", gap: 3 },
   messageCountText: { fontSize: 11, fontFamily: "Inter_500Medium" },

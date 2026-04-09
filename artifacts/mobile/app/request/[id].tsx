@@ -37,6 +37,7 @@ import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 import { Request, CATEGORY_KEY_MAP } from "@/components/RequestCard";
+import { UserProfileModal } from "@/components/UserProfileModal";
 import { TranslationKey } from "@/i18n/translations";
 
 const STATUS_OPTIONS = [
@@ -113,6 +114,7 @@ export default function RequestDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
 
   const updateRequestStatus = async (newStatus: RequestStatus) => {
@@ -392,6 +394,29 @@ export default function RequestDetailScreen() {
             </Text>
           </View>
         )}
+        {isAdmin && !!(request.createdByName || request.userId || request.createdBy) && (() => {
+          const senderUid = request.userId ?? request.createdBy ?? null;
+          const senderName = request.createdByName || senderUid || "Unknown";
+          return senderUid ? (
+            <TouchableOpacity
+              onPress={() => setProfileModalUserId(senderUid)}
+              activeOpacity={0.7}
+              style={styles.submitterRow}
+            >
+              <Icon name="person" size={12} color={colors.primary} />
+              <Text style={[styles.submitterText, { color: colors.primary }]}>
+                {senderName}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.submitterRow}>
+              <Icon name="person" size={12} color={colors.mutedForeground} />
+              <Text style={[styles.submitterText, { color: colors.mutedForeground }]}>
+                {senderName}
+              </Text>
+            </View>
+          );
+        })()}
         <Text style={[styles.reqDescription, { color: colors.mutedForeground }]} numberOfLines={3}>
           {request.description}
         </Text>
@@ -675,6 +700,7 @@ export default function RequestDetailScreen() {
         </TouchableOpacity>
       </View>
       )}
+      <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
     </KeyboardAvoidingView>
   );
 }
@@ -714,6 +740,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   categoryText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  submitterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 2,
+  },
+  submitterText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   reqDescription: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 22 },
   reqAttachSection: { gap: 6, marginTop: 4 },
   reqAttachHeader: { flexDirection: "row", alignItems: "center", gap: 5 },

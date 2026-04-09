@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Icon } from "@/components/Icon";
 import { RequestCard, Request } from "@/components/RequestCard";
+import { UserProfileModal } from "@/components/UserProfileModal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth, UserProfile, UserRole } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -74,6 +75,7 @@ export default function AdminScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
 
   // ── Jump to Users tab when navigated with ?tab=users ────────────────────
   useEffect(() => {
@@ -348,7 +350,12 @@ export default function AdminScreen() {
             ) : (
               filtered.map((req) => (
                 <TouchableOpacity key={req.id} onLongPress={() => setSelectedRequest(req)} activeOpacity={0.9}>
-                  <RequestCard request={req} showUser currentUserId={user?.uid} />
+                  <RequestCard
+                    request={req}
+                    showUser
+                    currentUserId={user?.uid}
+                    onSenderPress={(uid) => setProfileModalUserId(uid)}
+                  />
                 </TouchableOpacity>
               ))
             )}
@@ -616,6 +623,9 @@ export default function AdminScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* User Profile Modal — from request card sender taps */}
+      <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
 
       {/* Status Update Modal */}
       <Modal

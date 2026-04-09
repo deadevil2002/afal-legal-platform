@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { RequestCard } from "@/components/RequestCard";
+import { UserProfileModal } from "@/components/UserProfileModal";
 import { useAuth } from "@/context/AuthContext";
 import { useRequests } from "@/context/RequestsContext";
 import { useColors } from "@/hooks/useColors";
@@ -41,6 +42,7 @@ export default function RequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterValue>("All");
   const [search, setSearch] = useState("");
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) setRefreshing(false);
@@ -178,10 +180,17 @@ export default function RequestsScreen() {
           </View>
         ) : (
           filtered.map((req) => (
-            <RequestCard key={req.id} request={req} showUser={isAdmin} currentUserId={user?.uid} />
+            <RequestCard
+              key={req.id}
+              request={req}
+              showUser={isAdmin}
+              currentUserId={user?.uid}
+              onSenderPress={isAdmin ? (uid) => setProfileModalUserId(uid) : undefined}
+            />
           ))
         )}
       </ScrollView>
+      <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
     </View>
   );
 }

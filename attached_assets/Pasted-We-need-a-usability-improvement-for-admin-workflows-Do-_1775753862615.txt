@@ -1,0 +1,78 @@
+We need a usability improvement for admin workflows.
+
+Do NOT break existing logic.
+
+==================================================
+GOAL
+==================================================
+
+For Super Admin and Assistant Admin only:
+
+When viewing request cards or request details, clicking/tapping the request submitter's name should open that user's full profile directly.
+
+This is important because the company has a very large number of employees, and admins should not have to go to User Management every time just to inspect the sender profile.
+
+==================================================
+REQUIREMENTS
+==================================================
+
+1) WHERE THIS SHOULD WORK
+Enable this behavior in:
+- Home screen request cards
+- Requests screen request cards
+- Request detail screen
+
+Anywhere the request submitter / sender name is shown, admins should be able to tap it.
+
+2) WHO CAN USE IT
+Only:
+- super_admin
+- assistant_admin
+
+Regular employees should NOT get this navigation behavior for other users.
+
+3) DESTINATION
+Open the same full user profile view already used in User Management.
+
+Do NOT create a second inconsistent profile screen if avoidable.
+Reuse the existing user profile/details UI if possible.
+
+4) DATA TO SHOW
+The full profile should include the same useful fields already available in the existing user profile view, such as:
+- Full Name
+- Email
+- Employee Number
+- Department
+- Phone
+- Role
+- Language
+- Active status
+- Any other existing relevant profile fields
+
+5) UX
+- The employee name should look tappable for admins
+- Keep it subtle and professional
+- No childish styling
+- You may use:
+  - slightly different color
+  - underline on pressable text
+  - or a small profile icon if needed
+- Do not clutter the UI
+
+6) NAVIGATION
+- Tapping the request sender name should navigate directly to that user profile
+- It should work from:
+  - card list
+  - request detail
+- Back navigation should behave normally
+
+7) DO NOT BREAK EXISTING USER MANAGEMENT
+- Keep User Management screen as-is
+- This is an additional shortcut entry point, not a replacement
+
+8) OUTPUT REQUIRED
+After finishing, tell me clearly:
+- which screens/components were updated
+- how the user profile route is opened
+- whether the existing user profile screen was reused or a new one was created
+- which files were changed

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
 import { RequestCard } from "@/components/RequestCard";
+import { UserProfileModal } from "@/components/UserProfileModal";
 import { useAuth } from "@/context/AuthContext";
 import { useRequests } from "@/context/RequestsContext";
 import { useColors } from "@/hooks/useColors";
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) setRefreshing(false);
@@ -48,6 +50,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{
@@ -151,12 +154,20 @@ export default function HomeScreen() {
           </View>
         ) : (
           recentRequests.map((req) => (
-            <RequestCard key={req.id} request={req} showUser={isAdmin} currentUserId={user?.uid} />
+            <RequestCard
+              key={req.id}
+              request={req}
+              showUser={isAdmin}
+              currentUserId={user?.uid}
+              onSenderPress={isAdmin ? (uid) => setProfileModalUserId(uid) : undefined}
+            />
           ))
         )}
       </View>
 
     </ScrollView>
+    <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
+    </>
   );
 }
 
