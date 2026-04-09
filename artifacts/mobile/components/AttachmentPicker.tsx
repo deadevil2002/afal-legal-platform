@@ -20,6 +20,7 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  InteractionManager,
   Linking,
   Modal,
   Platform,
@@ -246,9 +247,21 @@ export function AttachmentPicker({
     pickingRef.current = true;
     console.log("[DIAG] pickDocument: guard passed, ref set to true");
     setPickerVisible(false);
-    // iOS: same 600ms delay as pickImage — modal must fully dismiss before
-    // presenting a native document picker ViewController.
-    await new Promise((r) => setTimeout(r, Platform.OS === "ios" ? 600 : 300));
+    // iOS: UIDocumentPickerViewController requires the presenting ViewController
+    // to be fully settled — stricter than PHPickerViewController (image picker).
+    // setTimeout alone guesses at animation duration; InteractionManager.runAfterInteractions
+    // waits for all pending JS interaction callbacks (including Modal slide-out
+    // completion), then we add 300ms for the native ViewController stack to settle.
+    // Android: plain 300ms timeout is sufficient.
+    if (Platform.OS === "ios") {
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(resolve, 300);
+        });
+      });
+    } else {
+      await new Promise((r) => setTimeout(r, 300));
+    }
     console.log("[DIAG] pickDocument: delay done. Platform:", Platform.OS);
     try {
       console.log("[DIAG] pickDocument: calling getDocumentAsync...");
