@@ -140,17 +140,25 @@ export function AttachmentPicker({
   // "limited" status (iOS 14+ selected-photos access) is accepted — the user still
   // gets to pick from their chosen photos.
   const pickImage = async () => {
-    if (pickingRef.current) return;
+    console.log("[DIAG] pickImage: entered. pickingRef.current =", pickingRef.current);
+    if (pickingRef.current) {
+      console.log("[DIAG] pickImage: GUARD BLOCKED — returning immediately");
+      return;
+    }
     pickingRef.current = true;
+    console.log("[DIAG] pickImage: guard passed, ref set to true");
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
+    console.log("[DIAG] pickImage: 300ms delay done, about to call picker. Platform:", Platform.OS);
     try {
       if (Platform.OS === "ios") {
         let permStatus: string;
         try {
+          console.log("[DIAG] pickImage: calling requestMediaLibraryPermissionsAsync...");
           const { status } =
             await ImagePicker.requestMediaLibraryPermissionsAsync();
           permStatus = status;
+          console.log("[DIAG] pickImage: permission status =", permStatus);
         } catch (permErr: unknown) {
           console.error("[AttachmentPicker] requestMediaLibraryPermissionsAsync failed:", permErr);
           Alert.alert(t("error"), t("errGeneric"));
@@ -159,6 +167,7 @@ export function AttachmentPicker({
 
         // "granted" = full access, "limited" = iOS 14+ selected photos — both are fine.
         if (permStatus !== "granted" && permStatus !== "limited") {
+          console.log("[DIAG] pickImage: permission denied, showing settings alert");
           Alert.alert(
             t("permissionDenied"),
             t("iosPhotoPermissionDenied"),
@@ -176,11 +185,13 @@ export function AttachmentPicker({
 
       let result: ImagePicker.ImagePickerResult;
       try {
+        console.log("[DIAG] pickImage: calling launchImageLibraryAsync...");
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
           quality: 0.85,
           allowsMultipleSelection: false,
         });
+        console.log("[DIAG] pickImage: launchImageLibraryAsync returned, canceled =", result.canceled);
       } catch (pickerErr: unknown) {
         console.error("[AttachmentPicker] launchImageLibraryAsync failed:", pickerErr);
         Alert.alert(t("error"), t("errGeneric"));
@@ -198,6 +209,7 @@ export function AttachmentPicker({
       console.error("[AttachmentPicker] pickImage unexpected error:", e);
       Alert.alert(t("error"), t("errGeneric"));
     } finally {
+      console.log("[DIAG] pickImage: finally — resetting ref to false");
       pickingRef.current = false;
     }
   };
@@ -209,11 +221,18 @@ export function AttachmentPicker({
   // On Android: explicit MIME types are kept for a better filtered picker UI.
   // copyToCacheDirectory: true ensures the local URI is readable for upload.
   const pickDocument = async () => {
-    if (pickingRef.current) return;
+    console.log("[DIAG] pickDocument: entered. pickingRef.current =", pickingRef.current);
+    if (pickingRef.current) {
+      console.log("[DIAG] pickDocument: GUARD BLOCKED — returning immediately");
+      return;
+    }
     pickingRef.current = true;
+    console.log("[DIAG] pickDocument: guard passed, ref set to true");
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
+    console.log("[DIAG] pickDocument: 300ms delay done. Platform:", Platform.OS);
     try {
+      console.log("[DIAG] pickDocument: calling getDocumentAsync...");
       const result = await DocumentPicker.getDocumentAsync(
         Platform.OS === "ios"
           ? { type: "*/*", copyToCacheDirectory: true, multiple: false }
@@ -227,6 +246,7 @@ export function AttachmentPicker({
               multiple: false,
             }
       );
+      console.log("[DIAG] pickDocument: getDocumentAsync returned, canceled =", result.canceled);
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
       await doUpload(asset.uri, asset.name, asset.mimeType || "application/octet-stream");
@@ -234,6 +254,7 @@ export function AttachmentPicker({
       console.error("[AttachmentPicker] pickDocument failed:", e);
       Alert.alert(t("error"), t("errGeneric"));
     } finally {
+      console.log("[DIAG] pickDocument: finally — resetting ref to false");
       pickingRef.current = false;
     }
   };

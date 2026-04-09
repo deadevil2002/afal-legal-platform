@@ -1,0 +1,63 @@
+Do not patch blindly.
+
+The latest guard changed the behavior, but now on iPhone tapping the attachment options does nothing at all:
+- no picker opens
+- no error appears
+- no permission prompt appears
+
+So the current issue may now be a silent early return or a dead interaction path.
+
+We need a diagnosis-only pass again, but focused on the CURRENT state after the mutex guard was added.
+
+==================================================
+DIAGNOSIS ONLY — CURRENT iPHONE STATE
+==================================================
+
+Please inspect the current live flow after the recent pickingRef guard changes.
+
+I need you to determine exactly why tapping the attachment options on iPhone now does nothing.
+
+Check all of the following:
+
+1) Does the onPress for:
+- Image from Gallery
+- Document
+actually fire on iPhone right now?
+
+Add temporary logs at the first line of each handler:
+- pickImage entered
+- pickDocument entered
+
+2) Inspect the guard behavior:
+- is pickingRef.current already true before the function starts?
+- is it being reset properly in finally?
+- can the modal / previous call leave it stuck true?
+
+3) Add temporary logs around every decision point:
+- before guard check
+- after guard passes
+- after modal close
+- before ImagePicker.requestMediaLibraryPermissionsAsync()
+- before ImagePicker.launchImageLibraryAsync()
+- before DocumentPicker.getDocumentAsync()
+
+4) Determine whether the function is:
+- not being called at all
+- returning early because of the guard
+- failing before picker open
+- or hanging after modal close
+
+5) Do NOT change Android flow.
+6) Do NOT refactor yet.
+
+==================================================
+OUTPUT REQUIRED
+==================================================
+
+Tell me clearly:
+- whether pickImage is entered
+- whether pickDocument is entered
+- whether the guard is blocking immediately
+- whether pickingRef is ever stuck true
+- the exact last log reached on iPhone for each path
+- your recommended minimal fix after inspecting the current behavior
