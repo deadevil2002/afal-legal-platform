@@ -1,0 +1,84 @@
+We need a security/admin pass for two areas.
+
+Do NOT break existing logic.
+
+==================================================
+1) SUPER ADMIN — DELETE ANY REQUEST
+==================================================
+
+Please check the current app status and confirm whether Super Admin already has a UI action to delete any request.
+
+Important:
+- Firestore rules already allow request deletion for super_admin only
+- if deletion is not available in the app, then this is a missing UI/feature issue, not a rules issue
+
+Requirements:
+- Super Admin only can delete any request
+- include a proper confirmation dialog before deletion
+- if a request is deleted, also handle related request messages cleanly if needed
+- do not allow assistant_admin to delete requests unless explicitly requested later
+
+==================================================
+2) PASSWORD CHANGE FLOW
+==================================================
+
+We need the best and safest password-change approach for all users.
+
+Please assess the current app status and tell me:
+
+- is there already a change-password feature?
+- if not, what is the best implementation path using Firebase Auth?
+
+Preferred direction:
+- all users should have a Change Password option in Settings
+- require:
+  - current password
+  - new password
+  - confirm new password
+
+Security expectation:
+- use Firebase Auth re-authentication before password update
+- do not depend on Firestore rules for password changes
+- keep it secure and professional
+
+Also assess:
+- when transferring Super Admin to another account, how does that user manage their password?
+- confirm clearly that role transfer does NOT change the target user's password automatically
+
+==================================================
+3) IMPORTANT RULES / SUPER ADMIN TRANSFER CHECK
+==================================================
+
+Please also check this carefully:
+
+The current Firestore rules use a bootstrap super admin email path in addition to role-based super_admin.
+That means the original bootstrap email may remain super_admin even after transferring the role.
+
+I need you to assess this and tell me clearly:
+- whether the current transfer flow results in more than one super_admin effectively
+- whether the original bootstrap email remains permanently privileged
+- what is the safest approach if we want proper Super Admin transfer behavior
+
+==================================================
+4) DECISION ADVICE
+==================================================
+
+Please give me a direct recommendation:
+
+Which is better and safer for this app:
+A) Change password using current password + Firebase re-auth
+or
+B) Custom emailed code flow using Resend before password change
+
+I want the practical enterprise-safe recommendation, not theoretical overengineering.
+
+==================================================
+5) OUTPUT REQUIRED
+==================================================
+
+Tell me clearly:
+- current status of request deletion UI
+- current status of password change feature
+- best recommended password-change approach
+- whether super admin transfer conflicts with the current bootstrap email logic
+- which files would need changes if we implement it
