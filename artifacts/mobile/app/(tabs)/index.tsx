@@ -62,12 +62,12 @@ export default function HomeScreen() {
         />
       }
     >
-      {/* Hero */}
+      {/* Hero — white clean header with transparent logo */}
       <View
         style={[
           styles.heroSection,
           {
-            backgroundColor: colors.primary,
+            backgroundColor: "#FFFFFF",
             paddingTop: insets.top + (Platform.OS === "web" ? 67 : 20),
           },
         ]}
@@ -151,7 +151,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           recentRequests.map((req) => (
-            <RequestCard key={req.id} request={req} showUser={isAdmin} />
+            <RequestCard key={req.id} request={req} showUser={isAdmin} isAdmin={isAdmin} />
           ))
         )}
       </View>
@@ -164,29 +164,29 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   heroSection: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 28,
     alignItems: "center",
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F4F8",
   },
   greeting: {
-    color: "#fff",
-    fontSize: 22,
+    color: "#1A2B3C",
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
-    marginTop: 16,
+    marginTop: 12,
     textAlign: "center",
   },
   subGreeting: {
-    color: "rgba(255,255,255,0.8)",
+    color: "#6B7E93",
     fontSize: 13,
     fontFamily: "Inter_400Regular",
-    marginTop: 4,
+    marginTop: 3,
     textAlign: "center",
   },
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 16,
-    marginTop: -20,
+    marginTop: 16,
     gap: 8,
   },
   statCard: {

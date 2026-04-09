@@ -15,14 +15,23 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.arabianfal.legal"
+      "bundleIdentifier": "com.arabianfal.legal",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Arabian Fal needs access to your photo library to attach images to legal requests.",
+        "NSPhotoLibraryAddUsageDescription": "Arabian Fal needs permission to save photos.",
+        "NSCameraUsageDescription": "Arabian Fal needs camera access to take photos for legal requests."
+      }
     },
     "android": {
       "package": "com.arabianfal.legal",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#2D6491"
-      }
+      },
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -35,7 +44,14 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Arabian Fal needs access to your photo library to attach images to legal requests.",
+          "cameraPermission": "Arabian Fal needs camera access to take photos for legal requests."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

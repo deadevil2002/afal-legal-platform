@@ -178,7 +178,7 @@ export default function RequestsScreen() {
           </View>
         ) : (
           filtered.map((req) => (
-            <RequestCard key={req.id} request={req} showUser={isAdmin} />
+            <RequestCard key={req.id} request={req} showUser={isAdmin} isAdmin={isAdmin} />
           ))
         )}
       </ScrollView>

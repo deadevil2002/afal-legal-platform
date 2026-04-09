@@ -21,6 +21,7 @@ import {
   Alert,
   Animated,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -136,6 +137,19 @@ export function AttachmentPicker({
     // Small delay so the modal closes before the native picker opens
     await new Promise((r) => setTimeout(r, 300));
     try {
+      // Explicitly request media library permission on iOS before launching picker.
+      // Without this the system shows no prompt and the picker silently fails.
+      if (Platform.OS === "ios") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            t("permissionDenied"),
+            t("iosPhotoPermissionDenied"),
+            [{ text: t("ok") }]
+          );
+          return;
+        }
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.85,

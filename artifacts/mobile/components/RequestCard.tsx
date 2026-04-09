@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -55,17 +55,34 @@ export interface Request {
     resourceType?: string;
     folder?: string;
   }>;
+  viewedByAdmin?: boolean;
 }
 
 interface RequestCardProps {
   request: Request;
   showUser?: boolean;
+  isAdmin?: boolean;
 }
 
-export function RequestCard({ request, showUser = false }: RequestCardProps) {
+export function RequestCard({ request, showUser = false, isAdmin = false }: RequestCardProps) {
   const colors = useColors();
   const router = useRouter();
   const { t, isRTL } = useT();
+
+  const showNewDot = isAdmin && !request.viewedByAdmin;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!showNewDot) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.5, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [showNewDot, pulseAnim]);
 
   const formatDate = (ts: unknown): string => {
     if (!ts) return "";
@@ -80,10 +97,23 @@ export function RequestCard({ request, showUser = false }: RequestCardProps) {
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: showNewDot ? "#22C55E" : colors.border },
+      ]}
       onPress={() => router.push(`/request/${request.id}` as never)}
       activeOpacity={0.85}
     >
+      {showNewDot && (
+        <Animated.View
+          style={[
+            styles.newDotOuter,
+            { transform: [{ scale: pulseAnim }] },
+          ]}
+        >
+          <View style={styles.newDotInner} />
+        </Animated.View>
+      )}
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <View style={styles.badges}>
           <StatusBadge status={request.status} />
@@ -218,4 +248,22 @@ const styles = StyleSheet.create({
   textRTL: { textAlign: "right" },
   messageCount: { flexDirection: "row", alignItems: "center", gap: 3 },
   messageCountText: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  newDotOuter: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(34,197,94,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  newDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#22C55E",
+  },
 });

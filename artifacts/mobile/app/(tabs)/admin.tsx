@@ -348,7 +348,7 @@ export default function AdminScreen() {
             ) : (
               filtered.map((req) => (
                 <TouchableOpacity key={req.id} onLongPress={() => setSelectedRequest(req)} activeOpacity={0.9}>
-                  <RequestCard request={req} showUser />
+                  <RequestCard request={req} showUser isAdmin />
                 </TouchableOpacity>
               ))
             )}

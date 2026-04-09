@@ -219,6 +219,12 @@ export const translations = {
     changeStatus: "Update Status",
     adminActions: "Admin Actions",
     statusUpdated: "Status updated successfully",
+    requestClosedMsg: "This request has been resolved and closed. No further messages can be sent.",
+    reopenRequest: "Reopen Request",
+
+    // ── Permissions ───────────────────────────────────────────────────────
+    permissionDenied: "Permission Denied",
+    iosPhotoPermissionDenied: "Access to your photo library was denied. Please enable it in Settings > Privacy > Photos.",
 
     // ── Settings extra ────────────────────────────────────────────────────
     phone: "Phone",
@@ -508,6 +514,12 @@ export const translations = {
     changeStatus: "تحديث الحالة",
     adminActions: "إجراءات المسؤول",
     statusUpdated: "تم تحديث الحالة بنجاح",
+    requestClosedMsg: "تم حل هذا الطلب وإغلاقه. لا يمكن إرسال المزيد من الرسائل.",
+    reopenRequest: "إعادة فتح الطلب",
+
+    // ── Permissions ───────────────────────────────────────────────────────
+    permissionDenied: "تم رفض الإذن",
+    iosPhotoPermissionDenied: "تم رفض الوصول إلى مكتبة الصور. يرجى تفعيله من الإعدادات > الخصوصية > الصور.",
 
     // ── Settings extra ────────────────────────────────────────────────────
     phone: "الهاتف",

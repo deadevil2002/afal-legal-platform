@@ -100,7 +100,7 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -139,6 +139,22 @@ export default function RequestDetailScreen() {
     }
   };
 
+  const reopenRequest = async () => {
+    if (!id || !isSuperAdmin) return;
+    try {
+      await updateDoc(doc(db, "requests", id), {
+        status: "In Progress",
+        statusChangedAt: serverTimestamp(),
+        statusChangedBy: profile?.uid ?? null,
+        closedAt: null,
+        closedBy: null,
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: unknown) {
+      Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
 
@@ -147,7 +163,12 @@ export default function RequestDetailScreen() {
       doc(db, "requests", id),
       (snap) => {
         if (snap.exists()) {
-          setRequest({ id: snap.id, ...snap.data() } as Request);
+          const data = { id: snap.id, ...snap.data() } as Request;
+          setRequest(data);
+          // Mark as viewed by admin — clears the green "new request" dot
+          if (isAdmin && !data.viewedByAdmin) {
+            updateDoc(doc(db, "requests", id), { viewedByAdmin: true }).catch(() => {});
+          }
         }
         setLoading(false);
       },
@@ -182,6 +203,8 @@ export default function RequestDetailScreen() {
     const hasAttachments = msgAttachments.length > 0;
     if (!hasText && !hasAttachments) return;
     if (!user || !profile || !id || !request) return;
+    // Hard-stop: never allow messages on a closed request (UI + data layer guard)
+    if (request.status === "Resolved / Closed") return;
     setSending(true);
     const text = messageText.trim();
     const attachmentsToSend = [...msgAttachments];
@@ -249,6 +272,8 @@ export default function RequestDetailScreen() {
       </View>
     );
   }
+
+  const isLocked = request.status === "Resolved / Closed";
 
   const rawCategory = request.category || request.type || "";
   const displayCategory = rawCategory
@@ -536,7 +561,38 @@ export default function RequestDetailScreen() {
         </View>
       </Modal>
 
-      {/* Input Bar */}
+      {/* Locked Request Banner */}
+      {isLocked && (
+        <View
+          style={[
+            styles.lockedBanner,
+            {
+              backgroundColor: "#FFF8E7",
+              borderTopColor: "#F5C842",
+              paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 8),
+            },
+          ]}
+        >
+          <Icon name="lock" size={18} color="#B7860D" />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.lockedBannerText, { color: "#7A5A00" }]}>
+              {t("requestClosedMsg")}
+            </Text>
+          </View>
+          {isSuperAdmin && (
+            <TouchableOpacity
+              style={[styles.reopenBtn, { backgroundColor: colors.primary }]}
+              onPress={reopenRequest}
+            >
+              <Icon name="refresh" size={14} color="#fff" />
+              <Text style={styles.reopenBtnText}>{t("reopenRequest")}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Input Bar — hidden when request is locked */}
+      {!isLocked && (
       <View
         style={[
           styles.inputBar,
@@ -613,6 +669,7 @@ export default function RequestDetailScreen() {
           )}
         </TouchableOpacity>
       </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -740,6 +797,34 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   attachBubbleText: { fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
+
+  // ── Locked Request Banner ─────────────────────────────────────────────
+  lockedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    borderTopWidth: 2,
+  },
+  lockedBannerText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 18,
+  },
+  reopenBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  reopenBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
 
   // ── Admin Action Bar ──────────────────────────────────────────────────
   adminBar: {

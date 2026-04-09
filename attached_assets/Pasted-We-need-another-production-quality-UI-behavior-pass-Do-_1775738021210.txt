@@ -1,0 +1,97 @@
+We need another production-quality UI/behavior pass.
+
+Do NOT break existing logic.
+
+Apply all of the following carefully:
+
+==================================================
+1) LOGO + HOME HEADER VISUAL UPDATE
+==================================================
+
+I will provide a new logo asset with a transparent background.
+
+Requirements:
+- Replace the current home/logo image with the new transparent logo
+- Remove the current blue header/background style on the home screen
+- Change the home screen top area to a clean solid white background
+- Keep the screen professional, minimal, and enterprise-looking
+- Make sure the transparent logo renders cleanly with no box/background behind it
+- Rebalance spacing/padding after the header turns white so it still looks polished
+
+Important:
+- Do not leave any blue block behind the logo
+- The overall home screen should become white / clean / modern
+
+==================================================
+2) iPHONE PHOTO LIBRARY ACCESS / PERMISSIONS
+==================================================
+
+On Android, gallery access works.
+On iPhone, it does not properly open/select from the photo library.
+
+Please inspect and fix iOS media permissions properly.
+
+Requirements:
+- Ensure image/file picker works on iPhone
+- Request permission properly before accessing the photo library
+- Verify the iOS permission flow is correctly implemented
+- Verify the Expo / iOS configuration includes the required permission usage descriptions
+- Make sure the user gets the normal iOS permission prompt the first time, like standard apps
+- If permission is denied, show a clear message with guidance to enable access from Settings
+
+Important:
+- Do not guess
+- Verify the correct iOS permission/config path for the current Expo setup
+
+==================================================
+3) FINAL REQUEST LOCK AFTER CLOSING
+==================================================
+
+When I, as Super Admin, finally close a request, nobody should be able to send messages in that request anymore.
+
+Requirements:
+- After final close, the request conversation becomes locked
+- No employee, admin, or assistant admin can send a message in that request
+- Only if Super Admin explicitly reopens the request should messaging become available again
+
+Please implement both:
+A) UI behavior
+- disable/hide message input when request is closed
+- show a clear “Request is closed” / locked state
+
+B) backend / security behavior
+- prevent message creation on closed requests at the data/rules layer too
+- do not rely only on UI hiding
+
+Also add:
+- a proper “Reopen Request” action for Super Admin
+- when reopened, messaging works again
+
+==================================================
+4) NEW REQUEST GLOWING GREEN DOT INDICATOR
+==================================================
+
+We need a professional “new/unopened request” indicator.
+
+Requirements:
+- On the request cards (especially on the home page / admin request lists), show a small glowing green dot in the corner for newly created requests that have not yet been opened/reviewed
+- It should look subtle and professional, not childish
+- When I open the request, the green glowing dot should disappear
+- This helps indicate that the request is new/unread
+
+Implementation expectation:
+- Persist this state properly, not just visually for the session
+- Use a real field such as viewedByAdmin / firstViewedAt / similar
+- For Super Admin/Admin views only, not for regular employee cards unless explicitly needed
+- Do not break existing request status logic
+
+==================================================
+5) OUTPUT REQUIRED
+==================================================
+
+After finishing, tell me clearly:
+- which files were changed
+- how the iPhone permission fix was implemented
+- how request lock/reopen was implemented
+- how the glowing green dot logic is stored and removed
+- where the new transparent logo asset should be placed/referenced

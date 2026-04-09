@@ -17,7 +17,7 @@ export function Logo({ size = "medium", variant = "full" }: LogoProps) {
   return (
     <View style={styles.container}>
       <Image
-        source={require("@/assets/images/fal-logo.jpg")}
+        source={require("@/assets/images/fal-logo-transparent.png")}
         style={[
           styles.logo,
           { width: dims.width, height: dims.height },
