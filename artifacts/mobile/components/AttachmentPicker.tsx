@@ -148,8 +148,12 @@ export function AttachmentPicker({
     pickingRef.current = true;
     console.log("[DIAG] pickImage: guard passed, ref set to true");
     setPickerVisible(false);
-    await new Promise((r) => setTimeout(r, 300));
-    console.log("[DIAG] pickImage: 300ms delay done, about to call picker. Platform:", Platform.OS);
+    // iOS: wait 600ms so the Modal slide-out animation fully completes before
+    // presenting the native image picker. 300ms was too short — iOS silently
+    // refuses to present a new ViewController while one is still animating out,
+    // causing launchImageLibraryAsync to hang indefinitely.
+    await new Promise((r) => setTimeout(r, Platform.OS === "ios" ? 600 : 300));
+    console.log("[DIAG] pickImage: delay done, about to call picker. Platform:", Platform.OS);
     try {
       if (Platform.OS === "ios") {
         let permStatus: string;
@@ -183,14 +187,27 @@ export function AttachmentPicker({
         }
       }
 
-      let result: ImagePicker.ImagePickerResult;
+      let result: ImagePicker.ImagePickerResult | null;
       try {
         console.log("[DIAG] pickImage: calling launchImageLibraryAsync...");
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.85,
-          allowsMultipleSelection: false,
-        });
+        // iOS: use minimal options — no quality compression, no allowsMultipleSelection.
+        // Extra options can interact with iOS ViewController presentation and cause hangs.
+        // Android: keep quality and allowsMultipleSelection for better UX.
+        const pickerOptions: ImagePicker.ImagePickerOptions =
+          Platform.OS === "ios"
+            ? { mediaTypes: ["images"] }
+            : { mediaTypes: ["images"], quality: 0.85, allowsMultipleSelection: false };
+
+        // Safety timeout: if the native picker never resolves (e.g. iOS modal
+        // dismissal race), reset the guard after 25s so it is never permanently stuck.
+        result = await Promise.race([
+          ImagePicker.launchImageLibraryAsync(pickerOptions),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 25_000)),
+        ]);
+        if (!result) {
+          console.log("[DIAG] pickImage: launchImageLibraryAsync timed out — resetting guard");
+          return;
+        }
         console.log("[DIAG] pickImage: launchImageLibraryAsync returned, canceled =", result.canceled);
       } catch (pickerErr: unknown) {
         console.error("[AttachmentPicker] launchImageLibraryAsync failed:", pickerErr);
@@ -229,23 +246,33 @@ export function AttachmentPicker({
     pickingRef.current = true;
     console.log("[DIAG] pickDocument: guard passed, ref set to true");
     setPickerVisible(false);
-    await new Promise((r) => setTimeout(r, 300));
-    console.log("[DIAG] pickDocument: 300ms delay done. Platform:", Platform.OS);
+    // iOS: same 600ms delay as pickImage — modal must fully dismiss before
+    // presenting a native document picker ViewController.
+    await new Promise((r) => setTimeout(r, Platform.OS === "ios" ? 600 : 300));
+    console.log("[DIAG] pickDocument: delay done. Platform:", Platform.OS);
     try {
       console.log("[DIAG] pickDocument: calling getDocumentAsync...");
-      const result = await DocumentPicker.getDocumentAsync(
-        Platform.OS === "ios"
-          ? { type: "*/*", copyToCacheDirectory: true, multiple: false }
-          : {
-              type: [
-                "application/pdf",
-                "application/msword",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-              ],
-              copyToCacheDirectory: true,
-              multiple: false,
-            }
-      );
+      // Safety timeout: if getDocumentAsync hangs, reset the guard after 25s.
+      const result = await Promise.race([
+        DocumentPicker.getDocumentAsync(
+          Platform.OS === "ios"
+            ? { type: "*/*", copyToCacheDirectory: true, multiple: false }
+            : {
+                type: [
+                  "application/pdf",
+                  "application/msword",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ],
+                copyToCacheDirectory: true,
+                multiple: false,
+              }
+        ),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 25_000)),
+      ]);
+      if (!result) {
+        console.log("[DIAG] pickDocument: getDocumentAsync timed out — resetting guard");
+        return;
+      }
       console.log("[DIAG] pickDocument: getDocumentAsync returned, canceled =", result.canceled);
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
