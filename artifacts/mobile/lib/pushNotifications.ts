@@ -1,4 +1,3 @@
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -14,31 +13,41 @@ interface PushPayload {
   sound?: "default" | null;
 }
 
+/** Lazy-load expo-notifications only when actually needed. Returns null if unavailable. */
+async function getNotifications() {
+  if (Platform.OS === "web") return null;
+  try {
+    // Dynamic require — avoids crashing Expo Go which removed push in SDK 53
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("expo-notifications") as typeof import("expo-notifications");
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * Register for push notifications and return the Expo Push Token string.
- * Returns null if on web or if the user declines permissions.
+ * Returns null on web, if unavailable (Expo Go SDK 53+), or if user declines.
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   if (Platform.OS === "web") return null;
+  const N = await getNotifications();
+  if (!N) return null;
 
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await N.getPermissionsAsync();
     let finalStatus = existingStatus;
-
     if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await N.requestPermissionsAsync();
       finalStatus = status;
     }
+    if (finalStatus !== "granted") return null;
 
-    if (finalStatus !== "granted") {
-      return null;
-    }
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({
+    const tokenData = await N.getExpoPushTokenAsync({
       projectId: process.env.EXPO_PUBLIC_REPL_ID ?? undefined,
     });
     return tokenData.data;
-  } catch (_e) {
+  } catch (_) {
     return null;
   }
 }
@@ -48,7 +57,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * Works directly from the client — no backend server required.
  */
 export async function sendPushNotification(payload: PushPayload): Promise<void> {
-  if (Platform.OS === "web") return;
   const tokens = Array.isArray(payload.to) ? payload.to : [payload.to];
   const validTokens = tokens.filter(
     (t) => typeof t === "string" && t.startsWith("ExponentPushToken")
@@ -69,7 +77,7 @@ export async function sendPushNotification(payload: PushPayload): Promise<void> 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(messages.length === 1 ? messages[0] : messages),
     });
-  } catch (_e) {
+  } catch (_) {
     // Non-fatal — push is best-effort
   }
 }
@@ -88,7 +96,7 @@ export async function getAdminPushTokens(): Promise<string[]> {
     return snap.docs
       .map((d) => (d.data() as UserProfile & { pushToken?: string }).pushToken ?? "")
       .filter(Boolean);
-  } catch (_e) {
+  } catch (_) {
     return [];
   }
 }
@@ -105,14 +113,16 @@ export async function getUserPushToken(uid: string): Promise<string | null> {
     if (snap.empty) return null;
     const data = snap.docs[0].data() as UserProfile & { pushToken?: string };
     return data.pushToken ?? null;
-  } catch (_e) {
+  } catch (_) {
     return null;
   }
 }
 
 /** Configure how notifications appear when the app is in the foreground. */
-export function configureNotificationHandler(): void {
-  Notifications.setNotificationHandler({
+export async function configureNotificationHandler(): Promise<void> {
+  const N = await getNotifications();
+  if (!N) return;
+  N.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: true,

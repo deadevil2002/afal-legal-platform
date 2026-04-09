@@ -33,7 +33,7 @@ function PushSetup() {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    configureNotificationHandler();
+    void configureNotificationHandler();
   }, []);
 
   useEffect(() => {
