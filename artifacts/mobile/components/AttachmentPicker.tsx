@@ -16,7 +16,7 @@
 
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -86,6 +86,8 @@ export function AttachmentPicker({
   const { t, isRTL } = useT();
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
+  // Prevents concurrent picker calls ("Different document picking in progress" on iOS)
+  const pickingRef = useRef(false);
 
   const canAdd = attachments.length + uploading.length < maxFiles && !disabled;
 
@@ -138,6 +140,8 @@ export function AttachmentPicker({
   // "limited" status (iOS 14+ selected-photos access) is accepted — the user still
   // gets to pick from their chosen photos.
   const pickImage = async () => {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
     try {
@@ -193,6 +197,8 @@ export function AttachmentPicker({
     } catch (e: unknown) {
       console.error("[AttachmentPicker] pickImage unexpected error:", e);
       Alert.alert(t("error"), t("errGeneric"));
+    } finally {
+      pickingRef.current = false;
     }
   };
 
@@ -203,6 +209,8 @@ export function AttachmentPicker({
   // On Android: explicit MIME types are kept for a better filtered picker UI.
   // copyToCacheDirectory: true ensures the local URI is readable for upload.
   const pickDocument = async () => {
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
     try {
@@ -225,6 +233,8 @@ export function AttachmentPicker({
     } catch (e: unknown) {
       console.error("[AttachmentPicker] pickDocument failed:", e);
       Alert.alert(t("error"), t("errGeneric"));
+    } finally {
+      pickingRef.current = false;
     }
   };
 
