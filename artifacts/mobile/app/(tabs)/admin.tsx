@@ -56,7 +56,7 @@ type AdminTab = "requests" | "users";
 export default function AdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, getAllUsers } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, getAllUsers } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 

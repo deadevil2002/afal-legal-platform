@@ -22,7 +22,7 @@ import { useT } from "@/hooks/useT";
 export default function HomeScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { profile, isAdmin, isSuperAdmin } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin } = useAuth();
   const { requests, loading, error, refresh } = useRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();

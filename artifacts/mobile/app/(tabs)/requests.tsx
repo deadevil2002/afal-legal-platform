@@ -33,7 +33,7 @@ type FilterValue = (typeof STATUS_FILTER_ITEMS)[number]["value"];
 export default function RequestsScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { requests, loading, error, refresh } = useRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
