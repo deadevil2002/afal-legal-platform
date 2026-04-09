@@ -20,6 +20,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Animated,
+  Linking,
   Modal,
   Platform,
   StyleSheet,
@@ -132,20 +133,30 @@ export function AttachmentPicker({
     setUploading((prev) => prev.filter((f) => f.name !== uploadKey));
   };
 
+  // ── Photo library picker (ImagePicker) ──────────────────────────────────
+  // Uses expo-image-picker so iOS shows the native Photos UI with proper permissions.
+  // "limited" status (iOS 14+ selected-photos access) is accepted — the user still
+  // gets to pick from their chosen photos.
   const pickImage = async () => {
     setPickerVisible(false);
-    // Small delay so the modal closes before the native picker opens
     await new Promise((r) => setTimeout(r, 300));
     try {
-      // Explicitly request media library permission on iOS before launching picker.
-      // Without this the system shows no prompt and the picker silently fails.
       if (Platform.OS === "ios") {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        // "granted" = full access, "limited" = iOS 14+ selected photos — both are fine.
+        if (status !== "granted" && status !== "limited") {
           Alert.alert(
             t("permissionDenied"),
             t("iosPhotoPermissionDenied"),
-            [{ text: t("ok") }]
+            [
+              { text: t("cancel"), style: "cancel" },
+              {
+                text: t("openSettings"),
+                onPress: () => Linking.openSettings(),
+              },
+            ]
           );
           return;
         }
@@ -167,6 +178,10 @@ export function AttachmentPicker({
     }
   };
 
+  // ── Document picker (DocumentPicker) ────────────────────────────────────
+  // Uses expo-document-picker which opens the iOS Files / iCloud UI.
+  // Only PDF and Word types — images go through the image picker above.
+  // copyToCacheDirectory: true ensures the local URI is readable for upload.
   const pickDocument = async () => {
     setPickerVisible(false);
     await new Promise((r) => setTimeout(r, 300));
@@ -176,9 +191,6 @@ export function AttachmentPicker({
           "application/pdf",
           "application/msword",
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "image/jpeg",
-          "image/png",
-          "image/webp",
         ],
         copyToCacheDirectory: true,
         multiple: false,

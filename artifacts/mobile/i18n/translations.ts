@@ -224,7 +224,8 @@ export const translations = {
 
     // ── Permissions ───────────────────────────────────────────────────────
     permissionDenied: "Permission Denied",
-    iosPhotoPermissionDenied: "Access to your photo library was denied. Please enable it in Settings > Privacy > Photos.",
+    iosPhotoPermissionDenied: "Access to your photo library was denied. Please open iPhone Settings and enable Photos access for Arabian Fal.",
+    openSettings: "Open Settings",
 
     // ── Settings extra ────────────────────────────────────────────────────
     phone: "Phone",
@@ -519,7 +520,8 @@ export const translations = {
 
     // ── Permissions ───────────────────────────────────────────────────────
     permissionDenied: "تم رفض الإذن",
-    iosPhotoPermissionDenied: "تم رفض الوصول إلى مكتبة الصور. يرجى تفعيله من الإعدادات > الخصوصية > الصور.",
+    iosPhotoPermissionDenied: "تم رفض الوصول إلى مكتبة الصور. يرجى فتح إعدادات الجهاز وتفعيل الوصول إلى الصور لتطبيق فال العربية.",
+    openSettings: "فتح الإعدادات",
 
     // ── Settings extra ────────────────────────────────────────────────────
     phone: "الهاتف",

@@ -19,7 +19,10 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Arabian Fal needs access to your photo library to attach images to legal requests.",
         "NSPhotoLibraryAddUsageDescription": "Arabian Fal needs permission to save photos.",
-        "NSCameraUsageDescription": "Arabian Fal needs camera access to take photos for legal requests."
+        "NSCameraUsageDescription": "Arabian Fal needs camera access to take photos for legal requests.",
+        "UISupportsDocumentBrowser": true,
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
     "android": {
@@ -51,7 +54,8 @@
           "photosPermission": "Arabian Fal needs access to your photo library to attach images to legal requests.",
           "cameraPermission": "Arabian Fal needs camera access to take photos for legal requests."
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "experiments": {
       "typedRoutes": true,
