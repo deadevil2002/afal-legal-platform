@@ -1,0 +1,83 @@
+Important correction:
+
+Do NOT touch the previous completed work related to:
+- logo / white home screen
+- request locking / reopen
+- green dot base behavior that was already working before the last prompt
+
+Those parts were already working.
+
+The instability started AFTER the last prompt that included:
+- auth error mapping
+- custom rounded alerts/modals
+- green dot for all users
+- push notifications
+
+So the current task is NOT a full rollback.
+It is a targeted stabilization pass.
+
+==================================================
+TARGETED STABILIZATION TASK
+==================================================
+
+Keep these changes if they are working:
+1) friendly auth error messages
+2) rounded / modern custom error UI
+3) green dot for all users (per-user seen/unseen logic)
+
+But isolate and fix ONLY the changes that caused the crash, most likely the push notification integration.
+
+==================================================
+1) REMOVE / ISOLATE PUSH CRASH SAFELY
+==================================================
+
+The app crash started after adding push notifications.
+
+Requirements:
+- completely isolate the push notification code so it cannot crash Expo Go
+- if needed, temporarily disable push registration and push initialization in Expo Go only
+- do NOT break future support for dev build / production build
+- the app must start and run normally again
+
+Important:
+- do NOT leave any top-level import or early initialization that can crash startup
+- do NOT call anything related to push before the app/providers are mounted safely
+
+==================================================
+2) FIX THE AUTHPROVIDER / LAYOUT ISSUE
+==================================================
+
+The screenshots show:
+"useAuth must be used within AuthProvider"
+
+Fix only the provider/layout issue introduced by the last changes.
+Most likely a component or helper added in the push work is now mounted in the wrong place.
+
+Requirements:
+- restore correct provider ordering
+- no component should call useAuth before AuthProvider exists
+- app should load normally again
+
+==================================================
+3) PRESERVE THE GOOD CHANGES
+==================================================
+
+Do NOT remove unless absolutely necessary:
+- auth error mapping
+- rounded custom error/modal styling
+- per-user green dot logic
+
+Only remove/adjust the minimum code necessary to restore stability.
+
+==================================================
+4) OUTPUT REQUIRED
+==================================================
+
+After fixing, tell me clearly:
+- exact crash root cause
+- which part was caused by push integration
+- whether push is now temporarily disabled in Expo Go only
+- whether auth error mapping was preserved
+- whether rounded UI was preserved
+- whether per-user green dot was preserved
+- which files were changed
