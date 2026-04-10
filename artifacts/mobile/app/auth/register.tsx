@@ -76,7 +76,14 @@ export default function RegisterScreen() {
       );
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
-      setErrorMsg(mapFirebaseAuthError(e, language));
+      const msg = (e as Error)?.message ?? "";
+      if (msg === "phone_taken") {
+        setErrorMsg(language === "ar" ? "رقم الهاتف هذا مسجّل مسبقاً." : "This phone number is already registered.");
+      } else if (msg === "employee_taken") {
+        setErrorMsg(language === "ar" ? "رقم الموظف هذا مسجّل مسبقاً." : "This employee number is already registered.");
+      } else {
+        setErrorMsg(mapFirebaseAuthError(e, language));
+      }
     } finally {
       setLoading(false);
     }

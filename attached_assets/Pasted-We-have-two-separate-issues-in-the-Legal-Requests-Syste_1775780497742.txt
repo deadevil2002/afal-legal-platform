@@ -1,0 +1,130 @@
+We have two separate issues in the Legal Requests System. Do not refactor unrelated code. Fix them carefully and minimally.
+
+Project stack:
+- Expo + React Native
+- Firebase Auth
+- Firestore
+- Existing role system must remain intact
+
+Current confirmed problems:
+
+1) Registration / profile document mismatch
+Observed behavior:
+- A new user can register successfully
+- Firebase Auth account is created
+- After login, Profile screen appears empty or missing the values entered during registration
+- Super Admin also does not see the new user profile correctly in the users list / profile context
+- If trying to register again with the same email, Firebase says email already exists
+
+This strongly suggests:
+- Auth creation succeeds
+- But Firestore users/{uid} creation is failing, incomplete, delayed, or the profile screen is loading from the wrong source/state
+
+2) Profile update permission-denied
+Observed console info indicates profile update error includes debug values like:
+- role: undefined
+- createdAt: undefined
+
+Firestore rules only allow normal users to update:
+- displayName
+- department
+- phone
+- language
+- employeeNumber
+- updatedAt
+
+So profile update must send only a partial safe payload with allowed editable fields.
+It must NOT send protected fields or undefined values.
+
+Your tasks:
+
+PART A — Audit and fix registration persistence
+1. Audit the full register flow:
+- registration screen
+- AuthContext register()
+- Firestore user document creation
+- post-registration login/bootstrap flow
+- profile loading logic after sign-in
+
+2. Ensure that after successful registration:
+- users/{uid} is always created correctly in Firestore
+- the saved user document includes:
+  - uid
+  - email
+  - displayName
+  - employeeNumber
+  - department
+  - phone
+  - role = "user"
+  - isActive = true
+  - language
+  - createdAt
+  - updatedAt
+
+3. Ensure the Profile screen reads from the correct Firestore user doc and hydrates all fields properly after login
+
+PART B — Fix profile update safely
+1. Audit updateUserProfile and the profile save handler
+2. Ensure normal user profile update sends ONLY:
+- displayName
+- department
+- phone
+- language
+- employeeNumber
+- updatedAt
+3. Do NOT send:
+- email
+- uid
+- role
+- createdAt
+- isActive
+- undefined fields
+4. Use a partial update object only
+
+PART C — Add uniqueness enforcement for phone and employee number
+Business requirement:
+- Email must be unique
+- Phone must be unique
+- Employee number must be unique
+- These three identifiers must not allow fake duplicate accounts
+
+Important:
+- Firebase Auth already enforces unique email
+- You must implement safe uniqueness for phone and employeeNumber at Firestore level too
+
+Required design:
+1. Add two index collections:
+- user_phone_index/{normalizedPhone}
+- user_employee_index/{employeeNumber}
+
+2. On registration, create all required documents atomically if possible:
+- users/{uid}
+- user_phone_index/{normalizedPhone}
+- user_employee_index/{employeeNumber}
+
+3. Registration must fail cleanly if phone already exists or employee number already exists
+
+4. Normalize phone before indexing/storage so equivalent formats do not bypass uniqueness
+Examples:
+- 0538000286
+- +966538000286
+should map consistently according to one chosen normalization rule
+
+PART D — Firestore rules
+Only update Firestore rules if needed for the new index collections.
+Do NOT weaken existing user/request/message protections.
+
+Output required after completion:
+1. Files changed
+2. Root cause of why new registered users were not appearing correctly in profile
+3. Confirmation that users/{uid} is now always created correctly
+4. Exact profile update payload for normal users
+5. Confirmation that createdAt/role/isActive are no longer sent in self-profile updates
+6. Exact uniqueness approach for phone and employee number
+7. Any required Firestore rules additions for the new index collections
+
+Important:
+- Do not touch AttachmentPicker
+- Do not change request logic
+- Do not break super admin transfer
+- Keep changes minimal, safe, and production-minded

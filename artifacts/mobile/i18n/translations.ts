@@ -226,6 +226,8 @@ export const translations = {
     passwordChanged: "Your password has been updated successfully.",
     changePasswordSubtitle: "Update your account password securely",
     wrongPassword: "Current password is incorrect. Please try again.",
+    phoneTaken: "This phone number is already registered.",
+    employeeTaken: "This employee number is already registered.",
 
     // ── Request detail ────────────────────────────────────────────────────
     requestNotFound: "Request not found",
@@ -537,6 +539,8 @@ export const translations = {
     passwordChanged: "تم تحديث كلمة المرور بنجاح.",
     changePasswordSubtitle: "تحديث كلمة مرور حسابك بأمان",
     wrongPassword: "كلمة المرور الحالية غير صحيحة. يرجى المحاولة مجدداً.",
+    phoneTaken: "رقم الهاتف هذا مسجّل مسبقاً.",
+    employeeTaken: "رقم الموظف هذا مسجّل مسبقاً.",
 
     // ── Request detail ────────────────────────────────────────────────────
     requestNotFound: "لم يُعثر على الطلب",

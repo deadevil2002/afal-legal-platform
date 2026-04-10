@@ -111,6 +111,19 @@ function resolveRole(
   return storedRole;
 }
 
+/**
+ * Normalize a phone number to a consistent digit-only format for uniqueness indexing.
+ * Maps local Saudi (0-prefixed) and international (+966) numbers to "966XXXXXXXXX".
+ * Strips all non-digit characters before normalizing.
+ */
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  if (digits.startsWith("966")) return digits;
+  if (digits.startsWith("0")) return "966" + digits.slice(1);
+  return "966" + digits;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -365,24 +378,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "This email is reserved for the primary administrator. Please sign in directly."
       );
     }
+
+    const trimmedEmpNum = (employeeNumber?.trim() || "");
+    const normalizedPhone = normalizePhone(phone?.trim() || "");
+
+    // ── Pre-check uniqueness before creating the auth account ──────────────
+    // This avoids leaving behind an orphaned Firebase Auth account when an
+    // index document already exists.
+    if (normalizedPhone) {
+      const phoneSnap = await getDoc(doc(db, "user_phone_index", normalizedPhone));
+      if (phoneSnap.exists()) throw new Error("phone_taken");
+    }
+    if (trimmedEmpNum) {
+      const empSnap = await getDoc(doc(db, "user_employee_index", trimmedEmpNum));
+      if (empSnap.exists()) throw new Error("employee_taken");
+    }
+
+    // ── Create Firebase Auth account ───────────────────────────────────────
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName });
+
     const now = serverTimestamp();
     const newProfile: UserProfile = {
       uid: cred.user.uid,
       email,
       displayName,
-      employeeNumber: employeeNumber?.trim() || "",
+      employeeNumber: trimmedEmpNum,
       role: "user",
       department: department || "",
-      phone: phone?.trim() || "",
+      phone: normalizedPhone || phone?.trim() || "",
       isActive: true,
       createdAt: now,
       updatedAt: now,
       language: "en",
     };
-    await setDoc(doc(db, "users", cred.user.uid), newProfile);
+
+    // Set profile in memory immediately.
+    // This prevents the race window where onAuthStateChanged fires (finding no
+    // Firestore doc yet) and calls setLoading(false) with profile=null, which
+    // would briefly make the app think no user is logged in.
     setProfile(newProfile);
+
+    // ── Atomically write all required Firestore documents ──────────────────
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, "users", cred.user.uid), newProfile);
+      if (normalizedPhone) {
+        batch.set(doc(db, "user_phone_index", normalizedPhone), {
+          uid: cred.user.uid,
+          createdAt: now,
+        });
+      }
+      if (trimmedEmpNum) {
+        batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
+          uid: cred.user.uid,
+          createdAt: now,
+        });
+      }
+      await batch.commit();
+    } catch (firestoreErr: unknown) {
+      // Firestore write failed — clean up so the user can retry cleanly.
+      setProfile(null);
+      try {
+        await cred.user.delete();
+      } catch (_) {
+        // If delete fails, sign out so the orphaned session doesn't persist.
+        await signOut(auth).catch(() => {});
+      }
+      throw firestoreErr;
+    }
   };
 
   const logout = async () => {
@@ -393,16 +457,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     /**
-     * Strict whitelist — only fields the Firestore rule allows in the diff.
-     * Rule: affectedKeys().hasOnly(["displayName","department","phone",
-     *        "language","employeeNumber","updatedAt","isActive"])
+     * Strict whitelist — exactly matches the Firestore rule for self-updates:
+     * affectedKeys().hasOnly([
+     *   "displayName","department","phone","language","employeeNumber","updatedAt"
+     * ])
+     * Protected fields (uid, email, role, createdAt, isActive) must never be
+     * included in a normal-user update payload or the write is denied.
      */
     const ALLOWED: (keyof UserProfile)[] = [
       "displayName",
       "department",
       "phone",
       "language",
-      "isActive",
       "employeeNumber",
     ];
     const safe: Record<string, unknown> = {};
