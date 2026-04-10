@@ -81,6 +81,8 @@ export default function RegisterScreen() {
         setErrorMsg(language === "ar" ? "رقم الهاتف هذا مسجّل مسبقاً." : "This phone number is already registered.");
       } else if (msg === "employee_taken") {
         setErrorMsg(language === "ar" ? "رقم الموظف هذا مسجّل مسبقاً." : "This employee number is already registered.");
+      } else if (msg === "phone_or_employee_taken") {
+        setErrorMsg(language === "ar" ? "رقم الهاتف أو رقم الموظف مسجّل مسبقاً. يرجى المراجعة والمحاولة مجدداً." : "Phone number or employee number is already registered. Please check and try again.");
       } else {
         setErrorMsg(mapFirebaseAuthError(e, language));
       }

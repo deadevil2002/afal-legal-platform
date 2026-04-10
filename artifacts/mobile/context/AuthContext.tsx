@@ -382,18 +382,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const trimmedEmpNum = (employeeNumber?.trim() || "");
     const normalizedPhone = normalizePhone(phone?.trim() || "");
 
-    // ── Pre-check uniqueness before creating the auth account ──────────────
-    // This avoids leaving behind an orphaned Firebase Auth account when an
-    // index document already exists.
-    if (normalizedPhone) {
-      const phoneSnap = await getDoc(doc(db, "user_phone_index", normalizedPhone));
-      if (phoneSnap.exists()) throw new Error("phone_taken");
-    }
-    if (trimmedEmpNum) {
-      const empSnap = await getDoc(doc(db, "user_employee_index", trimmedEmpNum));
-      if (empSnap.exists()) throw new Error("employee_taken");
-    }
-
     // ── Create Firebase Auth account ───────────────────────────────────────
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName });
@@ -406,7 +394,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       employeeNumber: trimmedEmpNum,
       role: "user",
       department: department || "",
-      phone: normalizedPhone || phone?.trim() || "",
+      phone: normalizedPhone,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -420,18 +408,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(newProfile);
 
     // ── Atomically write all required Firestore documents ──────────────────
+    // Index reads are disabled by Firestore rules (allow read: if false).
+    // Uniqueness is enforced server-side via !exists(...) in the create rule.
+    // A batch failure with permission-denied means phone or emp number is taken.
     try {
       const batch = writeBatch(db);
       batch.set(doc(db, "users", cred.user.uid), newProfile);
       if (normalizedPhone) {
+        // Rule requires: request.resource.data.phone == normalizedPhone (document ID)
         batch.set(doc(db, "user_phone_index", normalizedPhone), {
           uid: cred.user.uid,
+          phone: normalizedPhone,
           createdAt: now,
         });
       }
       if (trimmedEmpNum) {
+        // Rule requires: request.resource.data.employeeNumber == employeeNumber (document ID)
         batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
           uid: cred.user.uid,
+          employeeNumber: trimmedEmpNum,
           createdAt: now,
         });
       }
@@ -444,6 +439,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (_) {
         // If delete fails, sign out so the orphaned session doesn't persist.
         await signOut(auth).catch(() => {});
+      }
+      // permission-denied from the batch means the !exists() uniqueness guard
+      // in the Firestore rules fired — phone or employee number already taken.
+      const code = (firestoreErr as { code?: string })?.code;
+      if (code === "permission-denied") {
+        throw new Error("phone_or_employee_taken");
       }
       throw firestoreErr;
     }
@@ -477,60 +478,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     safe.updatedAt = serverTimestamp();
 
-    /**
-     * Firestore rule also requires:
-     *   request.resource.data.employeeNumber is string && size() > 0
-     * This operates on the FULL resulting document (old fields + new fields
-     * merged). If employeeNumber would be absent or empty in the result,
-     * the write is rejected.
-     *
-     * Guarantee: always send a non-empty employeeNumber so the resulting
-     * document satisfies the rule — even if the caller didn't include it.
-     */
-    const outgoingEmpNum = (safe.employeeNumber as string | undefined)?.trim();
-    if (!outgoingEmpNum) {
-      // Fall back to whatever is already stored on the profile
-      const existingEmpNum = profile?.employeeNumber?.trim();
-      if (existingEmpNum) {
-        safe.employeeNumber = existingEmpNum;
+    // ── Phone normalization ────────────────────────────────────────────────
+    // The Firestore rule requires phone.size() > 0 in the resulting document.
+    // Normalize the incoming phone so it matches the index document ID format.
+    // If the caller sends an empty phone, omit it from the payload entirely —
+    // this preserves the existing non-empty value already stored in Firestore.
+    if ("phone" in safe) {
+      const normalizedNewPhone = normalizePhone((safe.phone as string) || "");
+      if (normalizedNewPhone) {
+        safe.phone = normalizedNewPhone;
       } else {
-        // Generate a stable placeholder so the rule passes (uid-derived)
-        safe.employeeNumber = `EMP-${user.uid.slice(0, 8).toUpperCase()}`;
+        // Empty phone after normalization — preserve the existing stored value.
+        delete safe.phone;
       }
     }
 
-    // updateDoc merges the fields — uid, email, role, createdAt are untouched.
-    console.log(
-      "[ProfileUpdate] uid:", user.uid,
-      "role:", profile?.role,
-      "employeeNumber in doc:", profile?.employeeNumber,
-      "payload keys:", Object.keys(safe).join(", "),
-      "payload:", JSON.stringify(safe)
-    );
-    try {
-      await updateDoc(doc(db, "users", user.uid), safe);
-    } catch (writeErr: unknown) {
-      const e = writeErr as { code?: string; message?: string };
-      console.error(
-        "[ProfileUpdate] FAILED — code:", e.code,
-        "message:", e.message,
-        "uid:", user.uid,
-        "role:", profile?.role,
-        "Firestore doc fields (from profile context):", JSON.stringify({
-          uid: profile?.uid,
-          email: profile?.email,
-          role: profile?.role,
-          employeeNumber: profile?.employeeNumber,
-          createdAt: String(profile?.createdAt),
-          department: profile?.department,
-          displayName: profile?.displayName,
-          phone: profile?.phone,
-          language: profile?.language,
-          isActive: profile?.isActive,
-        })
-      );
-      throw writeErr;
+    // ── Employee number guarantee ──────────────────────────────────────────
+    // Firestore rule requires: request.resource.data.employeeNumber is string.
+    // Always ensure a non-empty employee number is in the payload.
+    const outgoingEmpNum = (safe.employeeNumber as string | undefined)?.trim();
+    if (!outgoingEmpNum) {
+      const existingEmpNum = profile?.employeeNumber?.trim();
+      safe.employeeNumber = existingEmpNum || `EMP-${user.uid.slice(0, 8).toUpperCase()}`;
     }
+
+    // ── Detect index-relevant changes ────────────────────────────────────
+    // Compare normalized new values against what is currently stored.
+    const oldPhone = normalizePhone(profile?.phone || "");
+    const newPhone = (safe.phone as string) || "";
+    const phoneChanged = !!newPhone && newPhone !== oldPhone;
+
+    const oldEmpNum = (profile?.employeeNumber || "").trim();
+    const newEmpNum = ((safe.employeeNumber as string) || "").trim();
+    const empNumChanged = !!newEmpNum && newEmpNum !== oldEmpNum;
+
+    if (phoneChanged || empNumChanged) {
+      /**
+       * Index-managing batch:
+       * 1. Update users/{uid} with the safe payload
+       * 2. Create new index document(s) for changed phone/empNum
+       *    — Firestore rule: allow create if !exists() → enforces uniqueness server-side
+       *    — permission-denied here means the new value is already taken by another user
+       * 3. Delete old index document(s) so the old identifiers are freed
+       *    — Firestore rule: allow delete if uid == auth.uid (self-deletion)
+       */
+      const now = serverTimestamp();
+      const batch = writeBatch(db);
+
+      // Always update the user document
+      batch.update(doc(db, "users", user.uid), safe);
+
+      if (phoneChanged) {
+        // Create new phone index (will be denied by !exists() if already taken)
+        batch.set(doc(db, "user_phone_index", newPhone), {
+          uid: user.uid,
+          phone: newPhone,
+          createdAt: now,
+        });
+        // Free the old phone index so it can be registered by another user
+        if (oldPhone) {
+          batch.delete(doc(db, "user_phone_index", oldPhone));
+        }
+      }
+
+      if (empNumChanged) {
+        // Create new employee number index
+        batch.set(doc(db, "user_employee_index", newEmpNum), {
+          uid: user.uid,
+          employeeNumber: newEmpNum,
+          createdAt: now,
+        });
+        // Free the old employee number index
+        if (oldEmpNum) {
+          batch.delete(doc(db, "user_employee_index", oldEmpNum));
+        }
+      }
+
+      try {
+        await batch.commit();
+      } catch (batchErr: unknown) {
+        const code = (batchErr as { code?: string })?.code;
+        if (code === "permission-denied") {
+          throw new Error("phone_or_employee_taken");
+        }
+        throw batchErr;
+      }
+    } else {
+      // No index-relevant change — simple updateDoc is sufficient.
+      await updateDoc(doc(db, "users", user.uid), safe);
+    }
+
     setProfile((prev) => (prev ? { ...prev, ...safe } : prev));
   };
 

@@ -471,7 +471,17 @@ export default function SettingsScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(t("success"), t("profileUpdated"));
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as { message?: string }).message);
+      const msg = (e as { message?: string }).message;
+      if (msg === "phone_or_employee_taken") {
+        Alert.alert(
+          t("error"),
+          language === "ar"
+            ? "رقم الهاتف أو رقم الموظف مسجّل مسبقاً لدى مستخدم آخر."
+            : "That phone number or employee number is already registered to another user."
+        );
+      } else {
+        Alert.alert(t("error"), msg);
+      }
     } finally {
       setSaving(false);
     }

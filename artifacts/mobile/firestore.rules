@@ -194,35 +194,48 @@ service cloud.firestore {
     // user_phone_index
     // Uniqueness index for phone numbers.
     // Document ID = normalized phone (digits only, 966XXXXXXXXX format).
-    // Document data = { uid: string, createdAt: timestamp }
+    // Document data = { uid, phone, createdAt }
+    // Reads are denied so no user can pre-check whether a phone is taken.
+    // Uniqueness is enforced server-side via !exists() in the create rule.
     // =========================
-    match /user_phone_index/{phone} {
-      // Any signed-in user may read for pre-registration uniqueness check.
-      allow read: if signedIn();
-      // Only the owner may create their own index entry.
-      // allow create (not update) — enforces server-side uniqueness:
-      // if the document already exists, set() is treated as update → denied.
+    match /user_phone_index/{normalizedPhone} {
+      allow read: if false;
+
       allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-      // Super Admin may delete stale index entries (e.g. account deletion cleanup).
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.phone is string
+        && request.resource.data.phone == normalizedPhone
+        && !exists(/databases/$(database)/documents/user_phone_index/$(normalizedPhone));
+
       allow update: if false;
-      allow delete: if isSuperAdmin();
+
+      // Super Admin may delete for account cleanup.
+      // Users may delete their OWN index entry — required for phone-number changes
+      // in profile update (old entry must be freed so the new one can be created).
+      allow delete: if isSuperAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // =========================
     // user_employee_index
     // Uniqueness index for employee numbers.
     // Document ID = trimmed employee number string.
-    // Document data = { uid: string, createdAt: timestamp }
+    // Document data = { uid, employeeNumber, createdAt }
+    // Same read/create/update semantics as user_phone_index.
     // =========================
-    match /user_employee_index/{empNum} {
-      // Any signed-in user may read for pre-registration uniqueness check.
-      allow read: if signedIn();
-      // Only the owner may create their own index entry.
+    match /user_employee_index/{employeeNumber} {
+      allow read: if false;
+
       allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.employeeNumber is string
+        && request.resource.data.employeeNumber == employeeNumber
+        && !exists(/databases/$(database)/documents/user_employee_index/$(employeeNumber));
+
       allow update: if false;
-      allow delete: if isSuperAdmin();
+
+      allow delete: if isSuperAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // =========================
