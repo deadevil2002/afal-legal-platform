@@ -142,15 +142,17 @@ export default function HomeScreen() {
             <Icon name="archive" size={40} color={colors.border} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("noRequests")}</Text>
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {t("createFirstRequest")}
+              {isSuperAdmin ? t("allRequests") : t("createFirstRequest")}
             </Text>
-            <TouchableOpacity
-              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.push("/request/new" as never)}
-            >
-              <Icon name="plus" size={16} color="#fff" />
-              <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>
-            </TouchableOpacity>
+            {!isSuperAdmin && (
+              <TouchableOpacity
+                style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push("/request/new" as never)}
+              >
+                <Icon name="plus" size={16} color="#fff" />
+                <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           recentRequests.map((req) => (

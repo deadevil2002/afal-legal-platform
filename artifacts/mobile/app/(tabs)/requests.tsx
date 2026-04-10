@@ -34,7 +34,7 @@ type FilterValue = (typeof STATUS_FILTER_ITEMS)[number]["value"];
 export default function RequestsScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const { requests, loading, error, refresh } = useRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -79,12 +79,14 @@ export default function RequestsScreen() {
         <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>
           {isAdmin ? t("allRequests") : t("myRequests")}
         </Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => router.push("/request/new" as never)}
-        >
-          <Icon name="plus" size={26} color="#fff" />
-        </TouchableOpacity>
+        {!isSuperAdmin && (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => router.push("/request/new" as never)}
+          >
+            <Icon name="plus" size={26} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search */}
@@ -168,7 +170,7 @@ export default function RequestsScreen() {
               <TouchableOpacity onPress={() => setFilter("All")}>
                 <Text style={[styles.clearFilter, { color: colors.primary }]}>{t("clearFilter")}</Text>
               </TouchableOpacity>
-            ) : (
+            ) : !isSuperAdmin ? (
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
                 onPress={() => router.push("/request/new" as never)}
@@ -176,7 +178,7 @@ export default function RequestsScreen() {
                 <Icon name="plus" size={16} color="#fff" />
                 <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         ) : (
           filtered.map((req) => (
