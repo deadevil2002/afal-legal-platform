@@ -1,0 +1,89 @@
+We need a deep diagnostic pass for the sign-up flow.
+
+Current problem:
+- User fills the registration form and taps Sign Up
+- The app briefly looks like it is loading / transitioning
+- Then it kicks the user back out
+- No Firebase Auth account is created
+- The email does NOT appear in Firebase Authentication
+- So something is failing before successful account creation completes
+
+Important:
+This used to work before. Do not rewrite the whole auth system.
+Do not change Firestore rules.
+Do not guess. Add precise instrumentation and identify the exact failing step.
+
+Your task:
+Instrument the registration flow with very explicit step-by-step logs and safe error logging.
+
+Add temporary debug logging to these exact places:
+1. app/auth/register.tsx
+- when Sign Up button is pressed
+- before validation
+- after validation passes
+- right before calling register(...)
+- right after register(...) resolves
+- in the catch block with the exact error
+
+2. context/AuthContext.tsx register()
+Log each exact step:
+- register:start
+- before createUserWithEmailAndPassword
+- after createUserWithEmailAndPassword success (include uid)
+- before any profile object creation
+- before any batch/write to Firestore
+- before creating phone index
+- before creating employee index
+- after batch.commit success
+- before setProfile
+- before any navigation-related side effects if present
+- in every catch block with exact error.code / error.message / stack if available
+- before deleting auth user rollback
+- after deleting auth user rollback
+
+3. auth/bootstrap flow
+- log onAuthStateChanged entry
+- log current user uid or null
+- log whether profile doc exists
+- log whether any repair path is triggered
+- log any redirect decisions
+
+4. layout / auth gate
+- log exactly why it routes:
+  - to auth
+  - to tabs
+  - stays waiting
+- include values of:
+  - user present?
+  - profile present?
+  - loading?
+  - current pathname / segment
+
+Logging requirements:
+- Use short structured logs, e.g.
+  [SIGNUP] step=before_register
+  [AUTH] step=create_user_success uid=...
+  [AUTHGATE] route=tabs user=true profile=true loading=false
+- Do NOT JSON.stringify huge Firebase objects
+- Log only primitives / short strings to avoid recursive LogBox crashes
+- Do NOT log circular objects
+- For errors, log:
+  - code if present
+  - message if present
+  - name if present
+
+Then:
+1. Reproduce the issue once
+2. Read the logs
+3. Identify the exact failing step
+4. Fix only that exact root cause
+
+If the exact root cause is still unclear, add one temporary visible on-screen debug label in the register screen showing the latest signup step reached, so we can see where it dies even if LogBox is noisy.
+
+Output required:
+- Exact failing step name
+- Exact file and line region involved
+- Root cause
+- Fix applied
+- Which logs were added and then kept/removed
+- Confirmation whether createUserWithEmailAndPassword was reached or not

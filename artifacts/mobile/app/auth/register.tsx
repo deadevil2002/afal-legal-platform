@@ -46,9 +46,17 @@ export default function RegisterScreen() {
 
   const clearError = () => setErrorMsg(null);
 
+  const [debugStep, setDebugStep] = React.useState("idle");
+
   const handleRegister = async () => {
+    console.log("[SIGNUP] step=button_pressed");
+    setDebugStep("button_pressed");
     setErrorMsg(null);
+
+    console.log("[SIGNUP] step=before_validation fullName=" + !!fullName + " email=" + !!email + " emp=" + !!employeeNumber + " phone=" + !!phone + " pw=" + !!password + " cpw=" + !!confirmPassword);
     if (!fullName || !email || !employeeNumber || !phone || !password || !confirmPassword) {
+      console.log("[SIGNUP] step=validation_failed reason=missing_fields");
+      setDebugStep("validation_failed:missing_fields");
       setErrorMsg(
         language === "ar"
           ? "جميع الحقول مطلوبة بما فيها رقم الموظف ورقم الهاتف"
@@ -57,15 +65,25 @@ export default function RegisterScreen() {
       return;
     }
     if (password.length < 8) {
+      console.log("[SIGNUP] step=validation_failed reason=password_too_short");
+      setDebugStep("validation_failed:pw_short");
       setErrorMsg(t("passwordMin"));
       return;
     }
     if (password !== confirmPassword) {
+      console.log("[SIGNUP] step=validation_failed reason=password_mismatch");
+      setDebugStep("validation_failed:pw_mismatch");
       setErrorMsg(t("passwordMatch"));
       return;
     }
+
+    console.log("[SIGNUP] step=validation_passed");
+    setDebugStep("validation_passed");
     setLoading(true);
+
     try {
+      console.log("[SIGNUP] step=before_register_call");
+      setDebugStep("before_register_call");
       await register(
         email.trim().toLowerCase(),
         password,
@@ -74,9 +92,14 @@ export default function RegisterScreen() {
         employeeNumber.trim(),
         phone.trim()
       );
+      console.log("[SIGNUP] step=register_resolved_ok");
+      setDebugStep("register_ok");
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
-      const msg = (e as Error)?.message ?? "";
+      const err = e as { message?: string; code?: string; name?: string };
+      console.log("[SIGNUP] step=register_catch code=" + (err?.code ?? "none") + " msg=" + (err?.message ?? "none") + " name=" + (err?.name ?? "none"));
+      setDebugStep("catch:" + (err?.code ?? err?.message ?? "unknown"));
+      const msg = err?.message ?? "";
       if (msg === "phone_taken") {
         setErrorMsg(language === "ar" ? "رقم الهاتف هذا مسجّل مسبقاً." : "This phone number is already registered.");
       } else if (msg === "employee_taken") {
@@ -327,6 +350,13 @@ export default function RegisterScreen() {
               </Text>
             </Text>
           </TouchableOpacity>
+
+          {/* ── DEBUG LABEL (remove after diagnosis) ── */}
+          {debugStep !== "idle" && (
+            <Text style={{ fontSize: 10, color: "#888", textAlign: "center", marginTop: 6, fontFamily: "Inter_400Regular" }}>
+              dbg: {debugStep}
+            </Text>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

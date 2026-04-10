@@ -26,12 +26,21 @@ function AuthGate() {
   const segments = useSegments();
 
   useEffect(() => {
-    if (loading) return;
-    const inAuth = segments[0] === "auth";
+    const seg0 = segments[0] ?? "(none)";
+    const inAuth = seg0 === "auth";
+    console.log("[AUTHGATE] effect user=" + !!user + " profile=" + !!profile + " loading=" + loading + " seg0=" + seg0 + " inAuth=" + inAuth);
+    if (loading) {
+      console.log("[AUTHGATE] decision=wait_loading");
+      return;
+    }
     if (!user && !inAuth) {
+      console.log("[AUTHGATE] decision=redirect_to_login user=false inAuth=false");
       router.replace("/auth/login" as never);
     } else if (user && profile && inAuth) {
+      console.log("[AUTHGATE] decision=redirect_to_tabs user=true profile=true inAuth=true");
       router.replace("/(tabs)/" as never);
+    } else {
+      console.log("[AUTHGATE] decision=no_action user=" + !!user + " profile=" + !!profile + " inAuth=" + inAuth);
     }
   }, [user, profile, loading, segments]);
 

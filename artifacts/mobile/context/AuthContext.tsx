@@ -204,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log("[AUTHSTATE] fired uid=" + (firebaseUser?.uid ?? "null") + " email=" + (firebaseUser?.email ?? "null"));
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
@@ -220,7 +221,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (_) {}
 
+          console.log("[AUTHSTATE] fetching_profile_doc uid=" + firebaseUser.uid);
           const profileDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          console.log("[AUTHSTATE] profile_doc_exists=" + profileDoc.exists() + " uid=" + firebaseUser.uid);
+
           if (profileDoc.exists()) {
             const data = profileDoc.data() as UserProfile;
             const effectiveRole = resolveRole(
@@ -259,29 +263,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (Object.keys(repair).length > 0) {
               repair.updatedAt = repairNow;
+              console.log("[AUTHSTATE] repair_triggered fields=" + Object.keys(repair).join(","));
               try {
                 await updateDoc(doc(db, "users", firebaseUser.uid), repair);
                 if (repair.department !== undefined) resolved.department = repair.department as string;
                 if (repair.language) resolved.language = repair.language as "en" | "ar";
               } catch (repairErr: unknown) {
                 const e = repairErr as { code?: string; message?: string };
-                console.error(
-                  "[Auth] Soft repair FAILED — code:", e.code,
-                  "fields:", JSON.stringify(Object.keys(repair))
-                );
+                console.log("[AUTHSTATE] repair_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
               }
             }
 
+            console.log("[AUTHSTATE] setProfile uid=" + firebaseUser.uid + " role=" + effectiveRole);
             setProfile(resolved);
             if (data.language) {
               setLanguageState(data.language);
             }
           } else {
+            console.log("[AUTHSTATE] no_profile_doc uid=" + firebaseUser.uid + " email=" + firebaseUser.email);
             // First login for bootstrap super admin — auto-create profile
             if (
               firebaseUser.email?.toLowerCase() ===
               currentSuperAdminEmail.toLowerCase()
             ) {
+              console.log("[AUTHSTATE] bootstrap_super_admin uid=" + firebaseUser.uid);
               const now = serverTimestamp();
               const superProfile: UserProfile = {
                 uid: firebaseUser.uid,
@@ -306,12 +311,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 });
               }
               setProfile(superProfile);
+            } else {
+              console.log("[AUTHSTATE] no_profile_doc_not_superadmin uid=" + firebaseUser.uid + " — register() batch not yet committed; profile will be set after batch.commit() succeeds");
             }
           }
         } catch (_e) {
-          // ignore
+          const e = _e as { code?: string; message?: string; name?: string };
+          console.log("[AUTHSTATE] outer_catch code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none") + " name=" + (e?.name ?? "none"));
         }
       } else {
+        console.log("[AUTHSTATE] user_signed_out — clearing profile");
         setProfile(null);
       }
       setLoading(false);
@@ -341,7 +350,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     employeeNumber?: string,
     phone?: string
   ) => {
+    console.log("[AUTH] step=register:start email=" + email);
+
     if (email.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
+      console.log("[AUTH] step=register:blocked reason=super_admin_email");
       throw new Error(
         "This email is reserved for the primary administrator. Please sign in directly."
       );
@@ -349,12 +361,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const trimmedEmpNum = (employeeNumber?.trim() || "");
     const normalizedPhone = normalizePhone(phone?.trim() || "");
+    console.log("[AUTH] step=register:inputs trimmedEmpNum=" + trimmedEmpNum + " normalizedPhone=" + normalizedPhone);
 
     // ── Create Firebase Auth account ───────────────────────────────────────
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName });
+    console.log("[AUTH] step=before_createUser");
+    let cred!: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, email, password);
+    } catch (authErr: unknown) {
+      const e = authErr as { code?: string; message?: string; name?: string };
+      console.log("[AUTH] step=createUser_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
+      throw authErr;
+    }
+    console.log("[AUTH] step=createUser_success uid=" + cred.user.uid);
+
+    try {
+      await updateProfile(cred.user, { displayName });
+      console.log("[AUTH] step=updateProfile_success");
+    } catch (upErr: unknown) {
+      const e = upErr as { code?: string; message?: string };
+      console.log("[AUTH] step=updateProfile_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
+    }
 
     const now = serverTimestamp();
+    console.log("[AUTH] step=building_profile_object uid=" + cred.user.uid);
     const newProfile: UserProfile = {
       uid: cred.user.uid,
       email,
@@ -369,53 +399,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       language: "en",
     };
 
-    // Set profile in memory immediately.
-    // This prevents the race window where onAuthStateChanged fires (finding no
-    // Firestore doc yet) and calls setLoading(false) with profile=null, which
-    // would briefly make the app think no user is logged in.
-    setProfile(newProfile);
-
     // ── Atomically write all required Firestore documents ──────────────────
     // Index reads are disabled by Firestore rules (allow read: if false).
     // Uniqueness is enforced server-side via !exists(...) in the create rule.
     // A batch failure with permission-denied means phone or emp number is taken.
+    //
+    // IMPORTANT: setProfile(newProfile) is called AFTER batch.commit() succeeds,
+    // not before. Pre-setting profile before the batch would cause AuthGate to
+    // redirect to the tabs screen immediately (profile set + loading=false from
+    // onAuthStateChanged). If the batch then fails and we delete the auth account,
+    // AuthGate would redirect to login with the error message lost.
     try {
+      console.log("[AUTH] step=batch_start");
       const batch = writeBatch(db);
+
+      console.log("[AUTH] step=batch_set_user doc=users/" + cred.user.uid);
       batch.set(doc(db, "users", cred.user.uid), newProfile);
+
       if (normalizedPhone) {
-        // Rule requires: request.resource.data.phone == normalizedPhone (document ID)
+        console.log("[AUTH] step=batch_set_phone_index doc=user_phone_index/" + normalizedPhone);
         batch.set(doc(db, "user_phone_index", normalizedPhone), {
           uid: cred.user.uid,
           phone: normalizedPhone,
           createdAt: now,
         });
+      } else {
+        console.log("[AUTH] step=batch_skip_phone_index reason=empty_phone");
       }
+
       if (trimmedEmpNum) {
-        // Rule requires: request.resource.data.employeeNumber == employeeNumber (document ID)
+        console.log("[AUTH] step=batch_set_emp_index doc=user_employee_index/" + trimmedEmpNum);
         batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
           uid: cred.user.uid,
           employeeNumber: trimmedEmpNum,
           createdAt: now,
         });
+      } else {
+        console.log("[AUTH] step=batch_skip_emp_index reason=empty_empNum");
       }
+
+      console.log("[AUTH] step=batch_commit_start");
       await batch.commit();
+      console.log("[AUTH] step=batch_commit_success — setting profile now");
+      // Set profile AFTER the batch succeeds. AuthGate checks user+profile+inAuth
+      // before navigating to tabs, so this is safe: profile stays null if the
+      // batch fails and the auth account is deleted.
+      setProfile(newProfile);
     } catch (firestoreErr: unknown) {
       // Firestore write failed — clean up so the user can retry cleanly.
+      const fe = firestoreErr as { code?: string; message?: string; name?: string };
+      console.log("[AUTH] step=batch_FAILED code=" + (fe?.code ?? "none") + " msg=" + (fe?.message ?? "none") + " name=" + (fe?.name ?? "none"));
+      // Clear any profile that onAuthStateChanged may have set in the race window.
       setProfile(null);
+      console.log("[AUTH] step=rollback_deleteUser uid=" + cred.user.uid);
       try {
         await cred.user.delete();
-      } catch (_) {
-        // If delete fails, sign out so the orphaned session doesn't persist.
+        console.log("[AUTH] step=rollback_deleteUser_success");
+      } catch (delErr: unknown) {
+        const de = delErr as { code?: string; message?: string };
+        console.log("[AUTH] step=rollback_deleteUser_FAILED code=" + (de?.code ?? "none") + " msg=" + (de?.message ?? "none") + " — signing out instead");
         await signOut(auth).catch(() => {});
       }
       // permission-denied from the batch means the !exists() uniqueness guard
       // in the Firestore rules fired — phone or employee number already taken.
-      const code = (firestoreErr as { code?: string })?.code;
+      const code = fe?.code;
       if (code === "permission-denied") {
+        console.log("[AUTH] step=throwing phone_or_employee_taken");
         throw new Error("phone_or_employee_taken");
       }
+      console.log("[AUTH] step=rethrowing_firestore_error code=" + code);
       throw firestoreErr;
     }
+    console.log("[AUTH] step=register:complete uid=" + cred.user.uid);
   };
 
   const logout = async () => {

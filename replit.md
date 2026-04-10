@@ -66,8 +66,13 @@ Enterprise-grade mobile app for Arabian Fal — a legal services request and tra
 
 ### Auth Navigation Guard (`app/_layout.tsx` — AuthGate)
 - Checks `user && profile && inAuth` before redirecting to tabs (not just `user`)
-- This prevents the race condition where a registration batch failure causes a brief flash to tabs
 - Profile being null while user is non-null means: auth exists but Firestore profile is not yet loaded — do NOT redirect
+
+### Registration Race-Condition Fix (`context/AuthContext.tsx` — `register()`)
+- `setProfile(newProfile)` is called AFTER `await batch.commit()` succeeds — NOT before
+- Pre-setting profile before the batch caused AuthGate to redirect to tabs prematurely (onAuthStateChanged fires with loading=false before the batch runs)
+- If the batch then failed (phone/employeeNumber taken), the account was deleted but the user was already on the tabs screen; the redirect to login swallowed the error message on the register screen
+- With the fix: profile stays null until the batch commits → AuthGate stays on register → on failure, error is shown on register screen; on success, setProfile triggers the AuthGate redirect
 
 ### ExcelJS (`app/admin/export-data.tsx`)
 - MUST remain `import type ExcelJS from "exceljs"` — static import causes stack overflow on app startup
