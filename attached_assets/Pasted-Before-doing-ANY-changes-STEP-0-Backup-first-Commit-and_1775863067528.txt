@@ -1,0 +1,83 @@
+Before doing ANY changes:
+
+STEP 0 — Backup first
+- Commit and push the current stable working version to GitHub as Version 2
+- Use:
+  git add .
+  git commit -m "release: stable version v2 before legal language and super admin UI cleanup"
+  git push
+
+Do not skip this step.
+
+STEP 1 — Do NOT break working logic
+- Do NOT modify Auth logic
+- Do NOT modify Firestore logic
+- Do NOT modify registration logic
+- Do NOT modify profile-change-request logic
+- Do NOT modify request-processing backend logic
+- Do NOT weaken Firestore rules
+- Only make the UI/content/language fixes requested below
+
+STEP 2 — Fix legal pages language behavior
+Current product decision:
+- English is the primary/default app language
+- Arabic is the secondary language
+
+Required behavior:
+- If app language = English:
+  - show legal/policy pages in English only
+- If app language = Arabic:
+  - show legal/policy pages in Arabic only
+- Do NOT mix Arabic headings with English body text
+- Do NOT hardcode one language
+- Keep proper LTR layout for English
+- Keep proper RTL layout for Arabic
+
+Apply this to all legal pages:
+- Privacy Policy
+- Terms of Use
+- Account Deletion Policy
+- Data Retention Policy
+- Contact & Support
+- Any additional legal/compliance pages added from the attached legal pack
+
+STEP 3 — Super Admin UI cleanup
+Current requirement:
+- Super Admin must NOT create personal requests for themselves
+- Super Admin should ONLY have the existing "Send to Employee" flow
+
+Required changes:
+- Remove every "New Request" / "Create Request" / "طلب جديد" action from Super Admin UI
+- Remove it from all relevant places:
+  - dashboard
+  - requests page
+  - empty states
+  - floating action buttons
+  - headers
+  - any conditional button blocks
+- Keep the "Send to Employee" button and flow exactly as it currently works
+- Do NOT redesign or break the "Send to Employee" flow
+
+Normal users:
+- must still keep their own request creation flow as-is
+
+Super Admin:
+- must only manage requests and use "Send to Employee"
+
+STEP 4 — Replace legal/policy content
+Use the attached ZIP legal pack as the new policy/legal source of truth.
+Requirements:
+- English = primary version
+- Arabic = translated secondary version
+- Do NOT shorten the content
+- Do NOT simplify it
+- Do NOT replace with lighter copy
+- Keep enterprise-style formatting and readability for mobile
+
+STEP 5 — Final report
+After completion, report:
+- files changed
+- confirmation that GitHub Version 2 backup was pushed first
+- confirmation that legal pages now follow selected language correctly
+- confirmation that Super Admin no longer sees any New Request action
+- confirmation that Send to Employee still works unchanged
