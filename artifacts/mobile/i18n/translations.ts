@@ -347,6 +347,33 @@ export const translations = {
     errUpload: "File could not be uploaded. Please try again.",
     errSubmit: "Could not submit request. Please try again.",
     errStatusUpdate: "Could not update status. Please try again.",
+
+    // ── Delete My Account ─────────────────────────────────────────────────
+    deleteOwnAccount: "Delete My Account",
+    deleteOwnAccountDesc: "Permanently delete your account and remove all your data from the platform.",
+    deleteOwnAccountConfirmTitle: "Permanently Delete Your Account?",
+    deleteOwnAccountConfirmMsg: "This will immediately delete your sign-in access and remove your profile data. This action cannot be undone.",
+    deleteOwnAccountPassword: "Enter your password to confirm",
+    accountDeleted: "Your account has been deleted.",
+    deleting: "Deleting…",
+
+    // ── Delete User (Super Admin) ─────────────────────────────────────────
+    deleteUser: "Delete User",
+    deleteUserConfirmTitle: "Permanently Delete This User?",
+    deleteUserConfirmMsg: "This will delete the user's profile, uniqueness index records, and pending change requests. This cannot be undone.",
+    deleteUserPassword: "Enter your Super Admin password to confirm",
+    deleteUserAdminPrompt: "Enter your own password to confirm you want to delete this account. Note: the user's Firebase sign-in record must be removed separately via Firebase Console.",
+    yourPassword: "Your password",
+    deleteUserSuccess: "User account deleted from the platform.",
+    deleteUserAuthNote: "Note: The user's Firebase sign-in account was not removed. To fully delete it, visit Firebase Console → Authentication.",
+
+    // ── Legal & Privacy ───────────────────────────────────────────────────
+    legalAndPrivacy: "Legal & Privacy",
+    privacyPolicy: "Privacy Policy",
+    termsOfUse: "Terms of Use",
+    accountDeletionPolicy: "Account Deletion Policy",
+    dataRetentionPolicy: "Data Retention Policy",
+    contactSupport: "Contact & Support",
   },
 
   ar: {
@@ -697,6 +724,33 @@ export const translations = {
     errUpload: "تعذّر رفع الملف. يرجى المحاولة مجدداً.",
     errSubmit: "تعذّر تقديم الطلب. يرجى المحاولة مجدداً.",
     errStatusUpdate: "تعذّر تحديث الحالة. يرجى المحاولة مجدداً.",
+
+    // ── Delete My Account ─────────────────────────────────────────────────
+    deleteOwnAccount: "حذف حسابي",
+    deleteOwnAccountDesc: "حذف حسابك وجميع بياناتك من المنصة نهائياً.",
+    deleteOwnAccountConfirmTitle: "حذف حسابك نهائياً؟",
+    deleteOwnAccountConfirmMsg: "سيتم حذف صلاحية تسجيل الدخول وبيانات ملفك الشخصي فوراً. لا يمكن التراجع عن هذا الإجراء.",
+    deleteOwnAccountPassword: "أدخل كلمة مرورك للتأكيد",
+    accountDeleted: "تم حذف حسابك.",
+    deleting: "جارٍ الحذف…",
+
+    // ── Delete User (Super Admin) ─────────────────────────────────────────
+    deleteUser: "حذف المستخدم",
+    deleteUserConfirmTitle: "حذف هذا المستخدم نهائياً؟",
+    deleteUserConfirmMsg: "سيتم حذف ملف المستخدم وسجلات الفهرس وطلبات التغيير المعلقة نهائياً. لا يمكن التراجع.",
+    deleteUserPassword: "أدخل كلمة مرور المسؤول الأعلى للتأكيد",
+    deleteUserAdminPrompt: "أدخل كلمة مرورك الخاصة للتأكيد. ملاحظة: يجب حذف سجل تسجيل دخول المستخدم في Firebase Console بشكل منفصل.",
+    yourPassword: "كلمة مرورك",
+    deleteUserSuccess: "تم حذف حساب المستخدم من المنصة.",
+    deleteUserAuthNote: "ملاحظة: لم يتم حذف حساب تسجيل الدخول من Firebase. للحذف الكامل، انتقل إلى Firebase Console → Authentication.",
+
+    // ── Legal & Privacy ───────────────────────────────────────────────────
+    legalAndPrivacy: "القانوني والخصوصية",
+    privacyPolicy: "سياسة الخصوصية",
+    termsOfUse: "شروط الاستخدام",
+    accountDeletionPolicy: "سياسة حذف الحساب",
+    dataRetentionPolicy: "سياسة الاحتفاظ بالبيانات",
+    contactSupport: "التواصل والدعم",
   },
 };
 

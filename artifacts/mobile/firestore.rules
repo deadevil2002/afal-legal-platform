@@ -194,7 +194,7 @@ service cloud.firestore {
           ])
         );
 
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || isOwner(uid);
     }
 
     // =========================
@@ -213,7 +213,7 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/user_phone_index/$(normalizedPhone));
 
       allow update: if false;
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || (signedIn() && request.auth.uid == resource.data.uid);
     }
 
     // =========================
@@ -231,7 +231,7 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/user_employee_index/$(employeeNumber));
 
       allow update: if false;
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || (signedIn() && request.auth.uid == resource.data.uid);
     }
 
     // =========================

@@ -1,0 +1,55 @@
+LOG  [web] Logs will appear in the browser console
+ LOG  [web] Logs will appear in the browser console
+ LOG  [web] Logs will appear in the browser console
+ LOG  [AUTHGATE] effect user=false profile=false loading=false seg0=auth inAuth=true
+ LOG  [AUTHGATE] decision=no_action user=false profile=false inAuth=true
+ LOG  [SIGNUP] step=button_pressed
+ LOG  [SIGNUP] step=before_validation fullName=true email=true emp=true phone=true pw=true cpw=true
+ LOG  [SIGNUP] step=validation_passed
+ LOG  [SIGNUP] step=before_register_call
+ LOG  [AUTH] step=register:start email=naimi.salem3@gmail.com
+ LOG  [AUTH] step=register:inputs trimmedEmpNum=1757 normalizedPhone=966506848545
+ LOG  [AUTH] step=before_createUser
+ LOG  [AUTHSTATE] fired uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1 email=naimi.salem3@gmail.com
+ LOG  [AUTH] step=createUser_success uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTHGATE] effect user=true profile=false loading=false seg0=auth inAuth=true
+ LOG  [AUTHGATE] decision=no_action user=true profile=false inAuth=true
+ LOG  [AUTH] step=updateProfile_success
+ LOG  [AUTH] step=building_profile_object uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTH] batch_payload:
+  users/1ZUS1Y0QxoQersNSwE5GRxFk0hl1 → {"uid":"1ZUS1Y0QxoQersNSwE5GRxFk0hl1","email":"naimi.salem3@gmail.com","role":"user","employeeNumber":"1757","phone":"966506848545","isActive":true}
+  user_phone_index/966506848545 → {"uid":"1ZUS1Y0QxoQersNSwE5GRxFk0hl1","phone":"966506848545"}
+  user_employee_index/1757 → {"uid":"1ZUS1Y0QxoQersNSwE5GRxFk0hl1","employeeNumber":"1757"}
+ LOG  [AUTH] rules_check:
+  users/{uid} allow create: isOwner=true uid_match=true email=naimi.salem3@gmail.com role=user empNum.size=4 phone.size=12
+  user_phone_index/{966506848545}: data.phone==docId=true
+  user_employee_index/{1757}: data.employeeNumber==docId=true
+ LOG  [AUTH] step=batch_start
+ LOG  [AUTH] step=batch_set_user doc=users/1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTH] step=batch_set_phone_index doc=user_phone_index/966506848545
+ LOG  [AUTH] step=batch_set_emp_index doc=user_employee_index/1757
+ LOG  [AUTH] step=batch_commit_start
+ LOG  [AUTHSTATE] fetching_profile_doc uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTH] step=batch_FAILED code=permission-denied msg=Missing or insufficient permissions. name=FirebaseError
+ LOG  [AUTH] diag: testing each write individually...
+ LOG  [AUTHSTATE] profile_doc_exists=true uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTHSTATE] setProfile uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1 role=user
+ LOG  [AUTHGATE] effect user=true profile=true loading=false seg0=auth inAuth=true
+ LOG  [AUTHGATE] decision=redirect_to_tabs user=true profile=true inAuth=true
+ LOG  [AUTHGATE] effect user=true profile=true loading=false seg0=(tabs) inAuth=false
+ LOG  [AUTHGATE] decision=no_action user=true profile=true inAuth=false
+ LOG  [AUTH] diag users/1ZUS1Y0QxoQersNSwE5GRxFk0hl1 = DENIED code=permission-denied
+ LOG  [AUTH] diag user_phone_index/966506848545 = ALLOWED (orphan written — delete from Console)
+ LOG  [AUTH] diag user_employee_index/1757 = ALLOWED (orphan written — delete from Console)
+ LOG  [AUTH] step=rollback_deleteUser uid=1ZUS1Y0QxoQersNSwE5GRxFk0hl1
+ LOG  [AUTHGATE] effect user=true profile=false loading=false seg0=(tabs) inAuth=false
+ LOG  [AUTHGATE] decision=no_action user=true profile=false inAuth=false
+ LOG  [AUTHSTATE] fired uid=null email=null
+ LOG  [AUTHSTATE] user_signed_out — clearing profile
+ LOG  [AUTH] step=rollback_deleteUser_success
+ LOG  [AUTH] step=throwing register_batch_permission_denied
+ LOG  [SIGNUP] step=register_catch code=none msg=register_batch_permission_denied name=Error
+ LOG  [AUTHGATE] effect user=false profile=false loading=false seg0=(tabs) inAuth=false
+ LOG  [AUTHGATE] decision=redirect_to_login user=false inAuth=false
+ LOG  [AUTHGATE] effect user=false profile=false loading=false seg0=auth inAuth=true
+ LOG  [AUTHGATE] decision=no_action user=false profile=false inAuth=true

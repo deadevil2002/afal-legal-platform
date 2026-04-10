@@ -46,17 +46,10 @@ export default function RegisterScreen() {
 
   const clearError = () => setErrorMsg(null);
 
-  const [debugStep, setDebugStep] = React.useState("idle");
-
   const handleRegister = async () => {
-    console.log("[SIGNUP] step=button_pressed");
-    setDebugStep("button_pressed");
     setErrorMsg(null);
 
-    console.log("[SIGNUP] step=before_validation fullName=" + !!fullName + " email=" + !!email + " emp=" + !!employeeNumber + " phone=" + !!phone + " pw=" + !!password + " cpw=" + !!confirmPassword);
     if (!fullName || !email || !employeeNumber || !phone || !password || !confirmPassword) {
-      console.log("[SIGNUP] step=validation_failed reason=missing_fields");
-      setDebugStep("validation_failed:missing_fields");
       setErrorMsg(
         language === "ar"
           ? "جميع الحقول مطلوبة بما فيها رقم الموظف ورقم الهاتف"
@@ -65,25 +58,17 @@ export default function RegisterScreen() {
       return;
     }
     if (password.length < 8) {
-      console.log("[SIGNUP] step=validation_failed reason=password_too_short");
-      setDebugStep("validation_failed:pw_short");
       setErrorMsg(t("passwordMin"));
       return;
     }
     if (password !== confirmPassword) {
-      console.log("[SIGNUP] step=validation_failed reason=password_mismatch");
-      setDebugStep("validation_failed:pw_mismatch");
       setErrorMsg(t("passwordMatch"));
       return;
     }
 
-    console.log("[SIGNUP] step=validation_passed");
-    setDebugStep("validation_passed");
     setLoading(true);
 
     try {
-      console.log("[SIGNUP] step=before_register_call");
-      setDebugStep("before_register_call");
       await register(
         email.trim().toLowerCase(),
         password,
@@ -92,13 +77,9 @@ export default function RegisterScreen() {
         employeeNumber.trim(),
         phone.trim()
       );
-      console.log("[SIGNUP] step=register_resolved_ok");
-      setDebugStep("register_ok");
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
       const err = e as { message?: string; code?: string; name?: string };
-      console.log("[SIGNUP] step=register_catch code=" + (err?.code ?? "none") + " msg=" + (err?.message ?? "none") + " name=" + (err?.name ?? "none"));
-      setDebugStep("catch:" + (err?.code ?? err?.message ?? "unknown"));
       const msg = err?.message ?? "";
       if (msg === "phone_taken") {
         setErrorMsg(language === "ar" ? "رقم الهاتف هذا مسجّل مسبقاً." : "This phone number is already registered.");
@@ -107,14 +88,9 @@ export default function RegisterScreen() {
       } else if (msg === "phone_or_employee_taken") {
         setErrorMsg(language === "ar" ? "رقم الهاتف أو رقم الموظف مسجّل مسبقاً. يرجى المراجعة والمحاولة مجدداً." : "Phone number or employee number is already registered. Please check and try again.");
       } else if (msg === "register_batch_permission_denied") {
-        // permission-denied on the Firestore batch — not a uniqueness conflict.
-        // Most likely cause: Firestore rules for user_phone_index or
-        // user_employee_index are not deployed to Firebase Console.
-        // Check Metro/browser console for [AUTH] diag logs to identify which write fails.
         setErrorMsg(
-          "[RULES] Registration blocked by Firestore (permission-denied).\n" +
-          "Check Metro console for [AUTH] diag lines to see which write is denied.\n" +
-          "Most likely: deploy firestore.rules to Firebase Console.\n" +
+          "Registration blocked by Firestore (permission-denied).\n" +
+          "Most likely cause: Firestore security rules not yet deployed to Firebase Console.\n" +
           "Run: pnpm --filter @workspace/mobile run deploy:rules"
         );
       } else {
@@ -362,12 +338,6 @@ export default function RegisterScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* ── DEBUG LABEL (remove after diagnosis) ── */}
-          {debugStep !== "idle" && (
-            <Text style={{ fontSize: 10, color: "#888", textAlign: "center", marginTop: 6, fontFamily: "Inter_400Regular" }}>
-              dbg: {debugStep}
-            </Text>
-          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

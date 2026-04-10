@@ -1,12 +1,10 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
-  addDoc,
   collection,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   where,
 } from "firebase/firestore";
 import type { ProfileChangeRequest } from "@/context/AuthContext";
@@ -337,6 +335,129 @@ function ChangePasswordModal({ visible, onClose, onChangePassword }: ChangePassw
   );
 }
 
+// ── Delete Account Modal ───────────────────────────────────────────────────
+interface DeleteAccountModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onDelete: (password: string) => Promise<void>;
+}
+
+function DeleteAccountModal({ visible, onClose, onDelete }: DeleteAccountModalProps) {
+  const colors = useColors();
+  const { t } = useT();
+
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const reset = () => {
+    setPassword("");
+    setError("");
+    setLoading(false);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!password.trim()) {
+      setError(t("deleteOwnAccountPassword"));
+      return;
+    }
+    setLoading(true);
+    try {
+      await onDelete(password);
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setError(t("wrongPassword"));
+      } else {
+        setError(err.message ?? t("errGeneric"));
+      }
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable style={styles.cpOverlay} onPress={handleClose}>
+          <Pressable style={[styles.cpSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.cpHandle} />
+            <View style={styles.cpHeader}>
+              <View style={[styles.cpIconWrap, { backgroundColor: "#DC262615" }]}>
+                <Icon name="trash" size={20} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cpTitle, { color: "#DC2626" }]}>
+                  {t("deleteOwnAccountConfirmTitle")}
+                </Text>
+                <Text style={[styles.cpSubtitle, { color: colors.mutedForeground }]}>
+                  {t("deleteOwnAccountConfirmMsg")}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={handleClose} style={styles.cpCloseBtn}>
+                <Icon name="close" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.cpField, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Icon name="lock" size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.cpInput, { color: colors.foreground }]}
+                placeholder={t("deleteOwnAccountPassword")}
+                placeholderTextColor={colors.mutedForeground}
+                value={password}
+                onChangeText={(v) => { setPassword(v); setError(""); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+              />
+            </View>
+
+            {!!error && (
+              <View style={styles.cpErrorRow}>
+                <Icon name="alert-circle" size={14} color="#DC2626" />
+                <Text style={styles.cpErrorText}>{error}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.cpSubmitBtn,
+                { backgroundColor: "#DC2626" },
+                loading && { opacity: 0.7 },
+              ]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.cpSubmitText}>{t("deleteOwnAccount")}</Text>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ── Polished confirmation modal ────────────────────────────────────────────
 interface ConfirmModalProps {
   visible: boolean;
@@ -568,6 +689,7 @@ export default function SettingsScreen() {
     setLanguage,
     changePassword,
     requestProfileChange,
+    deleteOwnAccount,
   } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -624,34 +746,14 @@ export default function SettingsScreen() {
 
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [requestingDeletion, setRequestingDeletion] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
-  const handleRequestDeletion = () => {
-    setShowDeletionModal(true);
-  };
-
-  const confirmDeletion = async () => {
-    if (!user || !profile) return;
-    setRequestingDeletion(true);
-    try {
-      await addDoc(collection(db, "deletion_requests"), {
-        userId: user.uid,
-        userEmail: profile.email,
-        userName: profile.displayName,
-        status: "pending",
-        reason: "",
-        createdAt: serverTimestamp(),
-      });
-      setShowDeletionModal(false);
-      Alert.alert(t("success"), t("deletionRequestSent"));
-    } catch (e: unknown) {
-      Alert.alert(t("error"), (e as { message?: string }).message);
-    } finally {
-      setRequestingDeletion(false);
-    }
+  const handleDeleteOwnAccount = async (password: string) => {
+    await deleteOwnAccount(password);
+    setShowDeleteAccountModal(false);
+    router.replace("/auth/login" as never);
   };
 
   const handleSave = async () => {
@@ -969,15 +1071,50 @@ export default function SettingsScreen() {
             >
               <AdminActionRow
                 icon="person-remove"
-                label={t("deleteAccount")}
-                subtitle={t("deleteAccountDesc")}
-                onPress={handleRequestDeletion}
+                label={t("deleteOwnAccount")}
+                subtitle={t("deleteOwnAccountDesc")}
+                onPress={() => setShowDeleteAccountModal(true)}
                 destructive
                 showArrow={false}
               />
             </View>
           </>
         )}
+
+        {/* Legal & Privacy */}
+        <SectionHeader title={t("legalAndPrivacy")} />
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <AdminActionRow
+            icon="info-circle"
+            label={t("privacyPolicy")}
+            onPress={() => router.push({ pathname: "/legal/[page]", params: { page: "privacy-policy" } } as never)}
+          />
+          <AdminActionRow
+            icon="info-circle"
+            label={t("termsOfUse")}
+            onPress={() => router.push({ pathname: "/legal/[page]", params: { page: "terms-of-use" } } as never)}
+          />
+          <AdminActionRow
+            icon="info-circle"
+            label={t("accountDeletionPolicy")}
+            onPress={() => router.push({ pathname: "/legal/[page]", params: { page: "account-deletion-policy" } } as never)}
+          />
+          <AdminActionRow
+            icon="info-circle"
+            label={t("dataRetentionPolicy")}
+            onPress={() => router.push({ pathname: "/legal/[page]", params: { page: "data-retention-policy" } } as never)}
+          />
+          <AdminActionRow
+            icon="info-circle"
+            label={t("contactSupport")}
+            onPress={() => router.push({ pathname: "/legal/[page]", params: { page: "contact-support" } } as never)}
+          />
+        </View>
 
         {/* Account / Sign Out */}
         <SectionHeader title={t("account")} />
@@ -990,7 +1127,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={[styles.logoutBtn, { borderColor: colors.destructive }]}
             onPress={() => setShowLogoutModal(true)}
-            disabled={loggingOut || requestingDeletion}
+            disabled={loggingOut}
           >
             {loggingOut ? (
               <ActivityIndicator color={colors.destructive} size="small" />
@@ -1031,17 +1168,11 @@ export default function SettingsScreen() {
         onCancel={() => setShowLogoutModal(false)}
       />
 
-      {/* Polished Account Deletion Modal */}
-      <ConfirmModal
-        visible={showDeletionModal}
-        title={t("deleteAccountConfirmTitle")}
-        message={t("deleteAccountConfirmMessage")}
-        confirmLabel={t("submitRequest")}
-        cancelLabel={t("cancel")}
-        destructive
-        loading={requestingDeletion}
-        onConfirm={confirmDeletion}
-        onCancel={() => setShowDeletionModal(false)}
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        visible={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onDelete={handleDeleteOwnAccount}
       />
 
       {/* Change Password Modal */}

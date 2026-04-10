@@ -110,6 +110,8 @@ interface AuthContextType {
   requestProfileChange: (field: "phone" | "employeeNumber", requestedValue: string) => Promise<void>;
   approveProfileChange: (changeRequestId: string, req: ProfileChangeRequest) => Promise<void>;
   rejectProfileChange: (changeRequestId: string, reason: string) => Promise<void>;
+  deleteOwnAccount: (password: string) => Promise<void>;
+  deleteUserByAdmin: (targetUid: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -204,7 +206,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("[AUTHSTATE] fired uid=" + (firebaseUser?.uid ?? "null") + " email=" + (firebaseUser?.email ?? "null"));
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
@@ -221,9 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (_) {}
 
-          console.log("[AUTHSTATE] fetching_profile_doc uid=" + firebaseUser.uid);
           const profileDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-          console.log("[AUTHSTATE] profile_doc_exists=" + profileDoc.exists() + " uid=" + firebaseUser.uid);
 
           if (profileDoc.exists()) {
             const data = profileDoc.data() as UserProfile;
@@ -263,30 +262,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (Object.keys(repair).length > 0) {
               repair.updatedAt = repairNow;
-              console.log("[AUTHSTATE] repair_triggered fields=" + Object.keys(repair).join(","));
               try {
                 await updateDoc(doc(db, "users", firebaseUser.uid), repair);
                 if (repair.department !== undefined) resolved.department = repair.department as string;
                 if (repair.language) resolved.language = repair.language as "en" | "ar";
-              } catch (repairErr: unknown) {
-                const e = repairErr as { code?: string; message?: string };
-                console.log("[AUTHSTATE] repair_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
-              }
+              } catch (_repairErr: unknown) {}
             }
 
-            console.log("[AUTHSTATE] setProfile uid=" + firebaseUser.uid + " role=" + effectiveRole);
             setProfile(resolved);
             if (data.language) {
               setLanguageState(data.language);
             }
           } else {
-            console.log("[AUTHSTATE] no_profile_doc uid=" + firebaseUser.uid + " email=" + firebaseUser.email);
             // First login for bootstrap super admin — auto-create profile
             if (
               firebaseUser.email?.toLowerCase() ===
               currentSuperAdminEmail.toLowerCase()
             ) {
-              console.log("[AUTHSTATE] bootstrap_super_admin uid=" + firebaseUser.uid);
               const now = serverTimestamp();
               const superProfile: UserProfile = {
                 uid: firebaseUser.uid,
@@ -311,16 +303,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 });
               }
               setProfile(superProfile);
-            } else {
-              console.log("[AUTHSTATE] no_profile_doc_not_superadmin uid=" + firebaseUser.uid + " — register() batch not yet committed; profile will be set after batch.commit() succeeds");
             }
           }
-        } catch (_e) {
-          const e = _e as { code?: string; message?: string; name?: string };
-          console.log("[AUTHSTATE] outer_catch code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none") + " name=" + (e?.name ?? "none"));
-        }
+        } catch (_e) {}
       } else {
-        console.log("[AUTHSTATE] user_signed_out — clearing profile");
         setProfile(null);
       }
       setLoading(false);
@@ -350,10 +336,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     employeeNumber?: string,
     phone?: string
   ) => {
-    console.log("[AUTH] step=register:start email=" + email);
-
     if (email.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
-      console.log("[AUTH] step=register:blocked reason=super_admin_email");
       throw new Error(
         "This email is reserved for the primary administrator. Please sign in directly."
       );
@@ -361,30 +344,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const trimmedEmpNum = (employeeNumber?.trim() || "");
     const normalizedPhone = normalizePhone(phone?.trim() || "");
-    console.log("[AUTH] step=register:inputs trimmedEmpNum=" + trimmedEmpNum + " normalizedPhone=" + normalizedPhone);
 
     // ── Create Firebase Auth account ───────────────────────────────────────
-    console.log("[AUTH] step=before_createUser");
     let cred!: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>;
     try {
       cred = await createUserWithEmailAndPassword(auth, email, password);
     } catch (authErr: unknown) {
-      const e = authErr as { code?: string; message?: string; name?: string };
-      console.log("[AUTH] step=createUser_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
       throw authErr;
     }
-    console.log("[AUTH] step=createUser_success uid=" + cred.user.uid);
 
     try {
       await updateProfile(cred.user, { displayName });
-      console.log("[AUTH] step=updateProfile_success");
-    } catch (upErr: unknown) {
-      const e = upErr as { code?: string; message?: string };
-      console.log("[AUTH] step=updateProfile_FAILED code=" + (e?.code ?? "none") + " msg=" + (e?.message ?? "none"));
-    }
+    } catch (_upErr: unknown) {}
 
     const now = serverTimestamp();
-    console.log("[AUTH] step=building_profile_object uid=" + cred.user.uid);
     const newProfile: UserProfile = {
       uid: cred.user.uid,
       email,
@@ -414,136 +387,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Do NOT blindly map permission-denied → "phone or emp taken". That is wrong
     // for cases 1 and 3. The error thrown is register_batch_permission_denied and
     // the UI shows a distinct message so the actual cause can be debugged.
-
-    // Log the exact primitive payloads that will be written, so the console shows
-    // exactly what each operation sends. Compare against deployed Firestore rules
-    // to identify any mismatch.
-    const phoneIndexPayload = normalizedPhone
-      ? JSON.stringify({ uid: cred.user.uid, phone: normalizedPhone })
-      : null;
-    const empIndexPayload = trimmedEmpNum
-      ? JSON.stringify({ uid: cred.user.uid, employeeNumber: trimmedEmpNum })
-      : null;
-    console.log(
-      "[AUTH] batch_payload:" +
-      "\n  users/" + cred.user.uid + " → " +
-        JSON.stringify({
-          uid: cred.user.uid,
-          email,
-          role: "user",
-          employeeNumber: trimmedEmpNum,
-          phone: normalizedPhone,
-          isActive: true,
-        }) +
-      "\n  user_phone_index/" + (normalizedPhone || "SKIPPED") + " → " + (phoneIndexPayload ?? "SKIPPED") +
-      "\n  user_employee_index/" + (trimmedEmpNum || "SKIPPED") + " → " + (empIndexPayload ?? "SKIPPED")
-    );
-    console.log(
-      "[AUTH] rules_check:" +
-      "\n  users/{uid} allow create: isOwner=" + (cred.user.uid === cred.user.uid) +
-        " uid_match=true email=" + email +
-        " role=user empNum.size=" + trimmedEmpNum.length +
-        " phone.size=" + normalizedPhone.length +
-      "\n  user_phone_index/{" + normalizedPhone + "}: data.phone==docId=" + (normalizedPhone === normalizedPhone) +
-      "\n  user_employee_index/{" + trimmedEmpNum + "}: data.employeeNumber==docId=" + (trimmedEmpNum === trimmedEmpNum)
-    );
-
     try {
-      console.log("[AUTH] step=batch_start");
       const batch = writeBatch(db);
 
-      console.log("[AUTH] step=batch_set_user doc=users/" + cred.user.uid);
       batch.set(doc(db, "users", cred.user.uid), newProfile);
 
       if (normalizedPhone) {
-        console.log("[AUTH] step=batch_set_phone_index doc=user_phone_index/" + normalizedPhone);
         batch.set(doc(db, "user_phone_index", normalizedPhone), {
           uid: cred.user.uid,
           phone: normalizedPhone,
           createdAt: now,
         });
-      } else {
-        console.log("[AUTH] step=batch_skip_phone_index reason=empty_phone");
       }
 
       if (trimmedEmpNum) {
-        console.log("[AUTH] step=batch_set_emp_index doc=user_employee_index/" + trimmedEmpNum);
         batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
           uid: cred.user.uid,
           employeeNumber: trimmedEmpNum,
           createdAt: now,
         });
-      } else {
-        console.log("[AUTH] step=batch_skip_emp_index reason=empty_empNum");
       }
 
-      console.log("[AUTH] step=batch_commit_start");
       await batch.commit();
-      console.log("[AUTH] step=batch_commit_success — setting profile now");
       // Set profile AFTER the batch succeeds. AuthGate checks user+profile+inAuth
       // before navigating to tabs.
       setProfile(newProfile);
     } catch (firestoreErr: unknown) {
       // Firestore write failed — clean up so the user can retry cleanly.
       const fe = firestoreErr as { code?: string; message?: string; name?: string };
-      console.log(
-        "[AUTH] step=batch_FAILED code=" + (fe?.code ?? "none") +
-        " msg=" + (fe?.message ?? "none") +
-        " name=" + (fe?.name ?? "none")
-      );
-      // ── TEMPORARY DIAGNOSTIC: identify which individual write the rules reject ──
-      // Safe to run here because the batch was atomic: nothing was written yet.
-      // After the failing write is identified (from logs), REMOVE this block.
-      // WARNING: if any individual write below SUCCEEDS it will persist in Firestore
-      // (orphan data). That only happens once the rules are correctly deployed.
-      // Clean up any orphan docs from Firebase Console → Firestore if that occurs.
-      console.log("[AUTH] diag: testing each write individually...");
-      await (async () => {
-        try {
-          await setDoc(doc(db, "users", cred.user.uid), newProfile);
-          console.log("[AUTH] diag users/" + cred.user.uid + " = ALLOWED (orphan written — delete from Console)");
-        } catch (d: unknown) {
-          const e = d as { code?: string };
-          console.log("[AUTH] diag users/" + cred.user.uid + " = DENIED code=" + (e?.code ?? "?"));
-        }
-        if (normalizedPhone) {
-          try {
-            await setDoc(
-              doc(db, "user_phone_index", normalizedPhone),
-              { uid: cred.user.uid, phone: normalizedPhone, createdAt: now }
-            );
-            console.log("[AUTH] diag user_phone_index/" + normalizedPhone + " = ALLOWED (orphan written — delete from Console)");
-          } catch (d: unknown) {
-            const e = d as { code?: string };
-            console.log("[AUTH] diag user_phone_index/" + normalizedPhone + " = DENIED code=" + (e?.code ?? "?"));
-          }
-        }
-        if (trimmedEmpNum) {
-          try {
-            await setDoc(
-              doc(db, "user_employee_index", trimmedEmpNum),
-              { uid: cred.user.uid, employeeNumber: trimmedEmpNum, createdAt: now }
-            );
-            console.log("[AUTH] diag user_employee_index/" + trimmedEmpNum + " = ALLOWED (orphan written — delete from Console)");
-          } catch (d: unknown) {
-            const e = d as { code?: string };
-            console.log("[AUTH] diag user_employee_index/" + trimmedEmpNum + " = DENIED code=" + (e?.code ?? "?"));
-          }
-        }
-      })().catch((diagErr) => {
-        console.log("[AUTH] diag outer_error=" + String(diagErr));
-      });
-      // ── END TEMPORARY DIAGNOSTIC ──
-
       // Clear any profile that onAuthStateChanged may have set in the race window.
       setProfile(null);
-      console.log("[AUTH] step=rollback_deleteUser uid=" + cred.user.uid);
       try {
         await cred.user.delete();
-        console.log("[AUTH] step=rollback_deleteUser_success");
-      } catch (delErr: unknown) {
-        const de = delErr as { code?: string; message?: string };
-        console.log("[AUTH] step=rollback_deleteUser_FAILED code=" + (de?.code ?? "none") + " msg=" + (de?.message ?? "none") + " — signing out instead");
+      } catch (_delErr: unknown) {
         await signOut(auth).catch(() => {});
       }
       // IMPORTANT: Do NOT map every permission-denied → phone_or_employee_taken.
@@ -552,17 +428,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       //   2. !exists() uniqueness guard → phone or employee number already taken
       //   3. Payload mismatch vs allow-create conditions → rules_not_deployed
       // Only case 2 is a uniqueness conflict. Cases 1 and 3 are configuration bugs.
-      // Until we can prove case 2 (we cannot: allow read: if false blocks existence
-      // checks), we surface a distinct error so the root cause can be debugged.
       const code = fe?.code;
       if (code === "permission-denied") {
-        console.log("[AUTH] step=throwing register_batch_permission_denied");
         throw new Error("register_batch_permission_denied");
       }
-      console.log("[AUTH] step=rethrowing_firestore_error code=" + code);
       throw firestoreErr;
     }
-    console.log("[AUTH] step=register:complete uid=" + cred.user.uid);
   };
 
   const logout = async () => {
@@ -740,6 +611,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * ALL USERS — permanently delete the signed-in user's own account.
+   * Requires re-authentication for security. Atomically deletes:
+   *   - users/{uid} Firestore profile
+   *   - user_phone_index/{phone} (if phone was registered)
+   *   - user_employee_index/{empNum} (if employee number was registered)
+   * Then deletes the Firebase Auth account via user.delete().
+   * Rules permit self-deletion via isOwner(uid) and resource.data.uid checks.
+   */
+  const deleteOwnAccount = async (password: string) => {
+    if (!user || !user.email || !profile) throw new Error("Not authenticated");
+
+    const credential = EmailAuthProvider.credential(user.email, password);
+    await reauthenticateWithCredential(user, credential);
+
+    const batch = writeBatch(db);
+    batch.delete(doc(db, "users", user.uid));
+
+    const normalizedPhone = profile.phone ? normalizePhone(profile.phone) : "";
+    if (normalizedPhone) {
+      batch.delete(doc(db, "user_phone_index", normalizedPhone));
+    }
+
+    const empNum = profile.employeeNumber?.trim() || "";
+    if (empNum) {
+      batch.delete(doc(db, "user_employee_index", empNum));
+    }
+
+    await batch.commit();
+    // Delete Firebase Auth account — only possible for the current user.
+    await user.delete();
+    setProfile(null);
+  };
+
+  /**
+   * SUPER ADMIN ONLY — permanently delete another user's Firestore data.
+   * Requires Super Admin password re-authentication.
+   * Deletes:
+   *   - users/{uid}
+   *   - user_phone_index/{phone}
+   *   - user_employee_index/{empNum}
+   *   - all profile_change_requests where userId == targetUid
+   * LIMITATION: Firebase Auth account for the target user cannot be deleted
+   * from the client SDK. After this call, the user's Firestore profile is gone
+   * so they cannot use the app even if they sign in. To fully remove the Auth
+   * account, use Firebase Console → Authentication.
+   */
+  const deleteUserByAdmin = async (targetUid: string, password: string) => {
+    if (!isSuperAdmin || !user || !user.email) {
+      throw new Error("Unauthorized: Super Admin only.");
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, password);
+    await reauthenticateWithCredential(user, credential);
+
+    const targetRef = doc(db, "users", targetUid);
+    const targetSnap = await getDoc(targetRef);
+    if (!targetSnap.exists()) throw new Error("User not found.");
+
+    const targetProfile = targetSnap.data() as UserProfile;
+    if (
+      targetProfile.role === "super_admin" ||
+      targetProfile.email?.toLowerCase() === activeSuperAdminEmail.toLowerCase()
+    ) {
+      throw new Error("Cannot delete the Super Admin account.");
+    }
+
+    const changeReqSnap = await getDocs(
+      query(collection(db, "profile_change_requests"), where("userId", "==", targetUid))
+    );
+
+    const batch = writeBatch(db);
+    batch.delete(targetRef);
+
+    const targetPhone = targetProfile.phone ? normalizePhone(targetProfile.phone) : "";
+    if (targetPhone) {
+      batch.delete(doc(db, "user_phone_index", targetPhone));
+    }
+
+    const targetEmpNum = targetProfile.employeeNumber?.trim() || "";
+    if (targetEmpNum) {
+      batch.delete(doc(db, "user_employee_index", targetEmpNum));
+    }
+
+    changeReqSnap.docs.forEach((d) => batch.delete(d.ref));
+
+    await batch.commit();
+  };
+
+  /**
    * ADMIN/SUPER ADMIN ONLY — fetch all registered users.
    */
   const getAllUsers = async (): Promise<UserProfile[]> => {
@@ -879,6 +839,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requestProfileChange,
         approveProfileChange,
         rejectProfileChange,
+        deleteOwnAccount,
+        deleteUserByAdmin,
       }}
     >
       {children}

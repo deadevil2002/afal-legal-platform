@@ -57,7 +57,7 @@ type AdminTab = "requests" | "users";
 export default function AdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, getAllUsers } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, getAllUsers, deleteUserByAdmin } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -76,6 +76,13 @@ export default function AdminScreen() {
   const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
+  const [deleteUserModal, setDeleteUserModal] = useState<{
+    visible: boolean;
+    target: UserProfile | null;
+    password: string;
+    loading: boolean;
+    error: string;
+  }>({ visible: false, target: null, password: "", loading: false, error: "" });
 
   // ── Jump to Users tab when navigated with ?tab=users ────────────────────
   useEffect(() => {
@@ -207,6 +214,32 @@ export default function AdminScreen() {
         },
       },
     ]);
+  };
+
+  const openDeleteUserModal = (target: UserProfile) => {
+    setSelectedUser(null);
+    setDeleteUserModal({ visible: true, target, password: "", loading: false, error: "" });
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteUserModal.target) return;
+    if (!deleteUserModal.password.trim()) {
+      setDeleteUserModal((prev) => ({ ...prev, error: t("deleteUserPassword") }));
+      return;
+    }
+    setDeleteUserModal((prev) => ({ ...prev, loading: true, error: "" }));
+    try {
+      await deleteUserByAdmin(deleteUserModal.target.uid, deleteUserModal.password);
+      setUsers((prev) => prev.filter((u) => u.uid !== deleteUserModal.target!.uid));
+      setDeleteUserModal({ visible: false, target: null, password: "", loading: false, error: "" });
+      Alert.alert(t("success"), t("deleteUserSuccess"));
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      const msg = err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"
+        ? t("wrongPassword")
+        : (err.message ?? t("errGeneric"));
+      setDeleteUserModal((prev) => ({ ...prev, loading: false, error: msg }));
+    }
   };
 
   const roleLabel = (role: UserRole): string => {
@@ -499,6 +532,16 @@ export default function AdminScreen() {
                                 </Text>
                               </TouchableOpacity>
                             )}
+                            <TouchableOpacity
+                              style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive, marginTop: 6 }]}
+                              onPress={() => openDeleteUserModal(u)}
+                              disabled={actionLoading}
+                            >
+                              <Icon name="trash" size={13} color={colors.destructive} />
+                              <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
+                                {t("deleteUser")}
+                              </Text>
+                            </TouchableOpacity>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -583,9 +626,9 @@ export default function AdminScreen() {
                     </View>
                   ))}
 
-                  {/* Promote/demote action inside modal */}
+                  {/* Promote/demote + delete actions inside modal */}
                   {!isSelf && !isSuperAdminAccount && isSuperAdmin && (
-                    <View style={{ marginTop: 16 }}>
+                    <View style={{ marginTop: 16, gap: 8 }}>
                       {u.role === "user" ? (
                         <TouchableOpacity
                           style={[styles.actionBtn, { backgroundColor: colors.secondary + "15", borderColor: colors.secondary }]}
@@ -609,6 +652,16 @@ export default function AdminScreen() {
                           </Text>
                         </TouchableOpacity>
                       ) : null}
+                      <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
+                        onPress={() => openDeleteUserModal(u)}
+                        disabled={actionLoading}
+                      >
+                        <Icon name="trash" size={13} color={colors.destructive} />
+                        <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
+                          {t("deleteUser")}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </>
@@ -679,6 +732,67 @@ export default function AdminScreen() {
             >
               <Text style={[styles.cancelText, { color: colors.foreground }]}>{t("cancel")}</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete User Modal */}
+      <Modal
+        visible={deleteUserModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteUserModal((p) => ({ ...p, visible: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.statusModalCard, { backgroundColor: "#fff" }]}>
+            <Text style={[styles.modalTitle, { color: "#1a1a1a", marginBottom: 4 }]}>
+              {t("deleteUser")}
+            </Text>
+            {deleteUserModal.target && (
+              <Text style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+                {deleteUserModal.target.displayName} · {deleteUserModal.target.email}
+              </Text>
+            )}
+            <Text style={{ fontSize: 13, color: "#333", marginBottom: 8 }}>
+              {t("deleteUserAdminPrompt")}
+            </Text>
+            <TextInput
+              style={[
+                styles.noteInput,
+                { color: "#1a1a1a", borderColor: "#ccc", backgroundColor: "#f9f9f9", marginBottom: 4 },
+              ]}
+              placeholder={t("yourPassword")}
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={deleteUserModal.password}
+              onChangeText={(v) => setDeleteUserModal((p) => ({ ...p, password: v, error: "" }))}
+              editable={!deleteUserModal.loading}
+            />
+            {deleteUserModal.error ? (
+              <Text style={{ color: "#e53935", fontSize: 12, marginBottom: 8 }}>
+                {deleteUserModal.error}
+              </Text>
+            ) : null}
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.statusSaveBtn, { flex: 1, backgroundColor: "#e53935" }]}
+                onPress={handleDeleteUser}
+                disabled={deleteUserModal.loading}
+              >
+                {deleteUserModal.loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.statusSaveBtnText}>{t("deleteUser")}</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statusCancelBtn, { flex: 1 }]}
+                onPress={() => setDeleteUserModal((p) => ({ ...p, visible: false }))}
+                disabled={deleteUserModal.loading}
+              >
+                <Text style={styles.statusCancelText}>{t("cancel")}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

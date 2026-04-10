@@ -1,0 +1,64 @@
+We have reached a stable baseline for auth and Firestore rules.
+
+Now implement the next production-readiness phase carefully.
+
+Tasks:
+
+1) Remove temporary diagnostic logs
+- Remove or disable all temporary debug logs used for signup/auth investigation:
+  - [SIGNUP]
+  - [AUTH]
+  - [AUTHSTATE]
+  - [AUTHGATE]
+- Keep code clean for production
+- Do not remove real error handling
+
+2) Super Admin user deletion flow
+Implement a safe Super Admin-only delete user flow.
+
+Requirements:
+- Add a delete action in the Super Admin user management UI
+- Strong confirmation dialog
+- Explain that this action is destructive
+- Deleting a user must cleanly handle:
+  - users/{uid}
+  - user_phone_index/{phone} if present
+  - user_employee_index/{employeeNumber} if present
+  - related profile_change_requests if needed
+- If possible, also delete/disable the Firebase Auth user through a proper admin-capable path
+- If direct Firebase Auth deletion is not available from the client, implement a safe fallback:
+  - deactivate Firestore user (isActive=false)
+  - remove indexes
+  - clearly report the limitation
+
+3) In-app account deletion for store compliance
+Implement an in-app “Delete My Account” flow for normal users.
+
+Requirements:
+- Add a Settings action: Delete My Account
+- Require a strong confirmation
+- Explain what will be deleted and what may be retained for legal/compliance reasons
+- Create a safe backend/app flow so the request is processed properly
+- Do NOT just hide/disable the account; actual account deletion must be supported
+- If immediate full client-side deletion is not technically possible, implement a delete-account request workflow and clearly structure it for later backend completion
+
+4) Legal / policy pages inside the app
+Add basic screens/placeholders for:
+- Privacy Policy
+- Terms of Use
+- Account Deletion Policy
+- Data Retention & Deletion Policy
+- Contact / Support
+
+Requirements:
+- Add them in Settings
+- Use clean enterprise-style layout
+- Content can be placeholder but structured and production-ready for later legal text insertion
+
+5) Report back
+After implementation, report:
+- files changed
+- how Super Admin delete user works
+- how Delete My Account works
+- what data is deleted vs retained
+- where the policy pages were added
