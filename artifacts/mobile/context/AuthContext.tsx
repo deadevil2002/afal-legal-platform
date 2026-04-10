@@ -400,15 +400,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // ── Atomically write all required Firestore documents ──────────────────
-    // Index reads are disabled by Firestore rules (allow read: if false).
-    // Uniqueness is enforced server-side via !exists(...) in the create rule.
-    // A batch failure with permission-denied means phone or emp number is taken.
-    //
     // IMPORTANT: setProfile(newProfile) is called AFTER batch.commit() succeeds,
     // not before. Pre-setting profile before the batch would cause AuthGate to
     // redirect to the tabs screen immediately (profile set + loading=false from
     // onAuthStateChanged). If the batch then fails and we delete the auth account,
     // AuthGate would redirect to login with the error message lost.
+    //
+    // HOW permission-denied CAN FIRE:
+    //   1. Firestore rules not deployed to Firebase Console for the
+    //      user_phone_index or user_employee_index collections.
+    //   2. The !exists() uniqueness guard fires (phone or emp number already taken).
+    //   3. A field payload mismatch versus the allow-create rule conditions.
+    // Do NOT blindly map permission-denied → "phone or emp taken". That is wrong
+    // for cases 1 and 3. The error thrown is register_batch_permission_denied and
+    // the UI shows a distinct message so the actual cause can be debugged.
+
+    // Log the exact primitive payloads that will be written, so the console shows
+    // exactly what each operation sends. Compare against deployed Firestore rules
+    // to identify any mismatch.
+    const phoneIndexPayload = normalizedPhone
+      ? JSON.stringify({ uid: cred.user.uid, phone: normalizedPhone })
+      : null;
+    const empIndexPayload = trimmedEmpNum
+      ? JSON.stringify({ uid: cred.user.uid, employeeNumber: trimmedEmpNum })
+      : null;
+    console.log(
+      "[AUTH] batch_payload:" +
+      "\n  users/" + cred.user.uid + " → " +
+        JSON.stringify({
+          uid: cred.user.uid,
+          email,
+          role: "user",
+          employeeNumber: trimmedEmpNum,
+          phone: normalizedPhone,
+          isActive: true,
+        }) +
+      "\n  user_phone_index/" + (normalizedPhone || "SKIPPED") + " → " + (phoneIndexPayload ?? "SKIPPED") +
+      "\n  user_employee_index/" + (trimmedEmpNum || "SKIPPED") + " → " + (empIndexPayload ?? "SKIPPED")
+    );
+    console.log(
+      "[AUTH] rules_check:" +
+      "\n  users/{uid} allow create: isOwner=" + (cred.user.uid === cred.user.uid) +
+        " uid_match=true email=" + email +
+        " role=user empNum.size=" + trimmedEmpNum.length +
+        " phone.size=" + normalizedPhone.length +
+      "\n  user_phone_index/{" + normalizedPhone + "}: data.phone==docId=" + (normalizedPhone === normalizedPhone) +
+      "\n  user_employee_index/{" + trimmedEmpNum + "}: data.employeeNumber==docId=" + (trimmedEmpNum === trimmedEmpNum)
+    );
+
     try {
       console.log("[AUTH] step=batch_start");
       const batch = writeBatch(db);
@@ -442,13 +481,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await batch.commit();
       console.log("[AUTH] step=batch_commit_success — setting profile now");
       // Set profile AFTER the batch succeeds. AuthGate checks user+profile+inAuth
-      // before navigating to tabs, so this is safe: profile stays null if the
-      // batch fails and the auth account is deleted.
+      // before navigating to tabs.
       setProfile(newProfile);
     } catch (firestoreErr: unknown) {
       // Firestore write failed — clean up so the user can retry cleanly.
       const fe = firestoreErr as { code?: string; message?: string; name?: string };
-      console.log("[AUTH] step=batch_FAILED code=" + (fe?.code ?? "none") + " msg=" + (fe?.message ?? "none") + " name=" + (fe?.name ?? "none"));
+      console.log(
+        "[AUTH] step=batch_FAILED code=" + (fe?.code ?? "none") +
+        " msg=" + (fe?.message ?? "none") +
+        " name=" + (fe?.name ?? "none")
+      );
+      // ── TEMPORARY DIAGNOSTIC: identify which individual write the rules reject ──
+      // Safe to run here because the batch was atomic: nothing was written yet.
+      // After the failing write is identified (from logs), REMOVE this block.
+      // WARNING: if any individual write below SUCCEEDS it will persist in Firestore
+      // (orphan data). That only happens once the rules are correctly deployed.
+      // Clean up any orphan docs from Firebase Console → Firestore if that occurs.
+      console.log("[AUTH] diag: testing each write individually...");
+      await (async () => {
+        try {
+          await setDoc(doc(db, "users", cred.user.uid), newProfile);
+          console.log("[AUTH] diag users/" + cred.user.uid + " = ALLOWED (orphan written — delete from Console)");
+        } catch (d: unknown) {
+          const e = d as { code?: string };
+          console.log("[AUTH] diag users/" + cred.user.uid + " = DENIED code=" + (e?.code ?? "?"));
+        }
+        if (normalizedPhone) {
+          try {
+            await setDoc(
+              doc(db, "user_phone_index", normalizedPhone),
+              { uid: cred.user.uid, phone: normalizedPhone, createdAt: now }
+            );
+            console.log("[AUTH] diag user_phone_index/" + normalizedPhone + " = ALLOWED (orphan written — delete from Console)");
+          } catch (d: unknown) {
+            const e = d as { code?: string };
+            console.log("[AUTH] diag user_phone_index/" + normalizedPhone + " = DENIED code=" + (e?.code ?? "?"));
+          }
+        }
+        if (trimmedEmpNum) {
+          try {
+            await setDoc(
+              doc(db, "user_employee_index", trimmedEmpNum),
+              { uid: cred.user.uid, employeeNumber: trimmedEmpNum, createdAt: now }
+            );
+            console.log("[AUTH] diag user_employee_index/" + trimmedEmpNum + " = ALLOWED (orphan written — delete from Console)");
+          } catch (d: unknown) {
+            const e = d as { code?: string };
+            console.log("[AUTH] diag user_employee_index/" + trimmedEmpNum + " = DENIED code=" + (e?.code ?? "?"));
+          }
+        }
+      })().catch((diagErr) => {
+        console.log("[AUTH] diag outer_error=" + String(diagErr));
+      });
+      // ── END TEMPORARY DIAGNOSTIC ──
+
       // Clear any profile that onAuthStateChanged may have set in the race window.
       setProfile(null);
       console.log("[AUTH] step=rollback_deleteUser uid=" + cred.user.uid);
@@ -460,12 +546,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("[AUTH] step=rollback_deleteUser_FAILED code=" + (de?.code ?? "none") + " msg=" + (de?.message ?? "none") + " — signing out instead");
         await signOut(auth).catch(() => {});
       }
-      // permission-denied from the batch means the !exists() uniqueness guard
-      // in the Firestore rules fired — phone or employee number already taken.
+      // IMPORTANT: Do NOT map every permission-denied → phone_or_employee_taken.
+      // permission-denied has at least three causes:
+      //   1. Firestore rules not deployed for index collections → rules_not_deployed
+      //   2. !exists() uniqueness guard → phone or employee number already taken
+      //   3. Payload mismatch vs allow-create conditions → rules_not_deployed
+      // Only case 2 is a uniqueness conflict. Cases 1 and 3 are configuration bugs.
+      // Until we can prove case 2 (we cannot: allow read: if false blocks existence
+      // checks), we surface a distinct error so the root cause can be debugged.
       const code = fe?.code;
       if (code === "permission-denied") {
-        console.log("[AUTH] step=throwing phone_or_employee_taken");
-        throw new Error("phone_or_employee_taken");
+        console.log("[AUTH] step=throwing register_batch_permission_denied");
+        throw new Error("register_batch_permission_denied");
       }
       console.log("[AUTH] step=rethrowing_firestore_error code=" + code);
       throw firestoreErr;

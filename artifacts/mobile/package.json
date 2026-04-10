@@ -7,9 +7,13 @@
     "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "deploy:rules": "firebase deploy --only firestore:rules --project $EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+    "deploy:indexes": "firebase deploy --only firestore:indexes --project $EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+    "deploy:firestore": "firebase deploy --only firestore --project $EXPO_PUBLIC_FIREBASE_PROJECT_ID"
   },
   "devDependencies": {
+    "firebase-tools": "^14.0.0",
     "@babel/core": "^7.25.2",
     "@expo-google-fonts/inter": "^0.4.0",
     "@expo/cli": "54.0.23",

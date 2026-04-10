@@ -1,0 +1,69 @@
+We now have the exact failure pattern from the logs.
+
+Facts from the logs:
+- createUserWithEmailAndPassword succeeds
+- then register() starts a batch write:
+  - users/{uid}
+  - user_phone_index/{normalizedPhone}
+  - user_employee_index/{employeeNumber}
+- batch.commit() fails with:
+  - code=permission-denied
+  - message=Missing or insufficient permissions
+- then the auth user is rolled back and deleted
+- only after that the app throws a custom phone_or_employee_taken error
+
+This means the current user-facing message is misleading.
+The real error is Firestore permission-denied during the batch write.
+
+Important:
+Treat the attached Firestore rules as the intended baseline.
+Do NOT weaken them yet.
+First determine why the runtime batch does not satisfy them.
+
+Your task:
+Do a precise rules-vs-runtime audit and fix the real issue.
+
+Check in this exact order:
+
+1) Verify the Firestore rules currently deployed in Firebase Console
+- Confirm they exactly include:
+  - match /user_phone_index/{normalizedPhone}
+  - match /user_employee_index/{employeeNumber}
+- Do not assume the local firestore.rules file is the one actually deployed
+- If Firebase Console is outdated, update/publish the correct rules first
+
+2) Inspect the exact payload of each batch write at runtime
+For each write, log only the primitive fields being written:
+- users/{uid}
+- user_phone_index/{normalizedPhone}
+- user_employee_index/{employeeNumber}
+
+Critical check:
+- For user_phone_index/{normalizedPhone}, verify whether request.resource.data.phone is the normalized value (matching the doc id), not the raw user-entered phone string
+- For user_employee_index/{employeeNumber}, verify whether request.resource.data.employeeNumber matches the doc id exactly
+
+3) Stop mapping every permission-denied to phone_or_employee_taken
+- Only show phone_or_employee_taken if you have proven an actual uniqueness conflict
+- If batch commit fails with generic permission-denied, surface a distinct temporary debug error:
+  - register_batch_permission_denied
+
+4) Identify which write inside the batch is denied
+- users/{uid}
+- user_phone_index/{normalizedPhone}
+- user_employee_index/{employeeNumber}
+Use a temporary diagnostic approach if needed:
+- either Firestore emulator
+- or temporarily test the same writes one-by-one in a controlled debug build
+Do NOT keep this debug approach permanently
+
+5) Check whether user_employee_index/34650 already exists in Firestore
+6) Check whether the relevant phone index docs already exist in Firestore
+
+Output required:
+- Are the deployed Firebase Console rules outdated or correct?
+- Which exact write is being denied?
+- What exact payload was being written for each batch write?
+- Is the phone index payload using raw phone or normalized phone?
+- Is employeeNumber 34650 already reserved in user_employee_index?
+- Is the current phone_or_employee_taken message false/misleading?
+- Exact fix applied

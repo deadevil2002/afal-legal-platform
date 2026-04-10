@@ -106,6 +106,17 @@ export default function RegisterScreen() {
         setErrorMsg(language === "ar" ? "رقم الموظف هذا مسجّل مسبقاً." : "This employee number is already registered.");
       } else if (msg === "phone_or_employee_taken") {
         setErrorMsg(language === "ar" ? "رقم الهاتف أو رقم الموظف مسجّل مسبقاً. يرجى المراجعة والمحاولة مجدداً." : "Phone number or employee number is already registered. Please check and try again.");
+      } else if (msg === "register_batch_permission_denied") {
+        // permission-denied on the Firestore batch — not a uniqueness conflict.
+        // Most likely cause: Firestore rules for user_phone_index or
+        // user_employee_index are not deployed to Firebase Console.
+        // Check Metro/browser console for [AUTH] diag logs to identify which write fails.
+        setErrorMsg(
+          "[RULES] Registration blocked by Firestore (permission-denied).\n" +
+          "Check Metro console for [AUTH] diag lines to see which write is denied.\n" +
+          "Most likely: deploy firestore.rules to Firebase Console.\n" +
+          "Run: pnpm --filter @workspace/mobile run deploy:rules"
+        );
       } else {
         setErrorMsg(mapFirebaseAuthError(e, language));
       }
