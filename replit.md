@@ -45,13 +45,48 @@ Enterprise-grade mobile app for Arabian Fal — a legal services request and tra
 
 ## Key Files
 
-- `artifacts/mobile/lib/firebase.ts` — Firebase initialization
-- `artifacts/mobile/context/AuthContext.tsx` — Auth + language state
+- `artifacts/mobile/lib/firebase.ts` — Firebase initialization (auth + Firestore)
+- `artifacts/mobile/context/AuthContext.tsx` — Auth + language state, profile change request functions
 - `artifacts/mobile/i18n/translations.ts` — EN/AR translations
 - `artifacts/mobile/constants/colors.ts` — Brand design tokens
 - `artifacts/mobile/app/(tabs)/` — Main screens
+- `artifacts/mobile/app/(tabs)/settings.tsx` — Profile settings, phone/empNum change request flow
 - `artifacts/mobile/app/request/` — Request detail + new request screens
 - `artifacts/mobile/app/auth/` — Login + register screens
+- `artifacts/mobile/app/admin/profile-changes.tsx` — Super Admin profile change request approval screen
+- `artifacts/mobile/app/admin/export-data.tsx` — Excel export (ExcelJS loaded lazily via dynamic import)
+
+## Critical Implementation Notes
+
+### Firebase Auth (`lib/firebase.ts`)
+- Uses `initializeAuth` (not `getAuth`) for explicit persistence control
+- Native: `getReactNativePersistence(AsyncStorage)` — auth persists across app restarts
+- Web: `browserLocalPersistence` — same as browser default
+- Firestore: `memoryLocalCache()` on web (prevents SQLite errors in Replit iframe), default persistent cache on native
+
+### Auth Navigation Guard (`app/_layout.tsx` — AuthGate)
+- Checks `user && profile && inAuth` before redirecting to tabs (not just `user`)
+- This prevents the race condition where a registration batch failure causes a brief flash to tabs
+- Profile being null while user is non-null means: auth exists but Firestore profile is not yet loaded — do NOT redirect
+
+### ExcelJS (`app/admin/export-data.tsx`)
+- MUST remain `import type ExcelJS from "exceljs"` — static import causes stack overflow on app startup
+- MUST use `const ExcelJS = (await import("exceljs")).default` inside the handler only
+- Never change back to a static `import ExcelJS from "exceljs"`
+
+### Profile Change Request Flow
+- Phone and employeeNumber changes by normal users go through `requestProfileChange()` in AuthContext
+- Super Admin reviews/approves/rejects via `app/admin/profile-changes.tsx`
+- Approval uses Firestore batch: updates user doc + updates index docs + marks request approved
+- `updateUserProfile` whitelist: `displayName`, `department`, `language`, `updatedAt` ONLY
+
+### Interface Imports
+- `ProfileChangeRequest` is a TypeScript interface — always use `import type { ProfileChangeRequest }` to avoid runtime `undefined` values
+- Babel strips `import type` completely; without `type`, Metro keeps the import statement but the value is `undefined` at runtime
+
+### StyleSheet
+- Never use `marginLeft: "auto" as unknown as number` — React Native StyleSheet does not accept string values for numeric props via cast hacks
+- Use `justifyContent: "space-between"` on the parent row instead
 
 ## Super Admin Logic
 

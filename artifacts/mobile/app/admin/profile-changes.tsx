@@ -22,7 +22,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
-import { useAuth, ProfileChangeRequest } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
+import type { ProfileChangeRequest } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";

@@ -1,0 +1,56 @@
+We have a new blocking sign-up/runtime bug.
+
+Important facts:
+- User fills the sign-up form and taps Sign Up
+- The app briefly transitions, then returns to the registration screen
+- The account does NOT appear in Firebase Authentication afterwards
+- So this is NOT an "email already exists" issue and NOT a Firestore rules issue
+
+Current runtime errors shown in React Native:
+1) RangeError: Maximum call stack size exceeded
+2) TypeError: Object is not a constructor
+
+Current stack trace points to React Native rendering internals, including:
+- describeNativeComponentFrame
+- TraceUpdates_typeof
+- diffNestedProperty
+- addNestedProperty
+
+This strongly suggests a UI/component/runtime rendering bug, import/export mismatch, or navigation/auth loop — not Firebase Auth failure.
+
+Your task:
+Perform a focused root-cause audit and fix this exact issue.
+
+Inspect these areas carefully:
+1. app/auth/register.tsx
+2. context/AuthContext.tsx
+3. any auth redirect / router logic after sign-up
+4. any newly added modal / bottom-sheet / card / helper components used in:
+   - settings.tsx
+   - admin/profile-changes.tsx
+   - auth-related screens
+5. any import/export mismatch where an object is being rendered or constructed as a component
+6. any useEffect / auth listener / navigation loop that can bounce the app back to registration
+7. any JSX where a non-component object may be rendered
+
+What to verify:
+- Does createUserWithEmailAndPassword get called at all before the crash?
+- If yes, does the crash happen before or after Firebase returns?
+- Is there any component being imported incorrectly (default vs named import)?
+- Is there any modal/component factory or helper returning an object instead of a valid React component?
+- Is there any auth state or router loop pushing the user back to register?
+
+Required fix:
+1. Make Sign Up complete cleanly without runtime crash
+2. Ensure the user stays in the correct post-signup flow
+3. Ensure the new email actually appears in Firebase Auth after successful registration
+4. Do not weaken Firestore rules
+5. Do not remove the profile-change-request system
+6. Do not touch AttachmentPicker or request logic
+
+After fixing, report:
+- Exact root cause
+- Exact file(s) changed
+- Whether the bug happened before or after createUserWithEmailAndPassword
+- Confirmation that sign-up now creates the Firebase Auth account successfully
+- Confirmation that no runtime UI crash happens after tapping Sign Up

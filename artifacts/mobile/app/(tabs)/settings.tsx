@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { ProfileChangeRequest } from "@/context/AuthContext";
+import type { ProfileChangeRequest } from "@/context/AuthContext";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -1331,6 +1331,7 @@ const styles = StyleSheet.create({
   changeReqTopRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 6,
   },
   changeReqValues: {
@@ -1364,7 +1365,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
-    marginLeft: "auto" as unknown as number,
   },
   statusPillText: {
     fontSize: 11,
