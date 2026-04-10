@@ -801,14 +801,16 @@ export default function SettingsScreen() {
                 {profile?.phone || "—"}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
-              onPress={() => openRequestModal("phone")}
-            >
-              <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
-                {t("requestChange")}
-              </Text>
-            </TouchableOpacity>
+            {!isSuperAdmin && (
+              <TouchableOpacity
+                style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
+                onPress={() => openRequestModal("phone")}
+              >
+                <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
+                  {t("requestChange")}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Employee Number — read-only, change via request */}
@@ -822,14 +824,16 @@ export default function SettingsScreen() {
                 {profile?.employeeNumber || "—"}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
-              onPress={() => openRequestModal("employeeNumber")}
-            >
-              <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
-                {t("requestChange")}
-              </Text>
-            </TouchableOpacity>
+            {!isSuperAdmin && (
+              <TouchableOpacity
+                style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
+                onPress={() => openRequestModal("employeeNumber")}
+              >
+                <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
+                  {t("requestChange")}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity

@@ -1,0 +1,55 @@
+We have two clear bugs to fix in the Legal Requests System.
+
+Do not refactor unrelated code.
+Do not weaken Firestore security.
+Fix these two issues only, carefully.
+
+BUG 1 — Super Admin should NOT see "Request Change"
+Current issue:
+The Super Admin still sees "Request Change" buttons for phone and employee number in Settings.
+
+Required behavior:
+- Profile change requests are for all users EXCEPT Super Admin
+- If isSuperAdmin is true:
+  - hide the "Request Change" buttons
+  - hide any request-change modal triggers
+  - hide the "My Change Requests" section for Super Admin
+- Super Admin should manage requests from the admin review screen only, not create requests for themselves
+
+BUG 2 — New account creation / bootstrap is failing because of document repair
+Observed console error:
+[Auth] Document repair FAILED — permission-denied
+repairPayload: ["createdAt","updatedAt"]
+rawDocument includes createdAt:null and updatedAt:null
+
+Root issue:
+There is a document-repair flow inside onAuthStateChanged / auth bootstrap that tries to patch createdAt / updatedAt on user documents.
+This violates current Firestore rules because normal users cannot change protected fields like createdAt.
+So the repair attempt fails and breaks new-account bootstrap / loading.
+
+Required fix:
+1. Audit the auth bootstrap / onAuthStateChanged flow
+2. Find the "document repair" logic
+3. Stop trying to repair protected fields from the client
+4. Never attempt to write createdAt from a normal-user repair path
+5. If a user document is incomplete, only repair fields that are actually allowed and safe
+6. Prefer:
+   - if document does not exist: create it correctly through the registration flow
+   - if document exists but has null/undefined protected fields: do NOT try to patch protected fields from normal client update
+7. Ensure new user registration completes cleanly and the user can log in and load profile without permission-denied
+
+Important constraints:
+- Do not change AttachmentPicker
+- Do not change request logic
+- Do not change transfer-super-admin logic
+- Do not weaken rules for users/{uid}
+- Do not allow normal users to edit phone or employeeNumber directly
+- Keep profile change requests for non-super-admin users only
+
+After finishing, report:
+1. Which files were changed
+2. Where Super Admin request-change buttons were hidden
+3. Where the document repair logic was fixed
+4. Exactly what the auth bootstrap now does when user doc is missing
+5. Confirmation that no client repair path writes createdAt anymore
+6. Confirmation that new account creation and first login now work

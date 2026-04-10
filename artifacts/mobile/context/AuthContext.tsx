@@ -231,95 +231,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const resolved: UserProfile = { ...data, role: effectiveRole };
 
             /**
-             * Document integrity repair.
+             * Lightweight document repair — only fields allowed by the
+             * normal-user Firestore update rule:
+             *   affectedKeys().hasOnly(["displayName","department","language","updatedAt"])
              *
-             * The Firestore rule for profile updates requires several fields to
-             * exist in the document (uid, email, createdAt, isActive, employeeNumber).
-             * If ANY are missing (e.g. bootstrap SA document created before these
-             * requirements existed), the profile save fails with permission-denied.
+             * Protected fields (uid, email, createdAt, isActive, employeeNumber,
+             * phone, role) MUST NOT be written here. Writing them via updateDoc
+             * or setDoc+merge will trigger the rule's equality checks and fail
+             * with permission-denied for normal users.
              *
-             * Strategy: audit the live document for every required field and repair
-             * in a single setDoc+merge call so the document is complete before the
-             * user ever hits Save.
-             *
-             * setDoc+merge is used (not updateDoc) because it can add uid/createdAt
-             * which are outside the updateDoc diff whitelist. The admin branch of the
-             * Firestore rule allows this when isAdmin() resolves to true for the caller.
+             * If a user doc is missing protected fields entirely, that is a sign
+             * the registration flow did not complete correctly — it is NOT safe
+             * to repair them from the client after the fact. Those docs should
+             * only be created via the register() function below which writes all
+             * required fields in one atomic operation.
              */
             const repairNow = serverTimestamp();
             const repair: Record<string, unknown> = {};
 
-            if (!data.uid) {
-              repair.uid = firebaseUser.uid;
-              console.log("[Auth] Repair: missing uid");
-            }
-            if (!data.email) {
-              repair.email = (firebaseUser.email ?? "").toLowerCase();
-              console.log("[Auth] Repair: missing email");
-            }
-            if (data.createdAt === undefined || data.createdAt === null) {
-              repair.createdAt = repairNow;
-              console.log("[Auth] Repair: missing createdAt");
-            }
-            if (data.isActive === undefined || data.isActive === null) {
-              repair.isActive = true;
-              console.log("[Auth] Repair: missing isActive");
-            }
-            if (!data.department) {
+            if (!data.department && data.department !== "") {
               repair.department =
                 effectiveRole === "super_admin" ? "Administration" : "";
-              console.log("[Auth] Repair: missing department");
             }
             if (!data.language) {
               repair.language = "en";
-              console.log("[Auth] Repair: missing language");
-            }
-            if (!data.employeeNumber || data.employeeNumber.trim() === "") {
-              repair.employeeNumber =
-                effectiveRole === "super_admin"
-                  ? "SA-001"
-                  : `EMP-${firebaseUser.uid.slice(0, 8).toUpperCase()}`;
-              console.log("[Auth] Repair: missing employeeNumber →", repair.employeeNumber);
             }
 
             if (Object.keys(repair).length > 0) {
               repair.updatedAt = repairNow;
-              console.log(
-                "[Auth] Repairing Firestore document — fields:",
-                Object.keys(repair).join(", "),
-                "uid:", firebaseUser.uid,
-                "role:", effectiveRole
-              );
               try {
-                await setDoc(
-                  doc(db, "users", firebaseUser.uid),
-                  repair,
-                  { merge: true }
-                );
-                // Update in-memory profile with repaired values
-                // (server timestamps resolve as null initially; coerce to sensible defaults)
-                if (repair.isActive !== undefined) resolved.isActive = true;
-                if (repair.employeeNumber) resolved.employeeNumber = repair.employeeNumber as string;
+                await updateDoc(doc(db, "users", firebaseUser.uid), repair);
                 if (repair.department !== undefined) resolved.department = repair.department as string;
                 if (repair.language) resolved.language = repair.language as "en" | "ar";
-                if (repair.uid) resolved.uid = repair.uid as string;
-                if (repair.email) resolved.email = repair.email as string;
-                console.log("[Auth] Document repair succeeded");
               } catch (repairErr: unknown) {
                 const e = repairErr as { code?: string; message?: string };
                 console.error(
-                  "[Auth] Document repair FAILED — code:", e.code,
-                  "message:", e.message,
-                  "repairPayload:", JSON.stringify(Object.keys(repair)),
-                  "rawDocument:", JSON.stringify(data)
+                  "[Auth] Soft repair FAILED — code:", e.code,
+                  "fields:", JSON.stringify(Object.keys(repair))
                 );
               }
-            } else {
-              console.log(
-                "[Auth] Profile complete — no repair needed.",
-                "employeeNumber:", resolved.employeeNumber,
-                "role:", resolved.role
-              );
             }
 
             setProfile(resolved);
