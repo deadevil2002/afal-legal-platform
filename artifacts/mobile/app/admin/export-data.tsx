@@ -22,7 +22,7 @@ import { useRouter } from "expo-router";
 // or StorageAccessFramework. All of those live in the /legacy sub-path.
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
@@ -486,6 +486,12 @@ export default function ExportDataScreen() {
       }
 
       // ── 2. Build workbook with ExcelJS ────────────────────────────────────
+      // Dynamic import: ExcelJS is loaded only when the user actually triggers
+      // export, NOT at app startup. This prevents the library's Node.js-specific
+      // initialisation from running in the React Native environment during boot,
+      // which caused a LogBox recursive serialisation crash (stack overflow).
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
       wb.creator  = "Arabian Fal Legal Services";
       wb.created  = new Date();
