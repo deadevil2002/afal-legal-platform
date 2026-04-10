@@ -78,6 +78,14 @@ service cloud.firestore {
       ];
     }
 
+    function validProfileChangeField(field) {
+      return field in ["phone", "employeeNumber"];
+    }
+
+    function validProfileChangeStatus(status) {
+      return status in ["pending", "approved", "rejected", "cancelled"];
+    }
+
     function requestPath(requestId) {
       return /databases/$(database)/documents/requests/$(requestId);
     }
@@ -114,11 +122,6 @@ service cloud.firestore {
       );
     }
 
-    function sameOrMissing(field) {
-      return !(field in resource.data)
-        || request.resource.data[field] == resource.data[field];
-    }
-
     function bothMissingOrSame(field) {
       return (
         !(field in resource.data) && !(field in request.resource.data)
@@ -141,7 +144,9 @@ service cloud.firestore {
         && lower(request.resource.data.email) == authEmail()
         && request.resource.data.role == "user"
         && request.resource.data.employeeNumber is string
-        && request.resource.data.employeeNumber.size() > 0;
+        && request.resource.data.employeeNumber.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0;
 
       allow update: if
         (
@@ -157,13 +162,12 @@ service cloud.firestore {
               request.resource.data.isActive == resource.data.isActive
             )
           )
-          && request.resource.data.employeeNumber is string
+          && request.resource.data.employeeNumber == resource.data.employeeNumber
+          && request.resource.data.phone == resource.data.phone
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             "displayName",
             "department",
-            "phone",
             "language",
-            "employeeNumber",
             "updatedAt"
           ])
         )
@@ -175,6 +179,9 @@ service cloud.firestore {
           && request.resource.data.createdAt == resource.data.createdAt
           && validRole(request.resource.data.role)
           && request.resource.data.employeeNumber is string
+          && request.resource.data.employeeNumber.size() > 0
+          && request.resource.data.phone is string
+          && request.resource.data.phone.size() > 0
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             "displayName",
             "department",
@@ -192,11 +199,9 @@ service cloud.firestore {
 
     // =========================
     // user_phone_index
-    // Uniqueness index for phone numbers.
     // Document ID = normalized phone (digits only, 966XXXXXXXXX format).
     // Document data = { uid, phone, createdAt }
-    // Reads are denied so no user can pre-check whether a phone is taken.
-    // Uniqueness is enforced server-side via !exists() in the create rule.
+    // Reads denied — uniqueness enforced server-side via !exists() in create rule.
     // =========================
     match /user_phone_index/{normalizedPhone} {
       allow read: if false;
@@ -208,20 +213,13 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/user_phone_index/$(normalizedPhone));
 
       allow update: if false;
-
-      // Super Admin may delete for account cleanup.
-      // Users may delete their OWN index entry — required for phone-number changes
-      // in profile update (old entry must be freed so the new one can be created).
-      allow delete: if isSuperAdmin()
-        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow delete: if isSuperAdmin();
     }
 
     // =========================
     // user_employee_index
-    // Uniqueness index for employee numbers.
     // Document ID = trimmed employee number string.
     // Document data = { uid, employeeNumber, createdAt }
-    // Same read/create/update semantics as user_phone_index.
     // =========================
     match /user_employee_index/{employeeNumber} {
       allow read: if false;
@@ -233,9 +231,40 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/user_employee_index/$(employeeNumber));
 
       allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
 
-      allow delete: if isSuperAdmin()
-        || (signedIn() && resource.data.uid == request.auth.uid);
+    // =========================
+    // profile_change_requests
+    // Users submit requests to change phone or employeeNumber.
+    // Super Admin reviews and approves or rejects.
+    // =========================
+    match /profile_change_requests/{docId} {
+
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && validProfileChangeField(request.resource.data.field)
+        && validProfileChangeStatus(request.resource.data.status)
+        && request.resource.data.status == "pending"
+        && request.resource.data.currentValue is string
+        && request.resource.data.currentValue.size() > 0
+        && request.resource.data.requestedValue is string
+        && request.resource.data.requestedValue.size() > 0
+        && request.resource.data.requestedValue != request.resource.data.currentValue;
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if isSuperAdmin()
+        && resource.data.userId == request.resource.data.userId
+        && resource.data.field == request.resource.data.field
+        && resource.data.currentValue == request.resource.data.currentValue
+        && resource.data.requestedValue == request.resource.data.requestedValue
+        && validProfileChangeStatus(request.resource.data.status);
+
+      allow delete: if isSuperAdmin();
     }
 
     // =========================

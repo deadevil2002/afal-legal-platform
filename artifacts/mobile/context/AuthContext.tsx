@@ -11,6 +11,7 @@ import {
   User,
 } from "firebase/auth";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -58,6 +59,20 @@ export interface UserProfile {
   language?: "en" | "ar";
 }
 
+export interface ProfileChangeRequest {
+  id: string;
+  userId: string;
+  field: "phone" | "employeeNumber";
+  currentValue: string;
+  requestedValue: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  createdAt: unknown;
+  updatedAt: unknown;
+  adminReason: string;
+  userName?: string;
+  userEmail?: string;
+}
+
 export interface AppSettings {
   superAdminEmail: string;
   previousSuperAdminEmail?: string;
@@ -92,6 +107,9 @@ interface AuthContextType {
   transferSuperAdmin: (targetEmail: string, currentPassword: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   getAllUsers: () => Promise<UserProfile[]>;
+  requestProfileChange: (field: "phone" | "employeeNumber", requestedValue: string) => Promise<void>;
+  approveProfileChange: (changeRequestId: string, req: ProfileChangeRequest) => Promise<void>;
+  rejectProfileChange: (changeRequestId: string, reason: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -458,19 +476,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     /**
-     * Strict whitelist — exactly matches the Firestore rule for self-updates:
-     * affectedKeys().hasOnly([
-     *   "displayName","department","phone","language","employeeNumber","updatedAt"
-     * ])
+     * Strict whitelist — exactly matches the Firestore rule for normal-user self-updates:
+     * affectedKeys().hasOnly(["displayName","department","language","updatedAt"])
+     *
+     * phone and employeeNumber are intentionally excluded:
+     *   - The rule now requires phone == resource.data.phone (unchanged)
+     *   - The rule now requires employeeNumber == resource.data.employeeNumber (unchanged)
+     *   - Changes to phone/employeeNumber go through requestProfileChange() → admin approval
+     *
      * Protected fields (uid, email, role, createdAt, isActive) must never be
-     * included in a normal-user update payload or the write is denied.
+     * sent in the payload — the rule does NOT permit their modification here.
      */
     const ALLOWED: (keyof UserProfile)[] = [
       "displayName",
       "department",
-      "phone",
       "language",
-      "employeeNumber",
     ];
     const safe: Record<string, unknown> = {};
     for (const key of ALLOWED) {
@@ -478,96 +498,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     safe.updatedAt = serverTimestamp();
 
-    // ── Phone normalization ────────────────────────────────────────────────
-    // The Firestore rule requires phone.size() > 0 in the resulting document.
-    // Normalize the incoming phone so it matches the index document ID format.
-    // If the caller sends an empty phone, omit it from the payload entirely —
-    // this preserves the existing non-empty value already stored in Firestore.
-    if ("phone" in safe) {
-      const normalizedNewPhone = normalizePhone((safe.phone as string) || "");
-      if (normalizedNewPhone) {
-        safe.phone = normalizedNewPhone;
-      } else {
-        // Empty phone after normalization — preserve the existing stored value.
-        delete safe.phone;
-      }
-    }
-
-    // ── Employee number guarantee ──────────────────────────────────────────
-    // Firestore rule requires: request.resource.data.employeeNumber is string.
-    // Always ensure a non-empty employee number is in the payload.
-    const outgoingEmpNum = (safe.employeeNumber as string | undefined)?.trim();
-    if (!outgoingEmpNum) {
-      const existingEmpNum = profile?.employeeNumber?.trim();
-      safe.employeeNumber = existingEmpNum || `EMP-${user.uid.slice(0, 8).toUpperCase()}`;
-    }
-
-    // ── Detect index-relevant changes ────────────────────────────────────
-    // Compare normalized new values against what is currently stored.
-    const oldPhone = normalizePhone(profile?.phone || "");
-    const newPhone = (safe.phone as string) || "";
-    const phoneChanged = !!newPhone && newPhone !== oldPhone;
-
-    const oldEmpNum = (profile?.employeeNumber || "").trim();
-    const newEmpNum = ((safe.employeeNumber as string) || "").trim();
-    const empNumChanged = !!newEmpNum && newEmpNum !== oldEmpNum;
-
-    if (phoneChanged || empNumChanged) {
-      /**
-       * Index-managing batch:
-       * 1. Update users/{uid} with the safe payload
-       * 2. Create new index document(s) for changed phone/empNum
-       *    — Firestore rule: allow create if !exists() → enforces uniqueness server-side
-       *    — permission-denied here means the new value is already taken by another user
-       * 3. Delete old index document(s) so the old identifiers are freed
-       *    — Firestore rule: allow delete if uid == auth.uid (self-deletion)
-       */
-      const now = serverTimestamp();
-      const batch = writeBatch(db);
-
-      // Always update the user document
-      batch.update(doc(db, "users", user.uid), safe);
-
-      if (phoneChanged) {
-        // Create new phone index (will be denied by !exists() if already taken)
-        batch.set(doc(db, "user_phone_index", newPhone), {
-          uid: user.uid,
-          phone: newPhone,
-          createdAt: now,
-        });
-        // Free the old phone index so it can be registered by another user
-        if (oldPhone) {
-          batch.delete(doc(db, "user_phone_index", oldPhone));
-        }
-      }
-
-      if (empNumChanged) {
-        // Create new employee number index
-        batch.set(doc(db, "user_employee_index", newEmpNum), {
-          uid: user.uid,
-          employeeNumber: newEmpNum,
-          createdAt: now,
-        });
-        // Free the old employee number index
-        if (oldEmpNum) {
-          batch.delete(doc(db, "user_employee_index", oldEmpNum));
-        }
-      }
-
-      try {
-        await batch.commit();
-      } catch (batchErr: unknown) {
-        const code = (batchErr as { code?: string })?.code;
-        if (code === "permission-denied") {
-          throw new Error("phone_or_employee_taken");
-        }
-        throw batchErr;
-      }
-    } else {
-      // No index-relevant change — simple updateDoc is sufficient.
-      await updateDoc(doc(db, "users", user.uid), safe);
-    }
-
+    await updateDoc(doc(db, "users", user.uid), safe);
     setProfile((prev) => (prev ? { ...prev, ...safe } : prev));
   };
 
@@ -726,6 +657,108 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  /**
+   * ALL USERS — submit a request to change phone or employeeNumber.
+   * Writes a profile_change_requests document. Super Admin must approve.
+   * The currentValue is sourced from the live profile context so the Firestore
+   * rule's "currentValue.size() > 0" and "requestedValue != currentValue" checks
+   * are met accurately.
+   */
+  const requestProfileChange = async (
+    field: "phone" | "employeeNumber",
+    requestedValue: string
+  ) => {
+    if (!user || !profile) throw new Error("Not authenticated");
+    const trimmed = requestedValue.trim();
+    if (!trimmed) throw new Error("value_required");
+    const currentValue =
+      field === "phone"
+        ? (profile.phone || "")
+        : (profile.employeeNumber || "");
+    if (trimmed === currentValue) throw new Error("value_unchanged");
+    await addDoc(collection(db, "profile_change_requests"), {
+      userId: user.uid,
+      field,
+      currentValue,
+      requestedValue: trimmed,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      adminReason: "",
+      userName: profile.displayName,
+      userEmail: profile.email,
+    });
+  };
+
+  /**
+   * SUPER ADMIN ONLY — approve a pending profile change request.
+   * Atomically:
+   *   1. Updates users/{uid}.phone or .employeeNumber
+   *   2. Creates the new uniqueness index document
+   *   3. Deletes the old uniqueness index document
+   *   4. Marks profile_change_requests/{id} as "approved"
+   * If the requested value is already taken (!exists fails), throws "already_taken".
+   */
+  const approveProfileChange = async (
+    changeRequestId: string,
+    req: ProfileChangeRequest
+  ) => {
+    if (!isSuperAdmin) throw new Error("Not authorized");
+    const now = serverTimestamp();
+    const batch = writeBatch(db);
+
+    if (req.field === "phone") {
+      const newPhone = normalizePhone(req.requestedValue);
+      const oldPhone = normalizePhone(req.currentValue);
+      if (!newPhone) throw new Error("invalid_phone");
+      batch.update(doc(db, "users", req.userId), { phone: newPhone, updatedAt: now });
+      batch.set(doc(db, "user_phone_index", newPhone), {
+        uid: req.userId,
+        phone: newPhone,
+        createdAt: now,
+      });
+      if (oldPhone) batch.delete(doc(db, "user_phone_index", oldPhone));
+    } else {
+      const newEmpNum = req.requestedValue.trim();
+      const oldEmpNum = req.currentValue.trim();
+      if (!newEmpNum) throw new Error("invalid_employee_number");
+      batch.update(doc(db, "users", req.userId), { employeeNumber: newEmpNum, updatedAt: now });
+      batch.set(doc(db, "user_employee_index", newEmpNum), {
+        uid: req.userId,
+        employeeNumber: newEmpNum,
+        createdAt: now,
+      });
+      if (oldEmpNum) batch.delete(doc(db, "user_employee_index", oldEmpNum));
+    }
+
+    batch.update(doc(db, "profile_change_requests", changeRequestId), {
+      status: "approved",
+      updatedAt: now,
+    });
+
+    try {
+      await batch.commit();
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "permission-denied") throw new Error("already_taken");
+      throw err;
+    }
+  };
+
+  /**
+   * SUPER ADMIN ONLY — reject a pending profile change request with a reason.
+   */
+  const rejectProfileChange = async (changeRequestId: string, reason: string) => {
+    if (!isSuperAdmin) throw new Error("Not authorized");
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) throw new Error("reason_required");
+    await updateDoc(doc(db, "profile_change_requests", changeRequestId), {
+      status: "rejected",
+      adminReason: trimmedReason,
+      updatedAt: serverTimestamp(),
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -746,6 +779,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         transferSuperAdmin,
         changePassword,
         getAllUsers,
+        requestProfileChange,
+        approveProfileChange,
+        rejectProfileChange,
       }}
     >
       {children}

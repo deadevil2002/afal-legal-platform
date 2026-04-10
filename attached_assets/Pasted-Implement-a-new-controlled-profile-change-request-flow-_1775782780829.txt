@@ -1,0 +1,142 @@
+Implement a new controlled profile-change-request flow for the Legal Requests System.
+
+Important:
+Use the attached updated Firestore rules exactly as the current baseline.
+Do not weaken them.
+Do not re-open self-editing of phone or employeeNumber for normal users.
+
+Current policy:
+- Normal user can edit only:
+  - displayName
+  - department
+  - language
+- Normal user cannot directly edit:
+  - phone
+  - employeeNumber
+- Super Admin can edit phone and employeeNumber
+- Uniqueness for phone and employeeNumber is enforced using:
+  - user_phone_index
+  - user_employee_index
+- New request collection exists in rules:
+  - profile_change_requests
+
+Your task:
+Build the full app flow for requesting phone / employee number changes through Super Admin approval.
+
+Required behavior
+
+1) Normal user profile screen
+- Keep direct editing only for:
+  - displayName
+  - department
+  - language
+- Show phone and employeeNumber as read-only values
+- Add a clear action/button for:
+  - Request Phone Change
+  - Request Employee Number Change
+
+2) Create profile change request
+When a user requests a change:
+- Create a new document in profile_change_requests
+- Required fields:
+  - userId
+  - field            // "phone" or "employeeNumber"
+  - currentValue
+  - requestedValue
+  - status           // must start as "pending"
+  - createdAt
+  - updatedAt
+  - adminReason      // initially empty string
+- Validate on client:
+  - requested value must not be empty
+  - requested value must differ from current value
+- Use localized user-friendly messages
+
+3) Super Admin review screen
+Build a screen for Super Admin only that lists profile_change_requests
+Show at least:
+- user name
+- email
+- field being changed
+- current value
+- requested value
+- status
+- createdAt
+- adminReason if present
+
+4) Super Admin actions
+For each pending request, Super Admin can:
+- Approve
+- Reject with reason
+
+5) Approval flow
+If approved:
+- For phone change:
+  - normalize phone using the same normalization rule already used in register flow
+  - atomically:
+    - update users/{uid}.phone
+    - create new user_phone_index/{normalizedPhone}
+    - delete old user_phone_index/{oldNormalizedPhone}
+    - update profile_change_requests/{id} status = "approved"
+    - set updatedAt
+    - set adminReason if needed (optional)
+- For employee number change:
+  - atomically:
+    - update users/{uid}.employeeNumber
+    - create new user_employee_index/{newEmployeeNumber}
+    - delete old user_employee_index/{oldEmployeeNumber}
+    - update profile_change_requests/{id} status = "approved"
+    - set updatedAt
+- If the new phone / employee number is already taken, fail cleanly and show a localized message
+
+6) Rejection flow
+If rejected:
+- update profile_change_requests/{id}
+- set:
+  - status = "rejected"
+  - adminReason = <required rejection reason>
+  - updatedAt
+
+7) User visibility
+A normal user must be able to see their own submitted profile change requests and their statuses:
+- pending
+- approved
+- rejected
+- cancelled (if implemented)
+If rejected, the user must see the admin reason clearly.
+
+8) Keep existing working features intact
+Do NOT change:
+- AttachmentPicker
+- request logic
+- request messages logic
+- delete request logic
+- transfer-super-admin flow
+- existing role architecture
+
+9) Audit existing profile update logic
+Make sure self-profile update now only sends:
+- displayName
+- department
+- language
+- updatedAt
+
+It must NOT send:
+- phone
+- employeeNumber
+- isActive
+- role
+- createdAt
+- email
+- uid
+
+10) Output required after implementation
+Report clearly:
+- Which files were changed
+- Where the normal-user request buttons were added
+- Where the Super Admin review screen was added
+- Exact fields written to profile_change_requests
+- Exact approval flow for phone change
+- Exact approval flow for employee number change
+- Exact self-profile update payload for normal users
+- Any localized keys added

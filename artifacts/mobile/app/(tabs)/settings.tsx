@@ -1,6 +1,15 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
+import { ProfileChangeRequest } from "@/context/AuthContext";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -403,6 +412,149 @@ function ConfirmModal({
   );
 }
 
+// ── Request Change Modal ───────────────────────────────────────────────────
+// Module-level to keep stable identity across renders (preserves TextInput focus).
+interface RequestChangeModalProps {
+  visible: boolean;
+  field: "phone" | "employeeNumber";
+  value: string;
+  loading: boolean;
+  error: string;
+  onChangeValue: (v: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}
+
+function RequestChangeModal({
+  visible,
+  field,
+  value,
+  loading,
+  error,
+  onChangeValue,
+  onSubmit,
+  onClose,
+}: RequestChangeModalProps) {
+  const colors = useColors();
+  const { t } = useT();
+  const labelKey = field === "phone" ? "newPhoneValue" : "newEmpValue";
+  const titleKey = field === "phone" ? "requestPhoneChange" : "requestEmpChange";
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable style={styles.cpOverlay} onPress={onClose}>
+          <Pressable style={[styles.cpSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.cpHandle} />
+            <View style={styles.cpHeader}>
+              <View style={[styles.cpIconWrap, { backgroundColor: colors.secondary + "18" }]}>
+                <Icon name={field === "phone" ? "phone" : "tag"} size={20} color={colors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cpTitle, { color: colors.foreground }]}>{t(titleKey)}</Text>
+                <Text style={[styles.cpSubtitle, { color: colors.mutedForeground }]}>
+                  {t("changeRequestSubmitted").slice(0, 40)}…
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.cpCloseBtn}>
+                <Icon name="close" size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.cpField, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <Icon name={field === "phone" ? "phone" : "tag"} size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.cpInput, { color: colors.foreground }]}
+                placeholder={t(labelKey)}
+                placeholderTextColor={colors.mutedForeground}
+                value={value}
+                onChangeText={onChangeValue}
+                keyboardType={field === "phone" ? "phone-pad" : "default"}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={onSubmit}
+                autoFocus
+              />
+            </View>
+            {!!error && (
+              <View style={styles.cpErrorRow}>
+                <Icon name="alert-circle" size={14} color="#DC2626" />
+                <Text style={styles.cpErrorText}>{error}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[styles.cpSubmitBtn, { backgroundColor: colors.secondary }, loading && { opacity: 0.7 }]}
+              onPress={onSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.cpSubmitText}>{t("submitChangeRequest")}</Text>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ── My Change Request Card ─────────────────────────────────────────────────
+interface MyChangeRequestCardProps {
+  req: ProfileChangeRequest;
+}
+
+function MyChangeRequestCard({ req }: MyChangeRequestCardProps) {
+  const colors = useColors();
+  const { t } = useT();
+  const STATUS_COLOR: Record<string, string> = {
+    pending: "#D97706",
+    approved: "#16A34A",
+    rejected: "#DC2626",
+    cancelled: "#6B7280",
+  };
+  const statusLabel = (s: string) => {
+    if (s === "pending") return t("pendingStatus");
+    if (s === "approved") return t("approvedStatus");
+    if (s === "rejected") return t("rejectedStatus");
+    return t("cancelledStatus");
+  };
+  const color = STATUS_COLOR[req.status] || "#6B7280";
+  return (
+    <View style={[styles.changeReqCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.changeReqTopRow}>
+        <View style={[styles.fieldPill, { backgroundColor: colors.primary + "15" }]}>
+          <Icon name={req.field === "phone" ? "phone" : "tag"} size={11} color={colors.primary} />
+          <Text style={[styles.fieldPillText, { color: colors.primary }]}>
+            {req.field === "phone" ? t("phoneField") : t("employeeNumberField")}
+          </Text>
+        </View>
+        <View style={[styles.statusPill, { backgroundColor: color + "18" }]}>
+          <Text style={[styles.statusPillText, { color }]}>{statusLabel(req.status)}</Text>
+        </View>
+      </View>
+      <Text style={[styles.changeReqValues, { color: colors.mutedForeground }]}>
+        {req.currentValue} → {req.requestedValue}
+      </Text>
+      {!!req.adminReason && (
+        <View style={styles.adminReasonRow}>
+          <Icon name="alert-circle" size={12} color="#DC2626" />
+          <Text style={[styles.adminReasonText, { color: "#DC2626" }]}>{req.adminReason}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
@@ -415,22 +567,60 @@ export default function SettingsScreen() {
     updateUserProfile,
     setLanguage,
     changePassword,
+    requestProfileChange,
   } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
-  const [employeeNumber, setEmployeeNumber] = useState(profile?.employeeNumber || "");
   const [department, setDepartment] = useState(profile?.department || "");
-  const [phone, setPhone] = useState(profile?.phone || "");
 
-  // Sync local state when profile updates from Firestore (e.g. after auto-patch)
+  // ── Profile change request modal ─────────────────────────────────────────
+  const [requestModal, setRequestModal] = useState<{
+    visible: boolean;
+    field: "phone" | "employeeNumber";
+    value: string;
+    loading: boolean;
+    error: string;
+  }>({ visible: false, field: "phone", value: "", loading: false, error: "" });
+
+  // ── Own profile change requests (real-time) ──────────────────────────────
+  const [myChangeRequests, setMyChangeRequests] = useState<ProfileChangeRequest[]>([]);
   React.useEffect(() => {
-    if (profile?.employeeNumber && profile.employeeNumber !== employeeNumber) {
-      setEmployeeNumber(profile.employeeNumber);
-    }
+    if (!user) return;
+    const q = query(
+      collection(db, "profile_change_requests"),
+      where("userId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setMyChangeRequests(
+        snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ProfileChangeRequest, "id">) }))
+      );
+    });
+    return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.employeeNumber]);
+  }, [user?.uid]);
+
+  const openRequestModal = (field: "phone" | "employeeNumber") => {
+    setRequestModal({ visible: true, field, value: "", loading: false, error: "" });
+  };
+
+  const handleSubmitRequest = async () => {
+    const { field, value } = requestModal;
+    setRequestModal((prev) => ({ ...prev, loading: true, error: "" }));
+    try {
+      await requestProfileChange(field, value);
+      setRequestModal({ visible: false, field: "phone", value: "", loading: false, error: "" });
+      Alert.alert(t("success"), t("changeRequestSubmitted"));
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message;
+      let errorMsg = msg || t("error");
+      if (msg === "value_required") errorMsg = t("valueRequired");
+      else if (msg === "value_unchanged") errorMsg = t("valueUnchanged");
+      setRequestModal((prev) => ({ ...prev, loading: false, error: errorMsg }));
+    }
+  };
 
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -467,21 +657,11 @@ export default function SettingsScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateUserProfile({ displayName, department, phone, employeeNumber });
+      await updateUserProfile({ displayName, department });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(t("success"), t("profileUpdated"));
     } catch (e: unknown) {
-      const msg = (e as { message?: string }).message;
-      if (msg === "phone_or_employee_taken") {
-        Alert.alert(
-          t("error"),
-          language === "ar"
-            ? "رقم الهاتف أو رقم الموظف مسجّل مسبقاً لدى مستخدم آخر."
-            : "That phone number or employee number is already registered to another user."
-        );
-      } else {
-        Alert.alert(t("error"), msg);
-      }
+      Alert.alert(t("error"), (e as { message?: string }).message);
     } finally {
       setSaving(false);
     }
@@ -610,23 +790,48 @@ export default function SettingsScreen() {
             returnKeyType="next"
             blurOnSubmit={false}
           />
-          <FieldRow
-            label={t("phone")}
-            value={phone}
-            setter={setPhone}
-            icon="phone"
-            keyboard="phone-pad"
-            returnKeyType="next"
-            blurOnSubmit={false}
-          />
-          <FieldRow
-            label={t("employeeNumber")}
-            value={employeeNumber}
-            setter={setEmployeeNumber}
-            icon="tag"
-            keyboard="default"
-            returnKeyType="done"
-          />
+          {/* Phone — read-only, change via request */}
+          <View style={[styles.fieldRow, { borderBottomColor: colors.border }]}>
+            <View style={styles.fieldIcon}>
+              <Icon name="phone" size={16} color={colors.mutedForeground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{t("phone")}</Text>
+              <Text style={[styles.fieldInput, { color: colors.foreground }]}>
+                {profile?.phone || "—"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
+              onPress={() => openRequestModal("phone")}
+            >
+              <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
+                {t("requestChange")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Employee Number — read-only, change via request */}
+          <View style={[styles.fieldRow, { borderBottomColor: colors.border }]}>
+            <View style={styles.fieldIcon}>
+              <Icon name="tag" size={16} color={colors.mutedForeground} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>{t("employeeNumber")}</Text>
+              <Text style={[styles.fieldInput, { color: colors.foreground }]}>
+                {profile?.employeeNumber || "—"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.requestChangeBtn, { borderColor: colors.secondary }]}
+              onPress={() => openRequestModal("employeeNumber")}
+            >
+              <Text style={[styles.requestChangeBtnText, { color: colors.secondary }]}>
+                {t("requestChange")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[
               styles.saveBtn,
@@ -643,6 +848,18 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* My Change Requests — visible to all non-super-admin users */}
+        {!isSuperAdmin && myChangeRequests.length > 0 && (
+          <>
+            <SectionHeader title={t("myChangeRequests")} />
+            <View style={{ gap: 8, paddingHorizontal: 16 }}>
+              {myChangeRequests.map((req) => (
+                <MyChangeRequestCard key={req.id} req={req} />
+              ))}
+            </View>
+          </>
+        )}
 
         {/* Language */}
         <SectionHeader title={t("language")} />
@@ -725,6 +942,12 @@ export default function SettingsScreen() {
                 label={t("deletionRequests")}
                 subtitle={t("deletionSubtitle")}
                 onPress={() => router.push("/admin/deletion-requests" as never)}
+              />
+              <AdminActionRow
+                icon="person"
+                label={t("profileChangeRequests")}
+                subtitle={t("profileChangesSubtitle")}
+                onPress={() => router.push("/admin/profile-changes" as never)}
               />
             </View>
           </>
@@ -822,6 +1045,20 @@ export default function SettingsScreen() {
         visible={showChangePasswordModal}
         onClose={() => setShowChangePasswordModal(false)}
         onChangePassword={changePassword}
+      />
+
+      {/* Request Profile Change Modal */}
+      <RequestChangeModal
+        visible={requestModal.visible}
+        field={requestModal.field}
+        value={requestModal.value}
+        loading={requestModal.loading}
+        error={requestModal.error}
+        onChangeValue={(v) => setRequestModal((prev) => ({ ...prev, value: v }))}
+        onSubmit={handleSubmitRequest}
+        onClose={() =>
+          setRequestModal({ visible: false, field: "phone", value: "", loading: false, error: "" })
+        }
       />
     </KeyboardAvoidingView>
   );
@@ -1063,6 +1300,70 @@ const styles = StyleSheet.create({
   cpSubmitText: {
     color: "#fff",
     fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  // Request Change button (inside read-only field rows)
+  requestChangeBtn: {
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  requestChangeBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+
+  // My Change Request Cards
+  changeReqCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+  },
+  changeReqTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  changeReqValues: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  adminReasonRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+    marginTop: 2,
+  },
+  adminReasonText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+  },
+  fieldPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  fieldPillText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginLeft: "auto" as unknown as number,
+  },
+  statusPillText: {
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
   },
 });
