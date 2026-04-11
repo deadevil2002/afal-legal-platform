@@ -110,6 +110,7 @@ interface AdminActionRowProps {
   onPress: () => void;
   destructive?: boolean;
   showArrow?: boolean;
+  badge?: boolean;
 }
 
 function AdminActionRow({
@@ -119,6 +120,7 @@ function AdminActionRow({
   onPress,
   destructive = false,
   showArrow = true,
+  badge = false,
 }: AdminActionRowProps) {
   const colors = useColors();
   const color = destructive ? "#DC2626" : colors.primary;
@@ -145,6 +147,9 @@ function AdminActionRow({
           </Text>
         ) : null}
       </View>
+      {badge && (
+        <View style={styles.notifBadge} />
+      )}
       {showArrow && (
         <Icon name="chevron-right" size={16} color={colors.mutedForeground} />
       )}
@@ -697,6 +702,28 @@ export default function SettingsScreen() {
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
   const [department, setDepartment] = useState(profile?.department || "");
 
+  // ── Super Admin pending-item notification badges ──────────────────────────
+  const [hasPendingDeletions, setHasPendingDeletions] = useState(false);
+  const [hasPendingProfileChanges, setHasPendingProfileChanges] = useState(false);
+
+  React.useEffect(() => {
+    if (!isSuperAdmin) return;
+    const q = query(
+      collection(db, "deletion_requests"),
+      where("status", "==", "pending")
+    );
+    return onSnapshot(q, (snap) => setHasPendingDeletions(!snap.empty));
+  }, [isSuperAdmin]);
+
+  React.useEffect(() => {
+    if (!isSuperAdmin) return;
+    const q = query(
+      collection(db, "profile_change_requests"),
+      where("status", "==", "pending")
+    );
+    return onSnapshot(q, (snap) => setHasPendingProfileChanges(!snap.empty));
+  }, [isSuperAdmin]);
+
   // ── Profile change request modal ─────────────────────────────────────────
   const [requestModal, setRequestModal] = useState<{
     visible: boolean;
@@ -1048,12 +1075,14 @@ export default function SettingsScreen() {
                 label={t("deletionRequests")}
                 subtitle={t("deletionSubtitle")}
                 onPress={() => router.push("/admin/deletion-requests" as never)}
+                badge={hasPendingDeletions}
               />
               <AdminActionRow
                 icon="person"
                 label={t("profileChangeRequests")}
                 subtitle={t("profileChangesSubtitle")}
                 onPress={() => router.push("/admin/profile-changes" as never)}
+                badge={hasPendingProfileChanges}
               />
             </View>
           </>
@@ -1272,6 +1301,13 @@ const styles = StyleSheet.create({
   },
   adminRowLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   adminRowSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  notifBadge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#DC2626",
+    marginRight: 6,
+  },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",

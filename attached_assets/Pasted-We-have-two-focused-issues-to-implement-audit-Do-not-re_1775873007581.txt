@@ -1,0 +1,57 @@
+We have two focused issues to implement/audit. Do not refactor unrelated code.
+
+1) Super Admin pending-request notification badge
+We need a visible notification indicator for Super Admin when there are pending admin-review items.
+
+Show a red glowing badge / notification dot on the relevant external menu/list item(s) when there are pending items in:
+- deletion_requests
+- profile_change_requests
+
+Required behavior:
+- only Super Admin should see this badge
+- badge should appear when there is at least one pending item
+- badge should disappear automatically when there are no pending items
+- keep the existing navigation and screens unchanged
+- implement it cleanly in the current UI
+
+Tell me exactly where you place the badge:
+- Settings menu item?
+- Admin menu item?
+- both if needed?
+
+2) Employee number / badge number change request false duplicate error
+Observed issue:
+- I submitted a profile change request to change employeeNumber (badge number)
+- I used a new number that should not exist
+- the app still showed the duplicate error:
+  "This value is already registered to another user"
+
+You need to audit this flow precisely.
+
+Check:
+- request creation flow for profile_change_requests
+- approveProfileChange / validation logic
+- employee number uniqueness check
+- user_employee_index collection usage
+- whether the code checks requestedValue correctly
+- whether it is comparing against the current user's own existing index incorrectly
+- whether the error message is masking a different real error
+
+Required output:
+- exact root cause
+- exact file(s) involved
+- whether the number truly exists in user_employee_index
+- whether the duplicate check logic is wrong
+- whether the message is misleading
+- minimal fix only
+
+Important:
+- do not change Firestore rules unless you prove a real rules issue
+- do not break working profile change request flow
+- do not change unrelated auth/request logic
+
+After finishing, report:
+1. files changed
+2. how the red notification badge works
+3. exact cause of the false duplicate badge-number error
+4. exact fix applied
