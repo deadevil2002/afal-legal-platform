@@ -146,7 +146,7 @@ export default function RequestDetailScreen() {
   };
 
   const reopenRequest = async () => {
-    if (!id || !isSuperAdmin) return;
+    if (!id || !isAdmin) return;
     try {
       await updateDoc(doc(db, "requests", id), {
         status: "In Progress",
@@ -676,7 +676,7 @@ export default function RequestDetailScreen() {
               {t("requestClosedMsg")}
             </Text>
           </View>
-          {isSuperAdmin && (
+          {isAdmin && (
             <TouchableOpacity
               style={[styles.reopenBtn, { backgroundColor: colors.primary }]}
               onPress={reopenRequest}
