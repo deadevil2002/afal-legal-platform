@@ -63,7 +63,18 @@ export default function SendToEmployeeScreen() {
 
   useEffect(() => {
     getAllUsers()
-      .then((all) => setUsers(all.filter((u) => u.role === "user")))
+      .then((all) =>
+        setUsers(
+          all.filter(
+            (u) =>
+              u.uid &&
+              u.email &&
+              u.role &&
+              u.role !== "super_admin" &&
+              u.isActive !== false
+          )
+        )
+      )
       .catch(() => Alert.alert(t("error"), t("failedToLoadEmployees")))
       .finally(() => setLoadingUsers(false));
   }, []);
