@@ -1,0 +1,61 @@
+I need a focused audit of the admin flow for assistant_admin vs super_admin.
+
+Context:
+- super_admin currently receives and manages requests correctly
+- I want to promote another user to assistant_admin
+- When I am away, that assistant_admin must also receive requests, open them, read/reply to messages, and update request status as expected
+
+Important:
+Do NOT refactor unrelated code.
+Do NOT change working auth logic.
+Do NOT weaken Firestore rules unless you prove a real issue.
+
+Use the attached Firestore rules as the current baseline.
+
+Your task:
+Audit both the code and the Firestore rules to confirm whether assistant_admin fully works as an operational admin for request handling.
+
+Check these exact questions:
+
+1) Request visibility
+- When a user has role = "assistant_admin", do they see all requests the same way super_admin does?
+- Are there any UI filters, queries, or role guards that accidentally restrict request lists to super_admin only?
+
+2) Request detail access
+- Can assistant_admin open any request detail screen?
+- Can they read the full request content and participant information?
+
+3) Message access and reply
+- Can assistant_admin read request_messages for requests?
+- Can assistant_admin send replies/messages inside the request thread?
+- Is there any UI or service-layer restriction that blocks replying unless the user is super_admin?
+
+4) Status updates
+- Can assistant_admin update request status the same way super_admin can?
+- Are there any UI buttons hidden for assistant_admin?
+- Are there any service functions that check only super_admin instead of admin?
+
+5) Dashboard/admin screens
+- Does assistant_admin see the correct admin dashboard / request management screen?
+- Is anything important only rendered for super_admin that should also be available to assistant_admin for day-to-day request operations?
+
+6) Firestore rules verification
+Using the attached rules, confirm:
+- assistant_admin is included in isAdmin()
+- requests read/update access works for assistant_admin
+- request_messages read/create access works for assistant_admin through the participant/admin logic
+- identify any actual rule limitation that would stop assistant_admin from handling requests
+
+7) Report clearly
+Return a precise report with:
+- PASS / FAIL for each point above
+- exact files involved
+- any place where the code checks super_admin only
+- any mismatch between Firestore rules and UI behavior
+- minimal fix plan only if needed
+
+Important:
+If assistant_admin currently cannot fully handle requests, fix only the minimum necessary code.
+Do not touch unrelated features.
+Do not change super_admin transfer flow.
+Do not change profile-change-request logic unless directly relevant.

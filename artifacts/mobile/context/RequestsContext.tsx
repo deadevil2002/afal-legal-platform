@@ -74,6 +74,10 @@ export function RequestsProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     resultsRef.current.clear();
 
+    console.log(
+      `[RequestsContext] role=${profile.role} uid=${profile.uid} isAdmin=${isAdmin}`
+    );
+
     const flush = () => {
       const sorted = Array.from(resultsRef.current.values()).sort(sortByDate);
       setRequests(sorted);
@@ -81,22 +85,37 @@ export function RequestsProvider({ children }: { children: React.ReactNode }) {
     };
 
     if (isAdmin) {
+      console.log(
+        "[RequestsContext] ADMIN path — fetching ALL requests (no userId filter)"
+      );
       const q = query(collection(db, "requests"), orderBy("createdAt", "desc"));
       return onSnapshot(
         q,
         (snap) => {
+          console.log(
+            `[RequestsContext] ADMIN snapshot received — ${snap.docs.length} docs`
+          );
           resultsRef.current.clear();
           snap.docs.forEach((d) =>
             resultsRef.current.set(d.id, { id: d.id, ...d.data() } as Request)
           );
           flush();
         },
-        () => {
+        (err) => {
+          console.error(
+            "[RequestsContext] ADMIN query FAILED — Firestore error:",
+            err.code,
+            err.message
+          );
           setError(t("errGeneric"));
           setLoading(false);
         }
       );
     }
+
+    console.log(
+      `[RequestsContext] USER path — fetching requests for uid=${profile.uid}`
+    );
 
     let q1Done = false;
     let q2Done = false;
@@ -116,13 +135,17 @@ export function RequestsProvider({ children }: { children: React.ReactNode }) {
     const unsub1 = onSnapshot(
       q1,
       (snap) => {
+        console.log(
+          `[RequestsContext] USER q1 (userId) snapshot — ${snap.docs.length} docs`
+        );
         snap.docs.forEach((d) =>
           resultsRef.current.set(d.id, { id: d.id, ...d.data() } as Request)
         );
         q1Done = true;
         tryFlush();
       },
-      () => {
+      (err) => {
+        console.error("[RequestsContext] USER q1 error:", err.code, err.message);
         q1Done = true;
         tryFlush();
       }
@@ -131,13 +154,17 @@ export function RequestsProvider({ children }: { children: React.ReactNode }) {
     const unsub2 = onSnapshot(
       q2,
       (snap) => {
+        console.log(
+          `[RequestsContext] USER q2 (createdBy) snapshot — ${snap.docs.length} docs`
+        );
         snap.docs.forEach((d) =>
           resultsRef.current.set(d.id, { id: d.id, ...d.data() } as Request)
         );
         q2Done = true;
         tryFlush();
       },
-      () => {
+      (err) => {
+        console.error("[RequestsContext] USER q2 error:", err.code, err.message);
         q2Done = true;
         tryFlush();
       }
