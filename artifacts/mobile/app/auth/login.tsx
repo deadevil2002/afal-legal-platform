@@ -22,7 +22,7 @@ import { mapFirebaseAuthError } from "@/lib/firebaseErrorMapper";
 export default function LoginScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
-  const { login } = useAuth();
+  const { login, allowSignup } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -150,17 +150,19 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.switchBtn}
-            onPress={() => router.push("/auth/register" as never)}
-          >
-            <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
-              {t("noAccount")}{" "}
-              <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                {t("signUp")}
+          {allowSignup && (
+            <TouchableOpacity
+              style={styles.switchBtn}
+              onPress={() => router.push("/auth/register" as never)}
+            >
+              <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
+                {t("noAccount")}{" "}
+                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
+                  {t("signUp")}
+                </Text>
               </Text>
-            </Text>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

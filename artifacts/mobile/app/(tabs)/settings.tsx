@@ -695,6 +695,8 @@ export default function SettingsScreen() {
     changePassword,
     requestProfileChange,
     deleteOwnAccount,
+    allowSignup,
+    setAllowSignup,
   } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -1046,6 +1048,29 @@ export default function SettingsScreen() {
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
+              {/* Allow New Registrations toggle */}
+              <View style={[styles.langRow, { borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
+                <View style={[styles.adminIconWrap, { backgroundColor: colors.secondary + "15" }]}>
+                  <Icon name="person-add" size={16} color={colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.adminRowLabel, { color: colors.foreground }]}>
+                    {t("allowNewRegistrations")}
+                  </Text>
+                  <Text style={[styles.adminRowSub, { color: colors.mutedForeground }]}>
+                    {t("allowNewRegistrationsSubtitle")}
+                  </Text>
+                </View>
+                <Switch
+                  value={allowSignup}
+                  onValueChange={(val) => {
+                    setAllowSignup(val).catch(() => {});
+                  }}
+                  trackColor={{ false: colors.border, true: colors.secondary }}
+                  thumbColor="#fff"
+                />
+              </View>
+
               <AdminActionRow
                 icon="people"
                 label={t("manageAssistantAdmins")}

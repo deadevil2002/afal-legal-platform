@@ -112,6 +112,8 @@ interface AuthContextType {
   rejectProfileChange: (changeRequestId: string, reason: string) => Promise<void>;
   deleteOwnAccount: (password: string) => Promise<void>;
   deleteUserByAdmin: (targetUid: string, password: string) => Promise<void>;
+  allowSignup: boolean;
+  setAllowSignup: (val: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -157,6 +159,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     INITIAL_SUPER_ADMIN_EMAIL
   );
 
+  // allowSignup: defaults true — treats missing doc as "signup allowed"
+  const [allowSignup, setAllowSignupState] = useState(true);
+
   // Load language preference from storage
   useEffect(() => {
     const loadLanguage = async () => {
@@ -183,6 +188,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       () => {
         // settings/app may not exist yet — use initial bootstrap email
+      }
+    );
+    return unsub;
+  }, []);
+
+  // Subscribe to public_config/app to keep allowSignup in sync
+  // This collection is readable by anyone (rule: allow read: if docId == "app")
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, "public_config", "app"),
+      (snap) => {
+        if (!snap.exists()) {
+          setAllowSignupState(true);
+          return;
+        }
+        const data = snap.data();
+        const val = data?.allowUserSignup;
+        setAllowSignupState(val === false ? false : true);
+      },
+      () => {
+        // If the read fails (e.g. rules not yet deployed), default to allowed
+        setAllowSignupState(true);
       }
     );
     return unsub;
@@ -328,6 +355,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
+  const setAllowSignup = async (val: boolean) => {
+    if (!isSuperAdmin) throw new Error("Unauthorized: Super Admin only.");
+    await setDoc(
+      doc(db, "public_config", "app"),
+      {
+        allowUserSignup: val,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid || "",
+      },
+      { merge: true }
+    );
+  };
+
   const register = async (
     email: string,
     password: string,
@@ -340,6 +380,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(
         "This email is reserved for the primary administrator. Please sign in directly."
       );
+    }
+
+    // ── Pre-check: registration toggle ─────────────────────────────────────
+    if (!allowSignup) {
+      throw new Error("signup_disabled");
     }
 
     const trimmedEmpNum = (employeeNumber?.trim() || "");
@@ -430,6 +475,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Only case 2 is a uniqueness conflict. Cases 1 and 3 are configuration bugs.
       const code = fe?.code;
       if (code === "permission-denied") {
+        // If the toggle was disabled between the pre-check and the commit
+        // (race condition), show the correct disabled-registration message.
+        if (!allowSignup) {
+          throw new Error("signup_disabled");
+        }
         throw new Error("register_batch_permission_denied");
       }
       throw firestoreErr;
@@ -841,6 +891,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         rejectProfileChange,
         deleteOwnAccount,
         deleteUserByAdmin,
+        allowSignup,
+        setAllowSignup,
       }}
     >
       {children}

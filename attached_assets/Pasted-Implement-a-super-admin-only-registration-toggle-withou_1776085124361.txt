@@ -1,0 +1,59 @@
+Implement a super-admin-only registration toggle without breaking any current working logic.
+
+Use the attached Firestore rules as the new baseline.
+Do NOT weaken security and do NOT refactor unrelated code.
+
+Goal:
+Only the Super Admin can control whether new users are allowed to register.
+When registration is disabled, nobody should be able to complete self-signup.
+
+Requirements:
+
+1) Add a Super Admin-only toggle in the app
+- Add a setting in the Super Admin area only
+- Label example:
+  - English: Allow New Registrations
+  - Arabic: السماح بإنشاء حسابات جديدة
+- Persist it in:
+  public_config/app
+- Fields:
+  - allowUserSignup: boolean
+  - updatedAt
+  - updatedBy
+
+2) Read the toggle on the register screen
+- Before attempting signup, read public_config/app
+- If allowUserSignup is false:
+  - block signup before createUserWithEmailAndPassword
+  - show a clean localized message like:
+    - English: Registration is currently disabled. Please contact the administrator.
+    - Arabic: التسجيل متوقف حالياً. يرجى التواصل مع المسؤول.
+- If the doc does not exist, treat signup as enabled by default
+
+3) UI behavior
+- If signup is disabled:
+  - keep login working normally
+  - disable or hide the Sign Up action appropriately
+  - optionally show a message on the register screen
+- Do NOT affect existing logged-in users
+
+4) Safety fallback
+- If signup somehow still reaches the auth creation step and Firestore later blocks users/{uid} creation because registration is disabled:
+  - rollback/delete the just-created auth account cleanly
+  - show the same clean localized disabled-registration message
+- Do not show misleading duplicate or generic errors in this case
+
+5) Do NOT break anything else
+- Do NOT change request logic
+- Do NOT change profile-change-request logic
+- Do NOT change send-to-employee flow
+- Do NOT change assistant_admin behavior
+- Do NOT change existing admin/super-admin separation
+
+6) Report after completion
+Tell me:
+- which files were changed
+- where the toggle was added
+- where the public_config/app read was added
+- how signup-disabled behavior works before and after auth creation
+- what localized messages were added

@@ -22,7 +22,7 @@ import { mapFirebaseAuthError } from "@/lib/firebaseErrorMapper";
 export default function RegisterScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
-  const { register } = useAuth();
+  const { register, allowSignup } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -81,7 +81,13 @@ export default function RegisterScreen() {
     } catch (e: unknown) {
       const err = e as { message?: string; code?: string; name?: string };
       const msg = err?.message ?? "";
-      if (msg === "phone_taken") {
+      if (msg === "signup_disabled") {
+        setErrorMsg(
+          language === "ar"
+            ? "التسجيل متوقف حالياً. يرجى التواصل مع المسؤول."
+            : "Registration is currently disabled. Please contact the administrator."
+        );
+      } else if (msg === "phone_taken") {
         setErrorMsg(language === "ar" ? "رقم الهاتف هذا مسجّل مسبقاً." : "This phone number is already registered.");
       } else if (msg === "employee_taken") {
         setErrorMsg(language === "ar" ? "رقم الموظف هذا مسجّل مسبقاً." : "This employee number is already registered.");
@@ -126,6 +132,18 @@ export default function RegisterScreen() {
           <Text style={[styles.heading, { color: colors.primary }, isRTL && styles.textRTL]}>
             {t("register")}
           </Text>
+
+          {/* Registration disabled banner */}
+          {!allowSignup && (
+            <View style={[styles.errorBanner, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
+              <Icon name="alert-circle" size={15} color="#EA580C" />
+              <Text style={[styles.errorText, { color: "#EA580C" }, isRTL && styles.textRTL]}>
+                {language === "ar"
+                  ? "التسجيل متوقف حالياً. يرجى التواصل مع المسؤول."
+                  : "Registration is currently disabled. Please contact the administrator."}
+              </Text>
+            </View>
+          )}
 
           {/* Inline error banner */}
           {!!errorMsg && (
@@ -314,9 +332,9 @@ export default function RegisterScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.btn, { backgroundColor: colors.primary }, loading && { opacity: 0.7 }]}
+            style={[styles.btn, { backgroundColor: allowSignup ? colors.primary : colors.mutedForeground }, (loading || !allowSignup) && { opacity: 0.7 }]}
             onPress={handleRegister}
-            disabled={loading}
+            disabled={loading || !allowSignup}
             activeOpacity={0.85}
           >
             {loading ? (
