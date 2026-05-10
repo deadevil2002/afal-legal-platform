@@ -15,6 +15,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -26,7 +27,7 @@ import { Icon } from "@/components/Icon";
 import { RequestCard, Request } from "@/components/RequestCard";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useAuth, UserProfile, UserRole } from "@/context/AuthContext";
+import { useAuth, UserProfile, UserRole, AnyUserRole } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -56,12 +57,20 @@ const STATUS_OPTIONS: Status[] = [
   "Escalated",
 ];
 
+const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
+  { role: "ceo",         color: "#7C3AED" },
+  { role: "evp",         color: "#5D1E5E" },
+  { role: "planning",    color: "#006485" },
+  { role: "finance",     color: "#16A8BA" },
+  { role: "procurement", color: "#2D6491" },
+];
+
 type AdminTab = "requests" | "users";
 
 export default function AdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, getAllUsers, deleteUserByAdmin } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, updateUserRole, getAllUsers, deleteUserByAdmin } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -87,6 +96,11 @@ export default function AdminScreen() {
     loading: boolean;
     error: string;
   }>({ visible: false, target: null, password: "", loading: false, error: "" });
+
+  // ── Role editing state (used in user detail modal) ────────────────────────
+  const [editingRole, setEditingRole] = useState<AnyUserRole>("procurement");
+  const [editingCanSubmit, setEditingCanSubmit] = useState(false);
+  const [roleUpdateLoading, setRoleUpdateLoading] = useState(false);
 
   // ── Jump to Users tab when navigated with ?tab=users ────────────────────
   useEffect(() => {
@@ -246,16 +260,47 @@ export default function AdminScreen() {
     }
   };
 
-  const roleLabel = (role: UserRole): string => {
-    if (role === "super_admin") return t("superAdmin");
-    if (role === "assistant_admin") return t("assistantAdmin");
-    return t("regularUser");
+  const roleLabel = (role: string): string => {
+    if (role === "super_admin") return t("roleSuperAdmin");
+    if (role === "ceo") return t("roleCeo");
+    if (role === "evp") return t("roleEvp");
+    if (role === "planning") return t("rolePlanning");
+    if (role === "finance") return t("roleFinance");
+    if (role === "procurement") return t("roleProcurement");
+    if (role === "assistant_admin") return t("roleLegacyAdmin");
+    return t("roleLegacyUser");
   };
 
-  const roleColor = (role: UserRole): string => {
+  const roleColor = (role: string): string => {
     if (role === "super_admin") return colors.accent;
-    if (role === "assistant_admin") return colors.secondary;
-    return colors.mutedForeground;
+    if (role === "ceo") return "#7C3AED";
+    if (role === "evp") return "#5D1E5E";
+    if (role === "planning") return "#006485";
+    if (role === "finance") return colors.secondary;
+    if (role === "procurement") return colors.primary;
+    return colors.mutedForeground; // legacy roles
+  };
+
+  const handleRoleUpdate = async () => {
+    if (!selectedUser || !editingRole) return;
+    if (editingRole === "user" || editingRole === "assistant_admin") return;
+    setRoleUpdateLoading(true);
+    try {
+      await updateUserRole(selectedUser.uid, editingRole as UserRole, editingCanSubmit);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.uid === selectedUser.uid
+            ? { ...u, role: editingRole, canSubmitRequests: editingCanSubmit }
+            : u
+        )
+      );
+      setSelectedUser(null);
+      Alert.alert(t("success"), t("roleAssigned"));
+    } catch (e: unknown) {
+      Alert.alert(t("error"), t("errPermission"));
+    } finally {
+      setRoleUpdateLoading(false);
+    }
   };
 
   return (
@@ -436,8 +481,17 @@ export default function AdminScreen() {
             const q = userSearch.trim().toLowerCase();
             const filteredUsers = users
               .sort((a, b) => {
-                const order: Record<string, number> = { super_admin: 0, assistant_admin: 1, user: 2 };
-                return order[a.role] - order[b.role];
+                const order: Record<string, number> = {
+                  super_admin: 0,
+                  ceo: 1,
+                  evp: 2,
+                  planning: 3,
+                  finance: 4,
+                  procurement: 5,
+                  assistant_admin: 6,
+                  user: 7,
+                };
+                return (order[a.role] ?? 8) - (order[b.role] ?? 8);
               })
               .filter((u) => {
                 if (!q) return true;
@@ -471,7 +525,11 @@ export default function AdminScreen() {
                       <TouchableOpacity
                         key={u.uid}
                         style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => setSelectedUser(u)}
+                        onPress={() => {
+                          setSelectedUser(u);
+                          setEditingRole(u.role);
+                          setEditingCanSubmit(u.canSubmitRequests ?? false);
+                        }}
                         activeOpacity={0.75}
                       >
                         <View style={styles.userAvatar}>
@@ -513,32 +571,9 @@ export default function AdminScreen() {
 
                         {!isSelf && !isSuperAdminAccount && isSuperAdmin && (
                           <View style={styles.userActions}>
-                            {u.role === "user" ? (
-                              <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: colors.secondary + "15", borderColor: colors.secondary }]}
-                                onPress={() => handlePromote(u)}
-                                disabled={actionLoading}
-                              >
-                                <Icon name="person-add" size={13} color={colors.secondary} />
-                                <Text style={[styles.actionBtnText, { color: colors.secondary }]}>
-                                  {t("promoteToAdmin")}
-                                </Text>
-                              </TouchableOpacity>
-                            ) : (
-                              <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
-                                onPress={() => handleDemote(u)}
-                                disabled={actionLoading}
-                              >
-                                <Icon name="person-remove" size={13} color={colors.destructive} />
-                                <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
-                                  {t("demoteFromAdmin")}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
                             <TouchableOpacity
-                              style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive, marginTop: 6 }]}
-                              onPress={() => openDeleteUserModal(u)}
+                              style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
+                              onPress={(e) => { e.stopPropagation?.(); openDeleteUserModal(u); }}
                               disabled={actionLoading}
                             >
                               <Icon name="trash" size={13} color={colors.destructive} />
@@ -630,44 +665,103 @@ export default function AdminScreen() {
                     </View>
                   ))}
 
-                  {/* Promote/demote + delete actions inside modal */}
-                  {!isSelf && !isSuperAdminAccount && isSuperAdmin && (
-                    <View style={{ marginTop: 16, gap: 8 }}>
-                      {u.role === "user" ? (
+                  {/* Role management + delete — super admin only, not self, not super admin account */}
+                  {!isSelf && !isSuperAdminAccount && isSuperAdmin && (() => {
+                    const isLegacyRole = u.role === "user" || u.role === "assistant_admin";
+                    const canSave =
+                      editingRole !== "user" &&
+                      editingRole !== "assistant_admin" &&
+                      (editingRole !== u.role || editingCanSubmit !== (u.canSubmitRequests ?? false));
+                    return (
+                      <View style={{ marginTop: 16, gap: 10 }}>
+                        {/* Legacy role warning */}
+                        {isLegacyRole && (
+                          <View style={[styles.legacyBanner, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B" }]}>
+                            <Icon name="alert-circle" size={13} color="#F59E0B" />
+                            <Text style={[styles.legacyBannerText, { color: "#92400E" }]}>
+                              Legacy role — assign a new role below.
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Role picker */}
+                        <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
+                          {t("assignRole")}
+                        </Text>
+                        <View style={styles.roleGrid}>
+                          {NEW_ROLES.map(({ role, color }) => {
+                            const selected = editingRole === role;
+                            return (
+                              <TouchableOpacity
+                                key={role}
+                                style={[
+                                  styles.roleChip,
+                                  { borderColor: color },
+                                  selected && { backgroundColor: color + "22", borderWidth: 2 },
+                                ]}
+                                onPress={() => setEditingRole(role)}
+                              >
+                                <Text style={[styles.roleChipText, { color }]}>
+                                  {roleLabel(role)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+
+                        {/* Can Submit Requests */}
+                        <View style={[styles.canSubmitRow, { borderColor: colors.border }]}>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={[styles.detailLabel, { color: colors.foreground }]}>
+                              {t("canSubmitRequests")}
+                            </Text>
+                            <Text style={{ fontSize: 11, fontFamily: "Inter_400Regular", color: colors.mutedForeground }}>
+                              {t("canSubmitRequestsSubtitle")}
+                            </Text>
+                          </View>
+                          <Switch
+                            value={editingCanSubmit}
+                            onValueChange={setEditingCanSubmit}
+                            trackColor={{ false: colors.border, true: colors.secondary }}
+                            thumbColor="#fff"
+                          />
+                        </View>
+
+                        {/* Save */}
                         <TouchableOpacity
-                          style={[styles.actionBtn, { backgroundColor: colors.secondary + "15", borderColor: colors.secondary }]}
-                          onPress={() => { setSelectedUser(null); handlePromote(u); }}
-                          disabled={actionLoading}
+                          style={[
+                            styles.actionBtn,
+                            {
+                              alignSelf: "stretch",
+                              justifyContent: "center",
+                              backgroundColor: canSave ? colors.primary : colors.border,
+                              borderColor: canSave ? colors.primary : colors.border,
+                            },
+                          ]}
+                          onPress={handleRoleUpdate}
+                          disabled={!canSave || roleUpdateLoading}
                         >
-                          <Icon name="person-add" size={13} color={colors.secondary} />
-                          <Text style={[styles.actionBtnText, { color: colors.secondary }]}>
-                            {t("promoteToAdmin")}
-                          </Text>
+                          {roleUpdateLoading ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                          ) : (
+                            <Text style={[styles.actionBtnText, { color: "#fff" }]}>{t("save")}</Text>
+                          )}
                         </TouchableOpacity>
-                      ) : u.role === "assistant_admin" ? (
+
+                        {/* Delete */}
                         <TouchableOpacity
                           style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
-                          onPress={() => { setSelectedUser(null); handleDemote(u); }}
+                          onPress={() => openDeleteUserModal(u)}
                           disabled={actionLoading}
                         >
-                          <Icon name="person-remove" size={13} color={colors.destructive} />
+                          <Icon name="trash" size={13} color={colors.destructive} />
                           <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
-                            {t("demoteFromAdmin")}
+                            {t("deleteUser")}
                           </Text>
                         </TouchableOpacity>
-                      ) : null}
-                      <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
-                        onPress={() => openDeleteUserModal(u)}
-                        disabled={actionLoading}
-                      >
-                        <Icon name="trash" size={13} color={colors.destructive} />
-                        <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
-                          {t("deleteUser")}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                      </View>
+                    );
+                  })()}
                 </>
               );
             })()}
@@ -940,6 +1034,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cancelText: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  statusModalCard: {
+    margin: 24,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  noteInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    minHeight: 40,
+  },
+  statusSaveBtn: {
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusSaveBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  statusCancelBtn: {
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#DDD",
+  },
+  statusCancelText: { fontSize: 14, fontFamily: "Inter_500Medium", color: "#555" },
   textRTL: { textAlign: "right" },
   fab: {
     position: "absolute",
@@ -974,6 +1102,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     paddingVertical: 0,
+  },
+
+  // ── Role picker (in user detail modal) ───────────────────────────────────
+  legacyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  legacyBannerText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+  roleGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  roleChip: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  roleChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  canSubmitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 12,
+    gap: 12,
   },
 
   // ── User detail modal ─────────────────────────────────────────────────────

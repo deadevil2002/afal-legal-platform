@@ -20,15 +20,27 @@ interface UserProfileModalProps {
 }
 
 function roleLabel(role: string): string {
-  if (role === "super_admin") return "Super Admin";
-  if (role === "assistant_admin") return "Admin";
-  return "Employee";
+  const labels: Record<string, string> = {
+    super_admin: "Super Admin",
+    ceo: "CEO",
+    evp: "EVP",
+    planning: "Planning",
+    finance: "Finance",
+    procurement: "Procurement",
+    assistant_admin: "Legacy Admin",
+    user: "Legacy User",
+  };
+  return labels[role] ?? role;
 }
 
 function roleColor(role: string): string {
   if (role === "super_admin") return "#BC9B5D";
-  if (role === "assistant_admin") return "#16A8BA";
-  return "#2D6491";
+  if (role === "ceo") return "#7C3AED";
+  if (role === "evp") return "#5D1E5E";
+  if (role === "planning") return "#006485";
+  if (role === "finance") return "#16A8BA";
+  if (role === "procurement") return "#2D6491";
+  return "#94A3B8"; // legacy roles
 }
 
 export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {

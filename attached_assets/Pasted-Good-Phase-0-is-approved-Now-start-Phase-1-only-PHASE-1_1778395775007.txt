@@ -1,0 +1,115 @@
+Good. Phase 0 is approved.
+
+Now start Phase 1 only.
+
+PHASE 1 — New Role Model + Requester Permission Foundation
+
+Important:
+Do NOT implement the procurement workflow yet.
+Do NOT change request creation workflow yet.
+Do NOT create supplier forms yet.
+Do NOT remove old screens yet.
+This phase is only for the new role structure foundation.
+
+Goal:
+Replace the old legal/admin role model foundation with the AF Procurement Hub role model.
+
+New roles:
+- super_admin
+- ceo
+- evp
+- planning
+- finance
+- procurement
+
+Important:
+“requester” is NOT a role.
+It must be a boolean permission flag on the user profile:
+- canSubmitRequests: true / false
+
+Meaning:
+A user can have role = ceo, evp, planning, finance, procurement, etc.
+And separately canSubmitRequests = true if the Super Admin allows that user to create procurement requests.
+
+Tasks:
+
+1. Update TypeScript role types
+Find all UserRole / role type definitions and update them to support only:
+super_admin, ceo, evp, planning, finance, procurement
+
+Remove old role usage from the type model:
+- user
+- assistant_admin
+
+But do this safely. If old existing data still has user or assistant_admin, add a temporary backward-compatible fallback only where necessary so the app does not crash.
+
+2. Add canSubmitRequests to user profile
+Add field:
+canSubmitRequests: boolean
+
+Default:
+false
+
+Super Admin must be able to toggle it when editing/creating users.
+
+3. Update user management UI
+In Super Admin user management:
+- role dropdown must show:
+  - Super Admin
+  - CEO
+  - EVP
+  - Planning
+  - Finance
+  - Procurement
+- Add a switch/checkbox:
+  - Can Submit Requests
+
+Important:
+Do not create "Requester" as a role in the dropdown.
+
+4. Update role labels and translations
+Add English and Arabic labels for all new roles and canSubmitRequests.
+
+5. Keep Super Admin behavior safe
+Super Admin must still:
+- see admin settings
+- manage users
+- transfer super admin if the existing feature remains
+- access all admin-only screens
+
+6. Backward compatibility
+If any existing account has role:
+- user
+- assistant_admin
+
+Do not crash.
+Map temporarily:
+- assistant_admin -> procurement or finance? DO NOT auto-change in Firestore.
+- user -> procurement? DO NOT auto-change in Firestore.
+
+Instead:
+- display them as legacy/unknown role if needed
+- allow Super Admin to edit and assign a new role manually.
+
+7. Firestore rules
+Do NOT rewrite Firestore rules yet unless absolutely required for the app to run.
+If you identify required rule changes, report them first before editing.
+
+8. Validation
+Run the app and confirm:
+- login still works
+- Super Admin can access settings
+- user management screen opens
+- role dropdown shows the new roles
+- canSubmitRequests is visible and editable
+- no old workflow is broken
+
+9. Commit changes.
+
+Return:
+- files changed
+- old roles found
+- new role type implementation
+- where canSubmitRequests was added
+- any Firestore rules changes needed for the next phase
+- risks before Phase 2

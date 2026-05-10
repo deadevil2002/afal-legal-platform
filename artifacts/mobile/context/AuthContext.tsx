@@ -40,10 +40,14 @@ import { auth, db } from "@/lib/firebase";
  */
 export const INITIAL_SUPER_ADMIN_EMAIL = "Naimi.salem@gmail.com";
 
-// TODO: AF PROCUREMENT HUB MIGRATION — Expand roles to: super_admin, ceo, evp,
-// planning, finance, procurement. "requester" will be a permission flag, not a role.
-// assistant_admin will be retired. Update Firestore rules validRole() to match.
-export type UserRole = "user" | "assistant_admin" | "super_admin";
+/** Active AF Procurement Hub organizational roles */
+export type UserRole = "super_admin" | "ceo" | "evp" | "planning" | "finance" | "procurement";
+
+/** Legacy roles — may still exist in Firestore for old accounts. Do NOT assign to new users. */
+export type LegacyRole = "user" | "assistant_admin";
+
+/** Runtime union — handles both active and legacy role values read from Firestore */
+export type AnyUserRole = UserRole | LegacyRole;
 
 export interface UserProfile {
   uid: string;
@@ -51,7 +55,8 @@ export interface UserProfile {
   displayName: string;
   fullName?: string;
   employeeNumber?: string;
-  role: UserRole;
+  role: AnyUserRole;
+  canSubmitRequests?: boolean;
   department?: string;
   phone?: string;
   mobileNumber?: string;
@@ -107,6 +112,7 @@ interface AuthContextType {
   setLanguage: (lang: "en" | "ar") => Promise<void>;
   promoteToAssistantAdmin: (targetUid: string) => Promise<void>;
   demoteFromAdmin: (targetUid: string) => Promise<void>;
+  updateUserRole: (targetUid: string, newRole: UserRole, canSubmitRequests?: boolean) => Promise<void>;
   transferSuperAdmin: (targetEmail: string, currentPassword: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   getAllUsers: () => Promise<UserProfile[]>;
@@ -127,9 +133,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
  */
 function resolveRole(
   email: string,
-  storedRole: UserRole,
+  storedRole: AnyUserRole,
   activeSuperAdminEmail: string
-): UserRole {
+): AnyUserRole {
   if (email.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
     return "super_admin";
   }
@@ -347,12 +353,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isSuperAdmin =
     profile?.role === "super_admin" ||
-    (user?.email?.toLowerCase() === activeSuperAdminEmail.toLowerCase() ?? false);
+    (user?.email?.toLowerCase() ?? "") === activeSuperAdminEmail.toLowerCase();
 
   const isAdmin =
-    profile?.role === "assistant_admin" ||
-    profile?.role === "super_admin" ||
-    isSuperAdmin;
+    isSuperAdmin ||
+    profile?.role === "assistant_admin"; // legacy backward compat — reassign via Admin → Users tab
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
@@ -566,6 +571,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: "user",
       updatedAt: serverTimestamp(),
     });
+  };
+
+  /**
+   * SUPER ADMIN ONLY — assign any AF Procurement Hub role to a user and
+   * optionally update their canSubmitRequests permission flag.
+   * The Super Admin account itself cannot be modified via this function.
+   */
+  const updateUserRole = async (
+    targetUid: string,
+    newRole: UserRole,
+    canSubmitRequests?: boolean
+  ) => {
+    if (!isSuperAdmin) throw new Error("Unauthorized: Super Admin only.");
+    const targetRef = doc(db, "users", targetUid);
+    const snap = await getDoc(targetRef);
+    if (!snap.exists()) throw new Error("User not found.");
+    const targetProfile = snap.data() as UserProfile;
+    if (targetProfile.email?.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
+      throw new Error("Cannot modify the Super Admin account.");
+    }
+    const update: Record<string, unknown> = {
+      role: newRole,
+      updatedAt: serverTimestamp(),
+    };
+    if (canSubmitRequests !== undefined) {
+      update.canSubmitRequests = canSubmitRequests;
+    }
+    await updateDoc(targetRef, update);
   };
 
   /**
@@ -886,6 +919,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLanguage,
         promoteToAssistantAdmin,
         demoteFromAdmin,
+        updateUserRole,
         transferSuperAdmin,
         changePassword,
         getAllUsers,
