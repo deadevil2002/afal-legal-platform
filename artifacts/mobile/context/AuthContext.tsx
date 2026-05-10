@@ -416,7 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       displayName,
       employeeNumber: trimmedEmpNum,
-      role: "user",
+      role: "procurement",
       department: department || "",
       phone: normalizedPhone,
       isActive: true,

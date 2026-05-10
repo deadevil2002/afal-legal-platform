@@ -49,14 +49,13 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // All roles accepted by the system — new AF Procurement Hub roles + legacy roles
-    // kept during migration. Remove "user" and "assistant_admin" once all accounts
-    // have been reassigned (Phase 2+).
+    // All valid AF Procurement Hub roles. Legacy roles "user" and "assistant_admin"
+    // are intentionally excluded — existing records with those values can still be
+    // read and updated by admins, but no new document may be written with them.
     function validRole(role) {
       return role in [
         "super_admin",
-        "ceo", "evp", "planning", "finance", "procurement",
-        "user", "assistant_admin"
+        "ceo", "evp", "planning", "finance", "procurement"
       ];
     }
 
@@ -191,16 +190,16 @@ service cloud.firestore {
 
       allow read: if isOwner(uid) || isAdmin();
 
-      // Self-registration: role must be "user" (legacy default until signup
-      // is removed and role assignment is admin-only in Phase 2+).
-      // canSubmitRequests may be omitted or set to false at registration;
-      // the app always writes false and Super Admin assigns it later.
+      // Self-registration: role must be "procurement" (the default operational
+      // role for new employees). canSubmitRequests may be omitted or set to
+      // false at registration; the app always writes false and Super Admin
+      // assigns it later.
       allow create: if allowUserSignup()
         && isOwner(uid)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email is string
         && request.resource.data.email.size() > 0
-        && request.resource.data.role == "user"
+        && request.resource.data.role == "procurement"
         && request.resource.data.employeeNumber is string
         && request.resource.data.employeeNumber.size() > 0
         && request.resource.data.phone is string
