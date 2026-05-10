@@ -46,36 +46,36 @@ import { TranslationKey } from "@/i18n/translations";
 const STATUS_OPTIONS = [
   "Submitted",
   "Under Review",
-  "Employee Contacted",
-  "In Progress",
-  "Proposed Resolution",
-  "Employee Feedback",
-  "Resolved / Closed",
-  "Escalated",
+  "CEO Review",
+  "EVP Review",
+  "Planning Review",
+  "Finance Review",
+  "Approved / PO Issued",
+  "Rejected",
 ] as const;
 
 type RequestStatus = (typeof STATUS_OPTIONS)[number];
 
 const STATUS_KEY_MAP: Record<RequestStatus, TranslationKey> = {
-  "Submitted":             "statusSubmitted",
-  "Under Review":          "statusUnderReview",
-  "Employee Contacted":    "statusEmployeeContacted",
-  "In Progress":           "statusInProgress",
-  "Proposed Resolution":   "statusProposedResolution",
-  "Employee Feedback":     "statusEmployeeFeedback",
-  "Resolved / Closed":     "statusResolvedClosed",
-  "Escalated":             "statusEscalated",
+  "Submitted":           "statusSubmitted",
+  "Under Review":        "statusUnderReview",
+  "CEO Review":          "statusCEOReview",
+  "EVP Review":          "statusEVPReview",
+  "Planning Review":     "statusPlanningReview",
+  "Finance Review":      "statusFinanceReview",
+  "Approved / PO Issued":"statusApprovedPOIssued",
+  "Rejected":            "statusRejected",
 };
 
 const STATUS_DOT_COLORS: Record<RequestStatus, string> = {
-  "Submitted":             "#D97706",
-  "Under Review":          "#1E40AF",
-  "Employee Contacted":    "#0369A1",
-  "In Progress":           "#065F46",
-  "Proposed Resolution":   "#6B21A8",
-  "Employee Feedback":     "#C2410C",
-  "Resolved / Closed":     "#166534",
-  "Escalated":             "#991B1B",
+  "Submitted":            "#D97706",
+  "Under Review":         "#1E40AF",
+  "CEO Review":           "#7C3AED",
+  "EVP Review":           "#5D1E5E",
+  "Planning Review":      "#006485",
+  "Finance Review":       "#16A8BA",
+  "Approved / PO Issued": "#166534",
+  "Rejected":             "#991B1B",
 };
 
 interface Message {
@@ -131,7 +131,7 @@ export default function RequestDetailScreen() {
         statusChangedAt: now,
         statusChangedBy: profile?.uid ?? null,
       };
-      if (newStatus === "Resolved / Closed") {
+      if (newStatus === "Approved / PO Issued" || newStatus === "Rejected") {
         payload.closedAt = now;
         payload.closedBy = profile?.uid ?? null;
       }
@@ -149,7 +149,7 @@ export default function RequestDetailScreen() {
     if (!id || !isAdmin) return;
     try {
       await updateDoc(doc(db, "requests", id), {
-        status: "In Progress",
+        status: "Under Review",
         statusChangedAt: serverTimestamp(),
         statusChangedBy: profile?.uid ?? null,
         closedAt: null,
@@ -260,7 +260,7 @@ export default function RequestDetailScreen() {
     if (!hasText && !hasAttachments) return;
     if (!user || !profile || !id || !request) return;
     // Hard-stop: never allow messages on a closed request (UI + data layer guard)
-    if (request.status === "Resolved / Closed") return;
+    if (request.status === "Approved / PO Issued" || request.status === "Rejected" || request.status === "Resolved / Closed") return;
     setSending(true);
     const text = messageText.trim();
     const attachmentsToSend = [...msgAttachments];
@@ -334,7 +334,7 @@ export default function RequestDetailScreen() {
     );
   }
 
-  const isLocked = request.status === "Resolved / Closed";
+  const isLocked = request.status === "Approved / PO Issued" || request.status === "Rejected" || request.status === "Resolved / Closed";
 
   const rawCategory = request.category || request.type || "";
   const displayCategory = rawCategory

@@ -42,11 +42,12 @@ export default function HomeScreen() {
 
   const recentRequests = requests.slice(0, 5);
 
+  const TERMINAL_STATUSES = ["Approved / PO Issued", "Rejected", "Resolved / Closed", "Escalated"];
   const stats = {
     total: requests.length,
     submitted: requests.filter((r) => r.status === "Submitted").length,
-    active: requests.filter((r) => r.status !== "Resolved / Closed").length,
-    closed: requests.filter((r) => r.status === "Resolved / Closed").length,
+    active: requests.filter((r) => !TERMINAL_STATUSES.includes(r.status)).length,
+    closed: requests.filter((r) => TERMINAL_STATUSES.includes(r.status)).length,
   };
 
   return (

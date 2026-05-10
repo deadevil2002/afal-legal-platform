@@ -60,21 +60,46 @@ service cloud.firestore {
       ];
     }
 
+    // Used for creates — only new procurement categories accepted
     function validRequestCategory(category) {
       return category in [
-        "Amicable Settlement",
-        "Complaint",
-        "Legal Consultation",
-        "Investigation Request",
-        "Contract Issue",
+        "Purchase Request",
+        "Vendor Approval",
+        "Contract Review",
+        "Budget Request",
+        "Supplier Onboarding",
         "Violation Report"
       ];
     }
 
+    // Used for updates — also accepts legacy legal categories until data migration is complete
+    function validRequestCategoryForUpdate(category) {
+      return validRequestCategory(category) || category in [
+        "Amicable Settlement",
+        "Complaint",
+        "Legal Consultation",
+        "Investigation Request",
+        "Contract Issue"
+      ];
+    }
+
+    // Used for creates — only new procurement statuses accepted
     function validRequestStatus(status) {
       return status in [
         "Submitted",
         "Under Review",
+        "CEO Review",
+        "EVP Review",
+        "Planning Review",
+        "Finance Review",
+        "Approved / PO Issued",
+        "Rejected"
+      ];
+    }
+
+    // Used for updates — also accepts legacy statuses until data migration is complete
+    function validRequestStatusForUpdate(status) {
+      return validRequestStatus(status) || status in [
         "Employee Contacted",
         "In Progress",
         "Proposed Resolution",
@@ -399,8 +424,8 @@ service cloud.firestore {
         ||
         (
           isAdmin()
-          && validRequestCategory(request.resource.data.category)
-          && validRequestStatus(request.resource.data.status)
+          && validRequestCategoryForUpdate(request.resource.data.category)
+          && validRequestStatusForUpdate(request.resource.data.status)
           && request.resource.data.userId == resource.data.userId
           && bothMissingOrSame("createdByAdmin")
           && bothMissingOrSame("createdByAdminUid")

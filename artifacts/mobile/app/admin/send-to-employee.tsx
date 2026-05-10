@@ -20,17 +20,11 @@ import { useAuth, UserProfile } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
-
-const REQUEST_CATEGORIES = [
-  "Amicable Settlement",
-  "Complaint",
-  "Legal Consultation",
-  "Investigation Request",
-  "Contract Issue",
-  "Violation Report",
-] as const;
-
-type RequestCategory = (typeof REQUEST_CATEGORIES)[number];
+import {
+  REQUEST_CATEGORIES,
+  RequestCategory,
+  CATEGORY_TRANSLATION_KEYS,
+} from "@/constants/requestTypes";
 
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -56,7 +50,7 @@ export default function SendToEmployeeScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<RequestCategory>("Legal Consultation");
+  const [category, setCategory] = useState<RequestCategory>("Purchase Request");
   const [priority, setPriority] = useState<Priority>("medium");
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -344,7 +338,7 @@ export default function SendToEmployeeScreen() {
                       { color: category === cat ? colors.primary : colors.foreground },
                     ]}
                   >
-                    {cat}
+                    {t(CATEGORY_TRANSLATION_KEYS[cat])}
                   </Text>
                   {category === cat && <Icon name="check" size={12} color={colors.primary} />}
                 </TouchableOpacity>

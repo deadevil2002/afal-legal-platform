@@ -24,30 +24,11 @@ import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
-
-// TODO: AF PROCUREMENT HUB MIGRATION — Replace these legal categories with
-// procurement workflow request types (e.g. Purchase Request, Supplier Onboarding,
-// Contract Review, PO Tracking, Finance Approval, Violation Report).
-// Also update Firestore security rules validRequestCategory() to match.
-const REQUEST_CATEGORIES = [
-  "Amicable Settlement",
-  "Complaint",
-  "Legal Consultation",
-  "Investigation Request",
-  "Contract Issue",
-  "Violation Report",
-] as const;
-
-type RequestCategory = (typeof REQUEST_CATEGORIES)[number];
-
-const CATEGORY_KEYS: Record<RequestCategory, "typeAmicable" | "typeComplaint" | "typeLegalConsultation" | "typeInvestigation" | "typeContractIssue" | "typeViolationReport"> = {
-  "Amicable Settlement":  "typeAmicable",
-  "Complaint":            "typeComplaint",
-  "Legal Consultation":   "typeLegalConsultation",
-  "Investigation Request":"typeInvestigation",
-  "Contract Issue":       "typeContractIssue",
-  "Violation Report":     "typeViolationReport",
-};
+import {
+  REQUEST_CATEGORIES,
+  RequestCategory,
+  CATEGORY_TRANSLATION_KEYS,
+} from "@/constants/requestTypes";
 
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 type Priority = (typeof PRIORITIES)[number];
@@ -75,7 +56,7 @@ export default function NewRequestScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<RequestCategory>("Legal Consultation");
+  const [category, setCategory] = useState<RequestCategory>("Purchase Request");
   const [priority, setPriority] = useState<Priority>("medium");
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([]);
   const [loading, setLoading] = useState(false);
@@ -208,7 +189,7 @@ export default function NewRequestScreen() {
                   { color: category === cat ? colors.primary : colors.foreground },
                 ]}
               >
-                {t(CATEGORY_KEYS[cat])}
+                {t(CATEGORY_TRANSLATION_KEYS[cat])}
               </Text>
               {category === cat && (
                 <Icon name="check" size={12} color={colors.primary} />

@@ -6,12 +6,12 @@ import { TranslationKey } from "@/i18n/translations";
 export type RequestStatus =
   | "Submitted"
   | "Under Review"
-  | "Employee Contacted"
-  | "In Progress"
-  | "Proposed Resolution"
-  | "Employee Feedback"
-  | "Resolved / Closed"
-  | "Escalated";
+  | "CEO Review"
+  | "EVP Review"
+  | "Planning Review"
+  | "Finance Review"
+  | "Approved / PO Issued"
+  | "Rejected";
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -21,18 +21,27 @@ interface StatusBadgeProps {
 }
 
 const STATUS_CONFIG: Record<string, { labelKey: TranslationKey; bg: string; fg: string }> = {
-  "Submitted":           { labelKey: "statusSubmitted",         bg: "#FEF9C3", fg: "#854D0E" },
-  "Under Review":        { labelKey: "statusUnderReview",       bg: "#DBEAFE", fg: "#1E40AF" },
-  "Employee Contacted":  { labelKey: "statusEmployeeContacted", bg: "#E0F2FE", fg: "#0369A1" },
-  "In Progress":         { labelKey: "statusInProgress",        bg: "#D1FAE5", fg: "#065F46" },
-  "Proposed Resolution": { labelKey: "statusProposedResolution",bg: "#F3E8FF", fg: "#6B21A8" },
-  "Employee Feedback":   { labelKey: "statusEmployeeFeedback",  bg: "#FFF7ED", fg: "#C2410C" },
-  "Resolved / Closed":   { labelKey: "statusResolvedClosed",    bg: "#DCFCE7", fg: "#166534" },
-  "Escalated":           { labelKey: "statusEscalated",         bg: "#FEE2E2", fg: "#991B1B" },
-  pending:               { labelKey: "statusSubmitted",         bg: "#FEF9C3", fg: "#854D0E" },
-  in_progress:           { labelKey: "statusInProgress",        bg: "#D1FAE5", fg: "#065F46" },
-  resolved:              { labelKey: "statusResolved",           bg: "#DCFCE7", fg: "#166534" },
-  closed:                { labelKey: "statusClosed",             bg: "#F3F4F6", fg: "#374151" },
+  // ── Procurement statuses (canonical) ─────────────────────────────────
+  "Submitted":            { labelKey: "statusSubmitted",         bg: "#FEF9C3", fg: "#854D0E" },
+  "Under Review":         { labelKey: "statusUnderReview",       bg: "#DBEAFE", fg: "#1E40AF" },
+  "CEO Review":           { labelKey: "statusCEOReview",         bg: "#F3E8FF", fg: "#7C3AED" },
+  "EVP Review":           { labelKey: "statusEVPReview",         bg: "#F5E8FF", fg: "#5D1E5E" },
+  "Planning Review":      { labelKey: "statusPlanningReview",    bg: "#E0F2FE", fg: "#006485" },
+  "Finance Review":       { labelKey: "statusFinanceReview",     bg: "#CCFBF1", fg: "#0F766E" },
+  "Approved / PO Issued": { labelKey: "statusApprovedPOIssued",  bg: "#DCFCE7", fg: "#166534" },
+  "Rejected":             { labelKey: "statusRejected",          bg: "#FEE2E2", fg: "#991B1B" },
+  // ── Legacy status strings (display-only for old Firestore records) ────
+  "Employee Contacted":   { labelKey: "statusEmployeeContacted", bg: "#E0F2FE", fg: "#0369A1" },
+  "In Progress":          { labelKey: "statusInProgress",        bg: "#D1FAE5", fg: "#065F46" },
+  "Proposed Resolution":  { labelKey: "statusProposedResolution",bg: "#F3E8FF", fg: "#6B21A8" },
+  "Employee Feedback":    { labelKey: "statusEmployeeFeedback",  bg: "#FFF7ED", fg: "#C2410C" },
+  "Resolved / Closed":    { labelKey: "statusResolvedClosed",    bg: "#DCFCE7", fg: "#166534" },
+  "Escalated":            { labelKey: "statusEscalated",         bg: "#FEE2E2", fg: "#991B1B" },
+  // ── snake_case fallbacks ──────────────────────────────────────────────
+  pending:                { labelKey: "statusSubmitted",         bg: "#FEF9C3", fg: "#854D0E" },
+  in_progress:            { labelKey: "statusInProgress",        bg: "#D1FAE5", fg: "#065F46" },
+  resolved:               { labelKey: "statusResolved",          bg: "#DCFCE7", fg: "#166534" },
+  closed:                 { labelKey: "statusClosed",            bg: "#F3F4F6", fg: "#374151" },
 };
 
 const PRIORITY_CONFIG: Record<Priority, { labelKey: TranslationKey; bg: string; fg: string }> = {

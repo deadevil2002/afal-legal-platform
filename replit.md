@@ -4,7 +4,7 @@
 
 Enterprise-grade mobile app — **AF Procurement Hub** — a procurement and supply chain workflow platform built on Expo (React Native) + Firebase. Previously known as "Arabian Fal Legal Platform"; migrating from legal services domain to full procurement workflow system.
 
-**Migration status:** Phase 0 complete. See `PROJECT_MIGRATION_AUDIT.md` for full scope.
+**Migration status:** Phase 0 + Phase 2 complete. See `PROJECT_MIGRATION_AUDIT.md` for full scope.
 
 ## Stack
 
@@ -112,13 +112,16 @@ Enterprise-grade mobile app — **AF Procurement Hub** — a procurement and sup
 
 ## Request Types
 
-The approved request types are:
-1. Amicable Settlement
-2. Complaint
-3. Legal Consultation
-4. Investigation Request
-5. Contract Issue
+The approved procurement request types are:
+1. Purchase Request
+2. Vendor Approval
+3. Contract Review
+4. Budget Request
+5. Supplier Onboarding
 6. Violation Report
+
+Canonical values are defined in `artifacts/mobile/constants/requestTypes.ts`.
+Legacy legal category strings ("Amicable Settlement", "Complaint", etc.) are retained in `CATEGORY_KEY_MAP` and translations for backward-compatible display of existing Firestore records.
 
 ## Firebase Setup
 

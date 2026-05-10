@@ -32,29 +32,25 @@ import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
-// TODO: AF PROCUREMENT HUB MIGRATION — Redesign these workflow statuses to
-// match the procurement lifecycle (e.g. Draft, Pending Approval, CEO Review,
-// EVP Review, Planning Review, Finance Review, PO Issued, Completed, Rejected).
-// Coordinate with Firestore security rules validRequestStatus() when changing.
 type Status =
   | "Submitted"
   | "Under Review"
-  | "Employee Contacted"
-  | "In Progress"
-  | "Proposed Resolution"
-  | "Employee Feedback"
-  | "Resolved / Closed"
-  | "Escalated";
+  | "CEO Review"
+  | "EVP Review"
+  | "Planning Review"
+  | "Finance Review"
+  | "Approved / PO Issued"
+  | "Rejected";
 
 const STATUS_OPTIONS: Status[] = [
   "Submitted",
   "Under Review",
-  "Employee Contacted",
-  "In Progress",
-  "Proposed Resolution",
-  "Employee Feedback",
-  "Resolved / Closed",
-  "Escalated",
+  "CEO Review",
+  "EVP Review",
+  "Planning Review",
+  "Finance Review",
+  "Approved / PO Issued",
+  "Rejected",
 ];
 
 const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
@@ -147,11 +143,12 @@ export default function AdminScreen() {
     );
   }
 
+  const TERMINAL_STATUSES = ["Approved / PO Issued", "Rejected", "Resolved / Closed", "Escalated"];
   const counts = {
     total: requests.length,
     submitted: requests.filter((r) => r.status === "Submitted").length,
-    active: requests.filter((r) => r.status !== "Resolved / Closed").length,
-    resolved: requests.filter((r) => r.status === "Resolved / Closed").length,
+    active: requests.filter((r) => !TERMINAL_STATUSES.includes(r.status as Status)).length,
+    resolved: requests.filter((r) => TERMINAL_STATUSES.includes(r.status as Status)).length,
   };
 
   const filtered =
@@ -168,7 +165,7 @@ export default function AdminScreen() {
         statusChangedAt: now,
         statusChangedBy: profile?.uid ?? null,
       };
-      if (newStatus === "Resolved / Closed") {
+      if (newStatus === "Approved / PO Issued" || newStatus === "Rejected") {
         updatePayload.closedAt = now;
         updatePayload.closedBy = profile?.uid ?? null;
       }
@@ -402,14 +399,14 @@ export default function AdminScreen() {
                   numberOfLines={1}
                 >
                   {f === "all" ? t("all") : t(({
-                    "Submitted": "statusSubmitted",
-                    "Under Review": "statusUnderReview",
-                    "Employee Contacted": "statusEmployeeContacted",
-                    "In Progress": "statusInProgress",
-                    "Proposed Resolution": "statusProposedResolution",
-                    "Employee Feedback": "statusEmployeeFeedback",
-                    "Resolved / Closed": "statusResolvedClosed",
-                    "Escalated": "statusEscalated",
+                    "Submitted":           "statusSubmitted",
+                    "Under Review":        "statusUnderReview",
+                    "CEO Review":          "statusCEOReview",
+                    "EVP Review":          "statusEVPReview",
+                    "Planning Review":     "statusPlanningReview",
+                    "Finance Review":      "statusFinanceReview",
+                    "Approved / PO Issued":"statusApprovedPOIssued",
+                    "Rejected":            "statusRejected",
                   } as Record<string, Parameters<typeof t>[0]>)[f] ?? "statusSubmitted")}
                 </Text>
               </TouchableOpacity>

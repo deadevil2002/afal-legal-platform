@@ -2,8 +2,8 @@
 ## Arabian Fal Legal Platform → AF Procurement Hub
 
 **Date:** 2026-05-10
-**Phase:** 0 — Safe Preparation (No new workflow features added)
-**Status:** Foundation prepared. App fully operational.
+**Phase:** 2 — Procurement Request Types
+**Status:** Phase 0 complete. Phase 2 complete (procurement categories). App fully operational.
 
 ---
 
@@ -31,6 +31,22 @@ files that require partial rewrite, and files that should be removed in future p
 | `context/AuthContext.tsx` | TODO marker added above `UserRole` type |
 | `i18n/translations.ts` | TODO markers added near status names and category labels |
 | `app/legal/[page].tsx` | TODO marker added at file top |
+
+## 2b. PHASE 2 CHANGES MADE (Procurement Request Types)
+
+| File | Change |
+|------|--------|
+| `constants/requestTypes.ts` | **Created** — exports `REQUEST_CATEGORIES`, `RequestCategory` type, `CATEGORY_TRANSLATION_KEYS` map |
+| `app/request/new.tsx` | Replaced inline `REQUEST_CATEGORIES` + `CATEGORY_KEYS` with imports from `constants/requestTypes`; default category → "Purchase Request" |
+| `app/admin/send-to-employee.tsx` | Replaced local `REQUEST_CATEGORIES` with import from `constants/requestTypes`; default category and chip labels updated |
+| `components/RequestCard.tsx` | `CATEGORY_KEY_MAP` updated with 6 procurement types as canonical entries; legacy legal entries kept for backward-compat display of old Firestore records |
+| `i18n/translations.ts` | Added EN+AR translations for 6 procurement categories + 8 procurement statuses; legacy legal keys retained for old data display |
+| `firestore.rules` | `validRequestCategory()` updated to accept 6 new procurement categories; `validRequestStatus()` updated to accept 8 new procurement statuses |
+| `app/(tabs)/admin.tsx` | `Status` type + `STATUS_OPTIONS` updated to 8 procurement stages; filter labels, counts, and closedAt logic updated |
+| `app/request/[id].tsx` | `STATUS_OPTIONS`, `STATUS_KEY_MAP`, `STATUS_DOT_COLORS`, `isLocked`, `sendMessage` guard all updated to procurement statuses |
+| `components/StatusBadge.tsx` | `RequestStatus` type + `STATUS_CONFIG` updated with procurement colors/labels; legacy status entries retained for old records |
+| `app/(tabs)/requests.tsx` | `STATUS_FILTER_ITEMS` updated to procurement stages |
+| `app/(tabs)/index.tsx` | `stats.active/closed` logic updated to use terminal statuses ("Approved / PO Issued", "Rejected") |
 
 ---
 

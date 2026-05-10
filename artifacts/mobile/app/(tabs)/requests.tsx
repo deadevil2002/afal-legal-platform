@@ -21,12 +21,15 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
 const STATUS_FILTER_ITEMS = [
-  { value: "All",              labelKey: "all" },
-  { value: "Submitted",       labelKey: "statusSubmitted" },
-  { value: "Under Review",    labelKey: "statusUnderReview" },
-  { value: "In Progress",     labelKey: "statusInProgress" },
-  { value: "Resolved / Closed", labelKey: "statusResolvedClosed" },
-  { value: "Escalated",       labelKey: "statusEscalated" },
+  { value: "All",                 labelKey: "all" },
+  { value: "Submitted",           labelKey: "statusSubmitted" },
+  { value: "Under Review",        labelKey: "statusUnderReview" },
+  { value: "CEO Review",          labelKey: "statusCEOReview" },
+  { value: "EVP Review",          labelKey: "statusEVPReview" },
+  { value: "Planning Review",     labelKey: "statusPlanningReview" },
+  { value: "Finance Review",      labelKey: "statusFinanceReview" },
+  { value: "Approved / PO Issued",labelKey: "statusApprovedPOIssued" },
+  { value: "Rejected",            labelKey: "statusRejected" },
 ] as const;
 
 type FilterValue = (typeof STATUS_FILTER_ITEMS)[number]["value"];

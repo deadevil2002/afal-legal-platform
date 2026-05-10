@@ -7,21 +7,26 @@ import { useT } from "@/hooks/useT";
 import { TranslationKey } from "@/i18n/translations";
 import { StatusBadge } from "./StatusBadge";
 
-// TODO: AF PROCUREMENT HUB MIGRATION — Replace legal category keys with
-// procurement workflow types. Keep legacy snake_case variants in place until a
-// Firestore data migration script is run to back-fill existing records.
-// Handles both title-case (new records) and snake_case / typo variants (legacy Firestore records)
+// Handles both current procurement types and legacy legal category strings
+// (title-case canonical + snake_case variants) so that existing Firestore records
+// continue to render correctly until a data migration script is run.
 export const CATEGORY_KEY_MAP: Record<string, TranslationKey> = {
-  // ── Title-case (canonical) ─────────────────────────────────────────────
+  // ── Procurement types (canonical) ──────────────────────────────────────
+  "Purchase Request":    "typePurchaseRequest",
+  "Vendor Approval":     "typeVendorApproval",
+  "Contract Review":     "typeContractReview",
+  "Budget Request":      "typeBudgetRequest",
+  "Supplier Onboarding": "typeSupplierOnboarding",
+  "Violation Report":    "typeViolationReport",
+  // ── Legacy legal categories (title-case) — keep until data migration ───
   "Amicable Settlement":   "typeAmicable",
   "Complaint":             "typeComplaint",
   "Legal Consultation":    "typeLegalConsultation",
   "Investigation Request": "typeInvestigation",
   "Contract Issue":        "typeContractIssue",
-  "Violation Report":      "typeViolationReport",
-  // ── snake_case variants ────────────────────────────────────────────────
+  // ── Legacy snake_case variants ─────────────────────────────────────────
   "amicable_settlement":   "typeAmicable",
-  "amicaable_settlement":  "typeAmicable",   // legacy typo
+  "amicaable_settlement":  "typeAmicable",
   "complaint":             "typeComplaint",
   "legal_consultation":    "typeLegalConsultation",
   "investigation_request": "typeInvestigation",

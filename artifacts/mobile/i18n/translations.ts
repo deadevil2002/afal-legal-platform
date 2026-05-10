@@ -51,11 +51,16 @@ export const translations = {
     titlePlaceholder: "Brief title for the request",
     descPlaceholder: "Provide a detailed description...",
 
-    // TODO: AF PROCUREMENT HUB MIGRATION — Replace 8-stage legal statuses with
-    // procurement workflow stages. Update StatusBadge colors/icons accordingly.
-    // ── Status names (8-stage workflow) ───────────────────────────────────
+    // ── Status names (procurement workflow) ───────────────────────────────
     statusSubmitted: "Submitted",
     statusUnderReview: "Under Review",
+    statusCEOReview: "CEO Review",
+    statusEVPReview: "EVP Review",
+    statusPlanningReview: "Planning Review",
+    statusFinanceReview: "Finance Review",
+    statusApprovedPOIssued: "Approved / PO Issued",
+    statusRejected: "Rejected",
+    // ── Legacy status labels (display-only for old Firestore records) ─────
     statusEmployeeContacted: "Employee Contacted",
     statusInProgress: "In Progress",
     statusProposedResolution: "Proposed Resolution",
@@ -72,16 +77,19 @@ export const translations = {
     priorityHigh: "High",
     priorityUrgent: "Urgent",
 
-    // TODO: AF PROCUREMENT HUB MIGRATION — Replace legal category labels with
-    // procurement request type labels. Coordinate with REQUEST_CATEGORIES in
-    // app/request/new.tsx and CATEGORY_KEY_MAP in components/RequestCard.tsx.
-    // ── Request categories ────────────────────────────────────────────────
+    // ── Request categories (procurement) ─────────────────────────────────
+    typePurchaseRequest: "Purchase Request",
+    typeVendorApproval: "Vendor Approval",
+    typeContractReview: "Contract Review",
+    typeBudgetRequest: "Budget Request",
+    typeSupplierOnboarding: "Supplier Onboarding",
+    typeViolationReport: "Violation Report",
+    // ── Legacy legal categories (display-only for old Firestore records) ──
     typeAmicable: "Amicable Settlement",
     typeComplaint: "Complaint",
     typeLegalConsultation: "Legal Consultation",
     typeInvestigation: "Investigation Request",
     typeContractIssue: "Contract Issue",
-    typeViolationReport: "Violation Report",
 
     // ── Conversation ──────────────────────────────────────────────────────
     conversation: "Conversation",
@@ -448,9 +456,16 @@ export const translations = {
     titlePlaceholder: "عنوان مختصر للطلب",
     descPlaceholder: "يرجى تقديم وصف تفصيلي...",
 
-    // ── Status names (8-stage workflow) ───────────────────────────────────
+    // ── Status names (procurement workflow) ───────────────────────────────
     statusSubmitted: "مُقدَّم",
     statusUnderReview: "قيد المراجعة",
+    statusCEOReview: "مراجعة الرئيس التنفيذي",
+    statusEVPReview: "مراجعة نائب الرئيس",
+    statusPlanningReview: "مراجعة التخطيط",
+    statusFinanceReview: "مراجعة المالية",
+    statusApprovedPOIssued: "موافق / أمر شراء صادر",
+    statusRejected: "مرفوض",
+    // ── Legacy status labels (display-only for old Firestore records) ─────
     statusEmployeeContacted: "تم التواصل مع الموظف",
     statusInProgress: "قيد المعالجة",
     statusProposedResolution: "حل مقترح",
@@ -467,13 +482,19 @@ export const translations = {
     priorityHigh: "عالية",
     priorityUrgent: "عاجل",
 
-    // ── Request categories ────────────────────────────────────────────────
+    // ── Request categories (procurement) ─────────────────────────────────
+    typePurchaseRequest: "طلب شراء",
+    typeVendorApproval: "اعتماد مورد",
+    typeContractReview: "مراجعة عقد",
+    typeBudgetRequest: "طلب ميزانية",
+    typeSupplierOnboarding: "إلحاق مورد",
+    typeViolationReport: "تقرير مخالفة",
+    // ── Legacy legal categories (display-only for old Firestore records) ──
     typeAmicable: "تسوية ودية",
     typeComplaint: "شكوى",
     typeLegalConsultation: "استشارة قانونية",
     typeInvestigation: "طلب تحقيق",
     typeContractIssue: "مسألة عقد",
-    typeViolationReport: "تقرير مخالفة",
 
     // ── Conversation ──────────────────────────────────────────────────────
     conversation: "المحادثة",
