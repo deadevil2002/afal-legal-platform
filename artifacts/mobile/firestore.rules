@@ -32,8 +32,13 @@ service cloud.firestore {
       return signedIn() && currentUserRole() == "super_admin";
     }
 
+    // Covers all non-super-admin operational roles (new + legacy assistant_admin).
+    // Used internally by isAdmin(). Do not call directly outside isAdmin().
     function isAssistantAdmin() {
-      return signedIn() && currentUserRole() == "assistant_admin";
+      return signedIn() && currentUserRole() in [
+        "ceo", "evp", "planning", "finance", "procurement",
+        "assistant_admin"
+      ];
     }
 
     function isAdmin() {
@@ -44,8 +49,15 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // All roles accepted by the system — new AF Procurement Hub roles + legacy roles
+    // kept during migration. Remove "user" and "assistant_admin" once all accounts
+    // have been reassigned (Phase 2+).
     function validRole(role) {
-      return role in ["user", "assistant_admin", "super_admin"];
+      return role in [
+        "super_admin",
+        "ceo", "evp", "planning", "finance", "procurement",
+        "user", "assistant_admin"
+      ];
     }
 
     function validRequestCategory(category) {
@@ -154,6 +166,10 @@ service cloud.firestore {
 
       allow read: if isOwner(uid) || isAdmin();
 
+      // Self-registration: role must be "user" (legacy default until signup
+      // is removed and role assignment is admin-only in Phase 2+).
+      // canSubmitRequests may be omitted or set to false at registration;
+      // the app always writes false and Super Admin assigns it later.
       allow create: if allowUserSignup()
         && isOwner(uid)
         && request.resource.data.uid == request.auth.uid
@@ -166,6 +182,9 @@ service cloud.firestore {
         && request.resource.data.phone.size() > 0;
 
       allow update: if
+        // ── Normal user — self-update whitelist ──────────────────────────
+        // role, canSubmitRequests, isActive, phone, employeeNumber are
+        // all immutable from the user's own side.
         (
           isOwner(uid)
           && request.resource.data.uid == resource.data.uid
@@ -179,6 +198,13 @@ service cloud.firestore {
               request.resource.data.isActive == resource.data.isActive
             )
           )
+          && (
+            !("canSubmitRequests" in resource.data) ||
+            (
+              "canSubmitRequests" in request.resource.data &&
+              request.resource.data.canSubmitRequests == resource.data.canSubmitRequests
+            )
+          )
           && request.resource.data.employeeNumber == resource.data.employeeNumber
           && request.resource.data.phone == resource.data.phone
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -189,6 +215,9 @@ service cloud.firestore {
           ])
         )
         ||
+        // ── Super Admin — full profile management ─────────────────────────
+        // May change role (any validRole value), canSubmitRequests, isActive,
+        // and all personal fields. uid, email, createdAt are always immutable.
         (
           isSuperAdmin()
           && request.resource.data.uid == resource.data.uid
@@ -207,7 +236,8 @@ service cloud.firestore {
             "employeeNumber",
             "updatedAt",
             "isActive",
-            "role"
+            "role",
+            "canSubmitRequests"
           ])
         );
 

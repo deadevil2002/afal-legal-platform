@@ -1,0 +1,111 @@
+Good. Phase 1 is approved.
+
+Important note:
+Do NOT proceed with replacing legal request categories yet.
+The line "Near Future started: Replace legal request categories..." should not be implemented now.
+That is a later phase.
+
+Now start Phase 1.1 only.
+
+PHASE 1.1 — Firestore Rules Alignment for New Role Model
+
+Goal:
+Update Firestore security rules to support the new AF Procurement Hub role model and canSubmitRequests field.
+
+Important:
+- Do NOT change app workflow logic.
+- Do NOT change request creation UI.
+- Do NOT change categories yet.
+- Do NOT remove old collections yet.
+- Do NOT refactor unrelated code.
+
+Current new roles:
+- super_admin
+- ceo
+- evp
+- planning
+- finance
+- procurement
+
+Legacy roles may still exist temporarily in Firestore:
+- user
+- assistant_admin
+
+Do not crash old users yet, but the rules should be ready for the new system.
+
+Required rules updates:
+
+1. validRole()
+Update validRole() to allow:
+- super_admin
+- ceo
+- evp
+- planning
+- finance
+- procurement
+- user
+- assistant_admin
+
+Keep user and assistant_admin temporarily as legacy roles only, so existing data does not break during migration.
+
+2. Admin helpers
+Update helpers:
+- isSuperAdmin() stays role == "super_admin"
+- isAdmin() should currently return true for:
+  - super_admin
+  - ceo
+  - evp
+  - planning
+  - finance
+  - procurement
+  - assistant_admin legacy if still present
+
+Important:
+This is temporary during migration so new operational roles can still read/manage the old request system until Phase 2 rewrites it.
+
+3. canSubmitRequests field
+Update user create/update validation to allow:
+- canSubmitRequests: boolean
+
+For normal users:
+- they must NOT be able to change canSubmitRequests
+- they must NOT be able to change role
+
+For super_admin:
+- allow editing:
+  - role
+  - canSubmitRequests
+  - isActive
+  - displayName
+  - department
+  - phone
+  - employeeNumber
+  - language
+  - updatedAt
+
+4. users create
+Since signup will be removed later, keep current behavior safe for now.
+But make sure if user creation happens, the user document may include:
+- canSubmitRequests boolean
+Default false from app side later.
+
+Do not break current user creation.
+
+5. Existing rules
+Do not change:
+- profile_change_requests
+- deletion_requests
+- request_messages
+- existing requests logic
+unless required only to make new role helpers work.
+
+6. Output
+Return:
+- full firestore.rules content
+- exact changes made
+- any risks
+- whether I need to paste/publish the updated rules manually in Firebase Console
+
+Important:
+Do not deploy the rules automatically unless you already have a safe configured deployment.
+I will publish manually if needed.
