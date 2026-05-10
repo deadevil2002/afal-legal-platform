@@ -24,6 +24,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { user, profile, isAdmin, isSuperAdmin } = useAuth();
+  const canSubmit = profile?.canSubmitRequests === true;
   const { requests, loading, error, refresh } = useRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -110,7 +111,7 @@ export default function HomeScreen() {
             {isAdmin ? t("recentRequests") : t("myRequests")}
           </Text>
           <View style={[styles.sectionActions, isRTL && styles.sectionActionsRTL]}>
-            {!isSuperAdmin && (
+            {canSubmit && (
               <TouchableOpacity
                 style={[styles.newBtn, { backgroundColor: colors.accent }]}
                 onPress={() => router.push("/request/new" as never)}
@@ -145,7 +146,7 @@ export default function HomeScreen() {
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               {isSuperAdmin ? t("allRequests") : t("createFirstRequest")}
             </Text>
-            {!isSuperAdmin && (
+            {canSubmit && (
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
                 onPress={() => router.push("/request/new" as never)}

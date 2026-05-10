@@ -37,7 +37,8 @@ type FilterValue = (typeof STATUS_FILTER_ITEMS)[number]["value"];
 export default function RequestsScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, isAdmin, isSuperAdmin } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
+  const canSubmit = profile?.canSubmitRequests === true;
   const { requests, loading, error, refresh } = useRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -82,7 +83,7 @@ export default function RequestsScreen() {
         <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>
           {isAdmin ? t("allRequests") : t("myRequests")}
         </Text>
-        {!isSuperAdmin && (
+        {canSubmit && (
           <TouchableOpacity
             style={styles.addBtn}
             onPress={() => router.push("/request/new" as never)}
@@ -173,7 +174,7 @@ export default function RequestsScreen() {
               <TouchableOpacity onPress={() => setFilter("All")}>
                 <Text style={[styles.clearFilter, { color: colors.primary }]}>{t("clearFilter")}</Text>
               </TouchableOpacity>
-            ) : !isSuperAdmin ? (
+            ) : canSubmit ? (
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
                 onPress={() => router.push("/request/new" as never)}

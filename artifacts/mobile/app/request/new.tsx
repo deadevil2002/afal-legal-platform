@@ -5,7 +5,7 @@ import {
   collection,
   serverTimestamp,
 } from "firebase/firestore";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -53,6 +53,14 @@ export default function NewRequestScreen() {
   const { user, profile } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const canSubmit = profile?.canSubmitRequests === true;
+
+  useEffect(() => {
+    if (profile !== null && !canSubmit) {
+      router.replace("/(tabs)/requests" as never);
+    }
+  }, [canSubmit, profile, router]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -113,6 +121,51 @@ export default function NewRequestScreen() {
       setLoading(false);
     }
   };
+
+  if (profile === null) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!canSubmit) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.primary,
+              paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={() => router.replace("/(tabs)/requests" as never)} style={styles.backBtn}>
+            <Icon name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t("newRequest")}</Text>
+          <View style={styles.submitBtn} />
+        </View>
+        <View style={styles.deniedContainer}>
+          <Icon name="lock" size={52} color="#CBD5E1" />
+          <Text style={[styles.deniedTitle, { color: colors.foreground }]}>
+            {t("noSubmitPermission")}
+          </Text>
+          <Text style={[styles.deniedDesc, { color: colors.mutedForeground }]}>
+            {t("noSubmitPermissionDesc")}
+          </Text>
+          <TouchableOpacity
+            style={[styles.backHomeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.replace("/(tabs)/requests" as never)}
+          >
+            <Text style={styles.backHomeBtnText}>{t("back")}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -348,4 +401,30 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   mainSubmitText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 16 },
+  deniedContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+    gap: 16,
+  },
+  deniedTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  deniedDesc: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  backHomeBtn: {
+    marginTop: 8,
+    borderRadius: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+  },
+  backHomeBtnText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 15 },
 });

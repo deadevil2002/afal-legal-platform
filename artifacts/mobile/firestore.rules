@@ -378,7 +378,10 @@ service cloud.firestore {
         && validRequestStatus(request.resource.data.status)
         && (
           (
+            // Regular user self-submission — requires canSubmitRequests flag
             request.resource.data.userId == request.auth.uid
+            && currentUserExists()
+            && userDoc(request.auth.uid).data.get("canSubmitRequests", false) == true
             && (
               !("createdByAdmin" in request.resource.data) ||
               request.resource.data.createdByAdmin == false
@@ -386,6 +389,7 @@ service cloud.firestore {
           )
           ||
           (
+            // Admin-created request directed at a specific employee
             isAdmin()
             && ("createdByAdmin" in request.resource.data)
             && request.resource.data.createdByAdmin == true
