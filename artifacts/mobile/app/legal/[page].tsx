@@ -1,3 +1,6 @@
+// TODO: AF PROCUREMENT HUB MIGRATION — This entire screen contains Arabian Fal
+// Legal Services Platform branding and legal-specific policy content. Replace
+// with AF Procurement Hub policy pages or remove if no longer required.
 import React from "react";
 import {
   ScrollView,

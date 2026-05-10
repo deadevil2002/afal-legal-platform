@@ -31,6 +31,10 @@ import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
+// TODO: AF PROCUREMENT HUB MIGRATION — Redesign these workflow statuses to
+// match the procurement lifecycle (e.g. Draft, Pending Approval, CEO Review,
+// EVP Review, Planning Review, Finance Review, PO Issued, Completed, Rejected).
+// Coordinate with Firestore security rules validRequestStatus() when changing.
 type Status =
   | "Submitted"
   | "Under Review"

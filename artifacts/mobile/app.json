@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Arabian Fal",
+    "name": "AF Procurement Hub",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,9 +17,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.arabianfal.legal",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Arabian Fal needs access to your photo library to attach images to legal requests.",
-        "NSPhotoLibraryAddUsageDescription": "Arabian Fal needs permission to save photos.",
-        "NSCameraUsageDescription": "Arabian Fal needs camera access to take photos for legal requests.",
+        "NSPhotoLibraryUsageDescription": "AF Procurement Hub needs access to your photo library to attach files.",
+        "NSPhotoLibraryAddUsageDescription": "AF Procurement Hub needs permission to save photos.",
+        "NSCameraUsageDescription": "AF Procurement Hub needs camera access to capture photos.",
         "UISupportsDocumentBrowser": true,
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true
@@ -51,8 +51,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Arabian Fal needs access to your photo library to attach images to legal requests.",
-          "cameraPermission": "Arabian Fal needs camera access to take photos for legal requests."
+          "photosPermission": "AF Procurement Hub needs access to your photo library to attach files.",
+          "cameraPermission": "AF Procurement Hub needs camera access to capture photos."
         }
       ],
       "expo-document-picker"

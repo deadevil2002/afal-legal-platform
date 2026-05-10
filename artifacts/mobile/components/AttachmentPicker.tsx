@@ -1,5 +1,5 @@
 /**
- * AttachmentPicker.tsx — Professional attachment picker for Arabian Fal
+ * AttachmentPicker.tsx — Professional attachment picker for AF Procurement Hub
  *
  * Features:
  * - Polished bottom-sheet modal instead of raw Alert dialog

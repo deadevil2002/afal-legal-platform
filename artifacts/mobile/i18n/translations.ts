@@ -1,7 +1,7 @@
 export const translations = {
   en: {
-    appName: "Arabian Fal",
-    tagline: "Legal Services Platform",
+    appName: "AF Procurement Hub",
+    tagline: "Procurement & Supply Chain Platform",
 
     // ── Auth ──────────────────────────────────────────────────────────────
     login: "Sign In",
@@ -51,6 +51,8 @@ export const translations = {
     titlePlaceholder: "Brief title for the request",
     descPlaceholder: "Provide a detailed description...",
 
+    // TODO: AF PROCUREMENT HUB MIGRATION — Replace 8-stage legal statuses with
+    // procurement workflow stages. Update StatusBadge colors/icons accordingly.
     // ── Status names (8-stage workflow) ───────────────────────────────────
     statusSubmitted: "Submitted",
     statusUnderReview: "Under Review",
@@ -70,6 +72,9 @@ export const translations = {
     priorityHigh: "High",
     priorityUrgent: "Urgent",
 
+    // TODO: AF PROCUREMENT HUB MIGRATION — Replace legal category labels with
+    // procurement request type labels. Coordinate with REQUEST_CATEGORIES in
+    // app/request/new.tsx and CATEGORY_KEY_MAP in components/RequestCard.tsx.
     // ── Request categories ────────────────────────────────────────────────
     typeAmicable: "Amicable Settlement",
     typeComplaint: "Complaint",
@@ -278,7 +283,7 @@ export const translations = {
 
     // ── Permissions ───────────────────────────────────────────────────────
     permissionDenied: "Permission Denied",
-    iosPhotoPermissionDenied: "Access to your photo library was denied. Please open iPhone Settings and enable Photos access for Arabian Fal.",
+    iosPhotoPermissionDenied: "Access to your photo library was denied. Please open iPhone Settings and enable Photos access for AF Procurement Hub.",
     openSettings: "Open Settings",
 
     // ── Settings extra ────────────────────────────────────────────────────
@@ -324,7 +329,7 @@ export const translations = {
     exportSheetDeletionDesc: "User info, Reason, Status, Review date",
     exportSheetAuditDesc: "Super Admin transfer records with actor and target details",
     exportDownloadSuccess: "downloaded successfully.",
-    exportDialogTitle: "Export Arabian Fal Data",
+    exportDialogTitle: "Export AF Procurement Hub Data",
     exportPrivacyWarning: "The exported file contains personal data. Handle it in accordance with your organization's data policy.",
     exportPermissionDenied: "Storage permission not granted. Please try again and allow access to save the file.",
 
@@ -380,8 +385,8 @@ export const translations = {
   },
 
   ar: {
-    appName: "فال العربية",
-    tagline: "منصة الخدمات القانونية",
+    appName: "AF Procurement Hub",
+    tagline: "منصة المشتريات وسلسلة الإمداد",
 
     // ── Auth ──────────────────────────────────────────────────────────────
     login: "تسجيل الدخول",
@@ -658,7 +663,7 @@ export const translations = {
 
     // ── Permissions ───────────────────────────────────────────────────────
     permissionDenied: "تم رفض الإذن",
-    iosPhotoPermissionDenied: "تم رفض الوصول إلى مكتبة الصور. يرجى فتح إعدادات الجهاز وتفعيل الوصول إلى الصور لتطبيق فال العربية.",
+    iosPhotoPermissionDenied: "تم رفض الوصول إلى مكتبة الصور. يرجى فتح إعدادات الجهاز وتفعيل الوصول إلى الصور لتطبيق AF Procurement Hub.",
     openSettings: "فتح الإعدادات",
 
     // ── Settings extra ────────────────────────────────────────────────────
@@ -704,7 +709,7 @@ export const translations = {
     exportSheetDeletionDesc: "معلومات المستخدم، السبب، الحالة، تاريخ المراجعة",
     exportSheetAuditDesc: "سجلات نقل صلاحية المسؤول الأعلى مع تفاصيل الممثل والهدف",
     exportDownloadSuccess: "تم التنزيل بنجاح.",
-    exportDialogTitle: "تصدير بيانات فال العربية",
+    exportDialogTitle: "تصدير بيانات AF Procurement Hub",
     exportPrivacyWarning: "يحتوي الملف المُصدَّر على بيانات شخصية. تعامل معه وفقاً لسياسة البيانات في مؤسستك.",
     exportPermissionDenied: "لم يتم منح إذن التخزين. يرجى المحاولة مجدداً والسماح بالوصول لحفظ الملف.",
 

@@ -7,6 +7,9 @@ import { useT } from "@/hooks/useT";
 import { TranslationKey } from "@/i18n/translations";
 import { StatusBadge } from "./StatusBadge";
 
+// TODO: AF PROCUREMENT HUB MIGRATION — Replace legal category keys with
+// procurement workflow types. Keep legacy snake_case variants in place until a
+// Firestore data migration script is run to back-fill existing records.
 // Handles both title-case (new records) and snake_case / typo variants (legacy Firestore records)
 export const CATEGORY_KEY_MAP: Record<string, TranslationKey> = {
   // ── Title-case (canonical) ─────────────────────────────────────────────

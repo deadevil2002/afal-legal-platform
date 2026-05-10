@@ -1,8 +1,10 @@
-# Arabian Fal Legal Platform
+# AF Procurement Hub
 
 ## Overview
 
-Enterprise-grade mobile app for Arabian Fal — a legal services request and tracking platform. Built with Expo (React Native) + Firebase.
+Enterprise-grade mobile app — **AF Procurement Hub** — a procurement and supply chain workflow platform built on Expo (React Native) + Firebase. Previously known as "Arabian Fal Legal Platform"; migrating from legal services domain to full procurement workflow system.
+
+**Migration status:** Phase 0 complete. See `PROJECT_MIGRATION_AUDIT.md` for full scope.
 
 ## Stack
 

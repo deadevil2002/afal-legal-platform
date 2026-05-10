@@ -25,6 +25,10 @@ import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
+// TODO: AF PROCUREMENT HUB MIGRATION — Replace these legal categories with
+// procurement workflow request types (e.g. Purchase Request, Supplier Onboarding,
+// Contract Review, PO Tracking, Finance Approval, Violation Report).
+// Also update Firestore security rules validRequestCategory() to match.
 const REQUEST_CATEGORIES = [
   "Amicable Settlement",
   "Complaint",

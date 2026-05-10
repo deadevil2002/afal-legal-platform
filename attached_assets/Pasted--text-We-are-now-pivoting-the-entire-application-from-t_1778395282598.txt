@@ -1,0 +1,135 @@
+```text
+We are now pivoting the entire application from the old AFal Legal Platform into a completely new system called:
+
+AF Procurement Hub
+
+IMPORTANT:
+Do NOT start coding the full new workflow yet.
+This phase is ONLY a safe transition/preparation phase to restructure the project foundation gradually without breaking the current app.
+
+CRITICAL RULES
+- Do NOT break the existing app.
+- Do NOT remove working functionality yet unless explicitly requested.
+- Do NOT refactor unrelated files.
+- Do NOT change Firebase project configuration.
+- Do NOT change Expo/React Native versions.
+- Do NOT modify package versions unless absolutely required.
+- Keep the app runnable at all times.
+- Work incrementally and safely.
+
+FIRST TASK — PROJECT PREPARATION PHASE
+
+We are transforming the app from a legal request system into a procurement / supply chain workflow platform.
+
+The OLD system and terminology will eventually be removed entirely.
+
+NEW PRODUCT NAME
+Replace old branding references gradually:
+- AFal Legal Platform
+- Arabian Fal Legal Platform
+
+New name:
+AF Procurement Hub
+
+Keep the SAME LOGO for now.
+
+NEW CORE SYSTEM IDEA
+The app will become a workflow platform for:
+- Request creation
+- Executive approvals
+- Supplier onboarding forms
+- Planning review
+- Finance review
+- Procurement workflow
+- PO tracking
+- SAP payment tracking
+- Full workflow timeline tracking
+
+NEW ROLES (future structure)
+We will later migrate roles into:
+- super_admin
+- ceo
+- evp
+- planning
+- finance
+- procurement
+
+NOTE:
+“requester” is NOT a role.
+It will later become a permission flag assigned by super_admin to allowed users.
+
+DO NOT IMPLEMENT THIS LOGIC YET.
+Just prepare the codebase structure carefully.
+
+CURRENT GOAL
+We are only preparing the app architecture for the future migration.
+
+PHASE 0 TASKS
+
+1. Create a safe backup checkpoint commit first.
+
+2. Search the entire project and identify:
+- old legal terminology
+- old request categories
+- old legal workflow assumptions
+- old assistant_admin logic
+- old profile change systems
+- old deletion request systems
+- old legal translations
+
+3. Generate a migration audit report:
+Create a markdown file:
+PROJECT_MIGRATION_AUDIT.md
+
+Include:
+- files tied to old legal workflow
+- files safe to keep
+- files that should later be removed
+- files requiring partial rewrite
+- role logic locations
+- dashboard logic locations
+- firestore dependency locations
+- notification logic locations
+- tracking logic locations
+
+4. Add TODO comments ONLY where necessary:
+Mark important legacy areas with:
+TODO: AF PROCUREMENT HUB MIGRATION
+
+Do NOT spam comments everywhere.
+
+5. Rename ONLY visible app branding safely:
+- App titles
+- Login subtitle
+- Dashboard titles
+- Visible UI labels
+
+BUT:
+Do NOT rename internal folders/files yet unless required.
+
+6. Keep all existing features operational after changes.
+
+7. Build and verify app still runs successfully.
+
+8. Commit changes with a clean commit message.
+
+DO NOT START:
+- supplier forms
+- procurement workflow
+- SAP integration
+- approval routing
+- workflow engine
+- new Firestore schema
+
+Those will come later in structured phases.
+
+At the end provide:
+- migration audit summary
+- files touched
+- risks discovered
+- recommended next phase
+
+IMPORTANT:
+Work carefully and conservatively.
+We are preparing a production enterprise workflow migration.
+```

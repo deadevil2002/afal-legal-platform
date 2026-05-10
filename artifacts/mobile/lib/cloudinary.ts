@@ -1,5 +1,5 @@
 /**
- * cloudinary.ts — Attachment upload service for Arabian Fal Legal Platform
+ * cloudinary.ts — Attachment upload service for AF Procurement Hub
  *
  * Uses Cloudinary unsigned upload preset so no API secret is ever present in
  * the mobile bundle. All uploads go directly from the device to Cloudinary.

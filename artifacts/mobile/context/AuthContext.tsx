@@ -40,6 +40,9 @@ import { auth, db } from "@/lib/firebase";
  */
 export const INITIAL_SUPER_ADMIN_EMAIL = "Naimi.salem@gmail.com";
 
+// TODO: AF PROCUREMENT HUB MIGRATION — Expand roles to: super_admin, ceo, evp,
+// planning, finance, procurement. "requester" will be a permission flag, not a role.
+// assistant_admin will be retired. Update Firestore rules validRole() to match.
 export type UserRole = "user" | "assistant_admin" | "super_admin";
 
 export interface UserProfile {
