@@ -1,7 +1,8 @@
 # AF Procurement Hub — Workflow Specification
-**Version**: 1.0  
-**Status**: Draft for review  
+**Version**: 1.1  
+**Status**: Approved — role model finalised  
 **Date**: 2026-05-11  
+**Changes in 1.1**: `operations` added as a first-class role; role permissions table reordered to match final role list; approval chain order updated; "Director" semantics note clarified; Risk 6 resolved.
 
 ---
 
@@ -10,37 +11,37 @@
 The procurement lifecycle moves a purchase request from creation through supplier quotation, director approval, PO issuance, multi-level approval, finance payment, and final closure. Every state transition is logged as an immutable event so the full timeline is always auditable.
 
 ```
-[Director / canSubmitRequests user]
+[Any user with canSubmitRequests: true — "the requester / Director"]
         │
         ▼  Stage 1: Request Creation
-[Procurement Team]
+[role: procurement]
         │
         ▼  Stage 2: Supplier Quotations (generate public form links)
 [Suppliers — public form, no login]
         │
         ▼  Stage 3: Supplier Responses collected
-[Procurement Team]
+[role: procurement]
         │
         ▼  Stage 4: Procurement reviews & forwards quotations
-[Director]
+[canSubmitRequests: true user — acts as Director for approval]
         │
         ▼  Stage 5: Director approves one quotation (enters PR number + budget)
              │
              └─ Reject → back to Stage 2 (Procurement re-collects)
-[Procurement Team]
+[role: procurement]
         │
         ▼  Stage 6: PO created in SAP; PO number + attachment entered in app
-[Approval Chain — sequential]
-        │  Director ✓
-        │  Operations ✓
-        │  Planning ✓
-        │  Finance ✓
-        │  EVP / CEO ✓ (if required)
-        ▼  Stage 7: All approvals collected
-[Finance Team]
+[Approval Chain — sequential checkmarks]
+        │  1. requester (canSubmitRequests) ✓
+        │  2. role: operations ✓
+        │  3. role: planning ✓
+        │  4. role: finance ✓
+        │  5. role: evp or ceo ✓  (if requiresEVPCEO == true)
+        ▼  Stage 7: All required approvals collected
+[role: finance]
         │
         ▼  Stage 8: Payment processed in SAP; reference + attachment entered in app
-[Procurement Team]
+[role: procurement]
         │
         ▼  Stage 9: Request closed with unique request number + full timeline stored
 ```
@@ -181,7 +182,7 @@ One document per approver-per-request. Created when PO is added and the approval
 | `requestId` | string | FK to `procurement_requests` |
 | `role` | string | The approving role |
 | `uid` | string \| null | UID of the specific approver (may be null until they act) |
-| `order` | number | 1 = Director, 2 = Operations, 3 = Planning, 4 = Finance, 5 = EVP/CEO |
+| `order` | number | 1 = requester (canSubmitRequests), 2 = operations, 3 = planning, 4 = finance, 5 = evp/ceo (if required) |
 | `status` | string | `"pending"` \| `"approved"` \| `"skipped"` |
 | `approvedAt` | timestamp \| null | |
 | `notes` | string \| null | |
@@ -206,27 +207,33 @@ One document per payment update. Allows multiple partial payments if needed.
 
 ## 3. Role Permissions Table
 
-| Action | super_admin | Director (canSubmitRequests) | procurement | planning | finance | evp | ceo | operations |
+Columns are the 7 system roles in rank order. The **canSubmitRequests** column is a permission flag, not a role — any user with any role may hold it.
+
+| Action | super_admin | ceo | evp | operations | planning | finance | procurement | +canSubmitRequests |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Create request | ✓ | ✓ | — | — | — | — | — | — |
+| Create request (Stage 1) | ✓ | — | — | — | — | — | — | ✓ |
 | View own request | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| View all requests | ✓ | — | ✓ | — | — | — | — | — |
-| Generate supplier links | ✓ | — | ✓ | — | — | — | — | — |
-| View supplier responses | ✓ | ✓† | ✓ | — | — | — | — | — |
-| Forward quotations to Director | ✓ | — | ✓ | — | — | — | — | — |
-| Approve / reject quotation (Stage 5) | ✓ | ✓ | — | — | — | — | — | — |
-| Add PO number + attachment | ✓ | — | ✓ | — | — | — | — | — |
-| Sign approval chain | ✓ | ✓‡ | — | ✓‡ | ✓‡ | ✓‡ | ✓‡ | ✓‡ |
-| Record payment | ✓ | — | — | — | ✓ | — | — | — |
-| Close request | ✓ | — | ✓ | — | — | — | — | — |
-| View full timeline | ✓ | if showFullWorkflow | ✓ | ✓‡ | ✓‡ | ✓‡ | ✓‡ | ✓‡ |
+| View all requests | ✓ | — | — | — | — | — | ✓ | — |
+| Generate supplier links | ✓ | — | — | — | — | — | ✓ | — |
+| View supplier responses | ✓ | — | — | — | — | — | ✓ | ✓† |
+| Forward quotations for approval | ✓ | — | — | — | — | — | ✓ | — |
+| Approve / reject quotation (Stage 5) | ✓ | — | — | — | — | — | — | ✓ |
+| Enter PR number + approved budget | ✓ | — | — | — | — | — | — | ✓ |
+| Add PO number + attachment (Stage 6) | ✓ | — | — | — | — | — | ✓ | — |
+| Sign approval chain — Step 1 | ✓ | — | — | — | — | — | — | ✓ (requester) |
+| Sign approval chain — Step 2 | ✓ | — | — | ✓ | — | — | — | — |
+| Sign approval chain — Step 3 | ✓ | — | — | — | ✓ | — | — | — |
+| Sign approval chain — Step 4 | ✓ | — | — | — | — | ✓ | — | — |
+| Sign approval chain — Step 5 (if req.) | ✓ | ✓ | ✓ | — | — | — | — | — |
+| Record payment (Stage 8) | ✓ | — | — | — | — | ✓ | — | — |
+| Close request (Stage 9) | ✓ | — | — | — | — | — | ✓ | — |
+| View full timeline | ✓ | — | — | — | — | — | ✓ | if showFullWorkflow |
 | Terminate / reroute request | ✓ | — | — | — | — | — | — | — |
-| Manage users / roles | ✓ | — | — | — | — | — | — | — |
+| Manage users / roles / canSubmitRequests | ✓ | — | — | — | — | — | — | — |
 
-† Director sees forwarded quotations only (not raw responses).  
-‡ Only for the step assigned to their role.
+† canSubmitRequests user (requester) sees forwarded quotations only — not the raw unreviewed supplier responses.
 
-> **Note on "Director"**: Director is not a role value — it refers to any user with `canSubmitRequests: true`, which is typically someone with `ceo`, `evp`, or a custom designation. The Firestore flag `canSubmitRequests` is what actually gates Stage 1 and Stage 5 actions.
+> **Note on "Director"**: "Director" is used in workflow descriptions as a shorthand for the person who initiated the request. It is **not** a role value in the system. Any user — regardless of their role — who holds `canSubmitRequests: true` may create requests and perform Stage 5 quotation approval. If a dedicated Director role is required in the future it will be added as a new `UserRole` value; for now the permission flag is the sole gate.
 
 ---
 
@@ -386,8 +393,16 @@ Suppliers cannot use Firebase Storage client SDK (no auth). Files must be upload
 ### Risk 5 — Sequential approval chain complexity in rules
 Writing Firestore rules that enforce "only the current step's approver can act" requires reading the approval chain from the request document (a `get()` call). This is possible but costly (one extra read per write operation). Consider enforcing order in the API server instead and using simpler rules (role-based, not order-based).
 
-### Risk 6 — Role model gap — "Operations" role
-The current role model does not include an `"operations"` role. The approval chain lists Operations as Step 2. Either add `"operations"` to the `UserRole` union and Firestore rules before Phase E, or map Operations to an existing role (e.g. `"planning"`).
+### Risk 6 — ~~Role model gap — "Operations" role~~ RESOLVED (v1.1)
+`"operations"` is now a first-class role in the final role list. It must be added to:
+- `UserRole` type in `context/AuthContext.tsx`
+- `validRole()` in `firestore.rules`
+- `isAssistantAdmin()` in `firestore.rules` (so operations users can access requests as admins)
+- Role picker UI in `app/(tabs)/admin.tsx`
+- `roleLabel` / `roleColor` in `UserProfileModal.tsx` and `admin.tsx`
+- EN + AR translations in `i18n/translations.ts`
+
+This must be done before Phase E (Approval Chain) and is a prerequisite blocker for that phase. It is safe to add at any time as a pure additive change with no migration risk.
 
 ### Migration Sequence
 1. Deploy Phase A (backend foundation) — no UI changes
