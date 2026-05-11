@@ -1,0 +1,111 @@
+Important update from management.
+
+Do NOT code yet.
+
+We need to update the AF Procurement Hub workflow design before implementing the next phase.
+
+New approved workflow:
+
+1. Request Creation
+- A Director or any user with canSubmitRequests creates a product/material request.
+- The request includes product details and attachments.
+- The request goes first to Procurement.
+
+2. Procurement Quotations
+- Procurement receives the request.
+- Procurement searches for suppliers outside the app.
+- Inside the request, Procurement can generate supplier form links.
+- Procurement may send links to multiple suppliers.
+
+3. Supplier Form
+Each supplier opens a public link without login and fills:
+- Commercial Registration attachment + CR number
+- Saudi Accreditation Center attachment + number
+- ZATCA / Zakat Customs number
+- Company / establishment name
+- phone
+- email
+- contact person name
+- National Address attachment + written address
+- IBAN attachment + written IBAN
+- price excluding VAT
+- price including VAT calculated automatically
+- payment terms:
+  - advance
+  - 50% advance / 50% after supply
+  - 100% after supply
+- optional notes
+- optional extra attachments
+
+4. Supplier Responses
+- Procurement receives multiple supplier responses.
+- Procurement reviews them.
+- Procurement sends/marks the quotations for Director review.
+
+5. Director Quotation Decision
+- Director reviews supplier quotations.
+- Director either rejects with reason or approves one quotation.
+- If approved, Director must enter:
+  - PR number
+  - approved budget amount in SAR
+
+6. Procurement PO
+- Procurement creates the PO externally in SAP.
+- Procurement enters in the app:
+  - PO number
+  - PO attachment
+  - notes if needed
+
+7. Approval Chain
+After PO is added, the request goes through approvals/checkmarks in order:
+- Director
+- Operations
+- Planning
+- Finance
+- EVP / CEO if required
+
+8. Finance Payment
+- Finance processes payment in SAP outside the app.
+- Finance updates the app with:
+  - payment/reference/invoice number
+  - payment attachment
+  - notes
+
+9. Closure
+- Request returns to Procurement.
+- Procurement closes the request.
+- The request is stored as completed with a unique request number and full timeline.
+
+Important:
+- Supplier does NOT have an app account.
+- Supplier uses public form link only.
+- No chat is needed.
+- Use workflow comments and timeline logs instead.
+- Super Admin can see everything, edit everything, reroute workflow, reset workflow, stop/terminate request with reason, and view full dashboard.
+- Normal users see based on permission. If showFullWorkflow is enabled, they see full workflow; otherwise only simplified status.
+
+Before coding:
+Create a new document:
+AF_PROCUREMENT_WORKFLOW_SPEC.md
+
+Include:
+1. Updated workflow summary
+2. New data model proposal:
+   - procurement_requests
+   - supplier_links
+   - supplier_responses
+   - workflow_events
+   - approvals
+   - payment_records
+3. Role permissions table
+4. Workflow statuses
+5. Required fields for each stage
+6. Firestore security rule implications
+7. Implementation phases
+8. Risks and migration notes
+
+Do not modify app code yet.
+Do not modify Firestore rules yet.
+Do not remove old features yet.
+
+Return only the workflow spec summary and recommended next implementation phase.
