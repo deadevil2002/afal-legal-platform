@@ -43,6 +43,7 @@ const STATUS_OPTIONS: Status[] = [...REQUEST_STATUSES];
 const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
   { role: "ceo",         color: "#7C3AED" },
   { role: "evp",         color: "#5D1E5E" },
+  { role: "operations",  color: "#B45309" },
   { role: "planning",    color: "#006485" },
   { role: "finance",     color: "#16A8BA" },
   { role: "procurement", color: "#2D6491" },
@@ -248,6 +249,7 @@ export default function AdminScreen() {
     if (role === "super_admin") return t("roleSuperAdmin");
     if (role === "ceo") return t("roleCeo");
     if (role === "evp") return t("roleEvp");
+    if (role === "operations") return t("roleOperations");
     if (role === "planning") return t("rolePlanning");
     if (role === "finance") return t("roleFinance");
     if (role === "procurement") return t("roleProcurement");
@@ -259,6 +261,7 @@ export default function AdminScreen() {
     if (role === "super_admin") return colors.accent;
     if (role === "ceo") return "#7C3AED";
     if (role === "evp") return "#5D1E5E";
+    if (role === "operations") return "#B45309";
     if (role === "planning") return "#006485";
     if (role === "finance") return colors.secondary;
     if (role === "procurement") return colors.primary;
@@ -460,11 +463,12 @@ export default function AdminScreen() {
                   super_admin: 0,
                   ceo: 1,
                   evp: 2,
-                  planning: 3,
-                  finance: 4,
-                  procurement: 5,
-                  assistant_admin: 6,
-                  user: 7,
+                  operations: 3,
+                  planning: 4,
+                  finance: 5,
+                  procurement: 6,
+                  assistant_admin: 7,
+                  user: 8,
                 };
                 return (order[a.role] ?? 8) - (order[b.role] ?? 8);
               })

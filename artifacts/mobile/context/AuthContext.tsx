@@ -41,7 +41,7 @@ import { auth, db } from "@/lib/firebase";
 export const INITIAL_SUPER_ADMIN_EMAIL = "Naimi.salem@gmail.com";
 
 /** Active AF Procurement Hub organizational roles */
-export type UserRole = "super_admin" | "ceo" | "evp" | "planning" | "finance" | "procurement";
+export type UserRole = "super_admin" | "ceo" | "evp" | "operations" | "planning" | "finance" | "procurement";
 
 /** Legacy roles — may still exist in Firestore for old accounts. Do NOT assign to new users. */
 export type LegacyRole = "user" | "assistant_admin";

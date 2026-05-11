@@ -24,6 +24,7 @@ function roleLabel(role: string): string {
     super_admin: "Super Admin",
     ceo: "CEO",
     evp: "EVP",
+    operations: "Operations",
     planning: "Planning",
     finance: "Finance",
     procurement: "Procurement",
@@ -37,6 +38,7 @@ function roleColor(role: string): string {
   if (role === "super_admin") return "#BC9B5D";
   if (role === "ceo") return "#7C3AED";
   if (role === "evp") return "#5D1E5E";
+  if (role === "operations") return "#B45309";
   if (role === "planning") return "#006485";
   if (role === "finance") return "#16A8BA";
   if (role === "procurement") return "#2D6491";
