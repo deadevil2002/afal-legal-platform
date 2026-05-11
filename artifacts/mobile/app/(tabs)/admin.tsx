@@ -31,27 +31,14 @@ import { useAuth, UserProfile, UserRole, AnyUserRole } from "@/context/AuthConte
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+import {
+  REQUEST_STATUSES,
+  TERMINAL_STATUSES as TERMINAL_STATUS_VALUES,
+  STATUS_TRANSLATION_KEYS,
+  type RequestStatus as Status,
+} from "@/constants/requestStatuses";
 
-type Status =
-  | "Submitted"
-  | "Under Review"
-  | "CEO Review"
-  | "EVP Review"
-  | "Planning Review"
-  | "Finance Review"
-  | "Approved / PO Issued"
-  | "Rejected";
-
-const STATUS_OPTIONS: Status[] = [
-  "Submitted",
-  "Under Review",
-  "CEO Review",
-  "EVP Review",
-  "Planning Review",
-  "Finance Review",
-  "Approved / PO Issued",
-  "Rejected",
-];
+const STATUS_OPTIONS: Status[] = [...REQUEST_STATUSES];
 
 const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
   { role: "ceo",         color: "#7C3AED" },
@@ -143,7 +130,7 @@ export default function AdminScreen() {
     );
   }
 
-  const TERMINAL_STATUSES = ["Approved / PO Issued", "Rejected", "Resolved / Closed", "Escalated"];
+  const TERMINAL_STATUSES = [...TERMINAL_STATUS_VALUES, "Resolved / Closed", "Escalated"];
   const counts = {
     total: requests.length,
     submitted: requests.filter((r) => r.status === "Submitted").length,
@@ -398,16 +385,7 @@ export default function AdminScreen() {
                   ]}
                   numberOfLines={1}
                 >
-                  {f === "all" ? t("all") : t(({
-                    "Submitted":           "statusSubmitted",
-                    "Under Review":        "statusUnderReview",
-                    "CEO Review":          "statusCEOReview",
-                    "EVP Review":          "statusEVPReview",
-                    "Planning Review":     "statusPlanningReview",
-                    "Finance Review":      "statusFinanceReview",
-                    "Approved / PO Issued":"statusApprovedPOIssued",
-                    "Rejected":            "statusRejected",
-                  } as Record<string, Parameters<typeof t>[0]>)[f] ?? "statusSubmitted")}
+                  {f === "all" ? t("all") : t(STATUS_TRANSLATION_KEYS[f as Status])}
                 </Text>
               </TouchableOpacity>
             ))}

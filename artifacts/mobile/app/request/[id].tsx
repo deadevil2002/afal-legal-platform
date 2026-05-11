@@ -42,30 +42,14 @@ import { useT } from "@/hooks/useT";
 import { Request, CATEGORY_KEY_MAP } from "@/components/RequestCard";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { TranslationKey } from "@/i18n/translations";
+import {
+  REQUEST_STATUSES,
+  STATUS_TRANSLATION_KEYS,
+  type RequestStatus,
+} from "@/constants/requestStatuses";
 
-const STATUS_OPTIONS = [
-  "Submitted",
-  "Under Review",
-  "CEO Review",
-  "EVP Review",
-  "Planning Review",
-  "Finance Review",
-  "Approved / PO Issued",
-  "Rejected",
-] as const;
-
-type RequestStatus = (typeof STATUS_OPTIONS)[number];
-
-const STATUS_KEY_MAP: Record<RequestStatus, TranslationKey> = {
-  "Submitted":           "statusSubmitted",
-  "Under Review":        "statusUnderReview",
-  "CEO Review":          "statusCEOReview",
-  "EVP Review":          "statusEVPReview",
-  "Planning Review":     "statusPlanningReview",
-  "Finance Review":      "statusFinanceReview",
-  "Approved / PO Issued":"statusApprovedPOIssued",
-  "Rejected":            "statusRejected",
-};
+const STATUS_OPTIONS = REQUEST_STATUSES;
+const STATUS_KEY_MAP: Record<RequestStatus, TranslationKey> = STATUS_TRANSLATION_KEYS;
 
 const STATUS_DOT_COLORS: Record<RequestStatus, string> = {
   "Submitted":            "#D97706",

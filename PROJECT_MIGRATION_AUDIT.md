@@ -2,8 +2,8 @@
 ## Arabian Fal Legal Platform → AF Procurement Hub
 
 **Date:** 2026-05-10
-**Phase:** 2 — Procurement Request Types
-**Status:** Phase 0 complete. Phase 2 complete (procurement categories). App fully operational.
+**Phase:** 3 — Procurement Workflow Statuses
+**Status:** Phase 0 complete. Phase 2 complete (procurement categories). Phase 3 complete (procurement statuses). App fully operational.
 
 ---
 
@@ -47,6 +47,20 @@ files that require partial rewrite, and files that should be removed in future p
 | `components/StatusBadge.tsx` | `RequestStatus` type + `STATUS_CONFIG` updated with procurement colors/labels; legacy status entries retained for old records |
 | `app/(tabs)/requests.tsx` | `STATUS_FILTER_ITEMS` updated to procurement stages |
 | `app/(tabs)/index.tsx` | `stats.active/closed` logic updated to use terminal statuses ("Approved / PO Issued", "Rejected") |
+
+---
+
+## 2c. PHASE 3 CHANGES MADE (Procurement Workflow Statuses)
+
+| File | Change |
+|------|--------|
+| `constants/requestStatuses.ts` | **Created** — exports `REQUEST_STATUSES`, `RequestStatus` type, `TERMINAL_STATUSES` array, `STATUS_TRANSLATION_KEYS` map |
+| `app/(tabs)/admin.tsx` | `Status` type + `STATUS_OPTIONS` now imported from `constants/requestStatuses`; local `TERMINAL_STATUSES` merges imported array with legacy values for backward-compat |
+| `app/request/[id].tsx` | `STATUS_OPTIONS` and `STATUS_KEY_MAP` now imported from `constants/requestStatuses` |
+| `components/StatusBadge.tsx` | `RequestStatus` type + `STATUS_CONFIG` already updated in Phase 2 with all 8 procurement stages and legacy display-only entries — no further change required |
+| `i18n/translations.ts` | EN+AR labels for all 8 procurement statuses already added in Phase 2 — no further change required |
+| `firestore.rules` | `validRequestStatus()` and `validRequestStatusForUpdate()` already updated in Phase 2 — no further change required |
+| `PROJECT_MIGRATION_AUDIT.md` | Phase 3 marked complete |
 
 ---
 
