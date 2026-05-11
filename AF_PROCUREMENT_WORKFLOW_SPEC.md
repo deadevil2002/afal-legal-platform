@@ -452,6 +452,135 @@ Zod **was used** — it was already installed in the workspace catalog (`"zod": 
 - No changes to existing `requests` collection or screens
 
 ### Pre-Phase B prerequisites
-1. Add `"operations"` role to the mobile app (`AuthContext.tsx`, Firestore rules, admin UI, translations) — see Risk 6 above
+1. Add `"operations"` role to the mobile app (`AuthContext.tsx`, Firestore rules, admin UI, translations) — see Risk 6 above ✅ done
 2. Confirm Cloudinary server-side upload preset configuration (Risk 4)
-3. Install Firebase Admin SDK in `artifacts/api-server` and configure service account credentials as environment secrets
+3. Install Firebase Admin SDK in `artifacts/api-server` and configure service account credentials as environment secrets ✅ done (Phase B)
+
+---
+
+## Phase B — API Server Foundation (IMPLEMENTED)
+
+**Status**: Complete — foundation routes, Firebase Admin init, and helpers in place.  
+**Date**: 2026-05-11
+
+### Summary
+
+Phase B prepares the `artifacts/api-server` Express backend for secure supplier link creation and public supplier form submission.  Suppliers have no Firebase account; all Firestore writes must go through the Admin SDK on the backend. Phase B wires up the full routing and validation structure; actual Firestore writes and auth enforcement are Phase C TODOs clearly marked in code.
+
+### New environment variables required
+
+| Variable | Required | Description |
+|---|---|---|
+| `FIREBASE_PROJECT_ID` | Yes | Firebase project identifier |
+| `FIREBASE_CLIENT_EMAIL` | Yes | Service account client email |
+| `FIREBASE_PRIVATE_KEY` | Yes | Service account private key (escaped `\n` handled automatically) |
+
+Set all three as Replit environment secrets before Phase C writes are enabled. The server will throw a clear error on first DB use if any are missing.
+
+### New endpoints
+
+| Method | Path | Auth | Status |
+|---|---|---|---|
+| `POST` | `/api/procurement/supplier-links` | TODO — Phase C (requires `procurement`/`super_admin` role) | Foundation only — no Firestore write |
+| `POST` | `/api/public/supplier-response/:token` | None (public) | Foundation only — no Firestore write |
+
+#### `POST /api/procurement/supplier-links`
+
+Validates body with inline Zod schema, generates a cryptographically random 64-character hex token, and returns a structured placeholder response.
+
+**Request body:**
+```json
+{
+  "requestId": "string (required)",
+  "supplierNameHint": "string | null (optional)",
+  "expiresAt": "{ seconds: number, nanoseconds: number } | null (optional)"
+}
+```
+
+**Phase B response (202):**
+```json
+{
+  "ok": true,
+  "data": {
+    "_phase": "B_FOUNDATION",
+    "_todo": "Auth enforcement and Firestore write will be added in Phase C.",
+    "token": "<64-char hex>",
+    "requestId": "...",
+    "supplierNameHint": null,
+    "expiresAt": null,
+    "publicFormUrl": "/supplier/<token>"
+  }
+}
+```
+
+#### `POST /api/public/supplier-response/:token`
+
+Validates body against a Phase-B variant of `SupplierFormInput` (attachment fields optional in Phase B), computes VAT and total price using helpers from `@workspace/procurement`, and returns computed totals.
+
+**Key fields in body:**
+```json
+{
+  "supplierName": "string",
+  "supplierEmail": "string",
+  "priceExcludingVatSar": 10000,
+  "paymentTerms": "net30 | net60 | net90 | advance | on_delivery",
+  "deliveryDays": 14,
+  "notes": "string (optional)"
+}
+```
+
+**Phase B response (202):**
+```json
+{
+  "ok": true,
+  "data": {
+    "_phase": "B_FOUNDATION",
+    "_todo": "Token validation and Firestore write will be added in Phase C.",
+    "computedTotals": {
+      "priceExcludingVatSar": 10000,
+      "vatAmountSar": 1500,
+      "priceIncludingVatSar": 11500,
+      "vatRatePercent": 15
+    },
+    "receivedFields": ["supplierName", "supplierEmail", "priceExcludingVatSar", ...]
+  }
+}
+```
+
+### New files created
+
+| File | Purpose |
+|---|---|
+| `artifacts/api-server/src/lib/firebase-admin.ts` | Firebase Admin SDK singleton init; `getAdminDb()`, `normalizePrivateKey()` |
+| `artifacts/api-server/src/lib/response.ts` | `safeJsonResponse<T>()`, `errorJsonResponse()` helpers |
+| `artifacts/api-server/src/routes/procurement.ts` | `POST /api/procurement/supplier-links` — internal route |
+| `artifacts/api-server/src/routes/publicSupplier.ts` | `POST /api/public/supplier-response/:token` — public route |
+
+### Files updated
+
+| File | Change |
+|---|---|
+| `artifacts/api-server/src/routes/index.ts` | Registered `/procurement` and `/public` routers |
+| `artifacts/api-server/tsconfig.json` | Added `lib/procurement` to references |
+| `artifacts/api-server/package.json` | Added `@workspace/procurement`, `firebase-admin ^12`, `zod catalog:` |
+
+### firebase-admin installation status
+`firebase-admin` was **not installed** before Phase B. It was added as a `^12` dependency in `artifacts/api-server/package.json`.  The esbuild config in `build.mjs` already listed `firebase-admin` in its `external` array — it was anticipated from the start and required no build config changes.
+
+### What Phase B does NOT include
+
+- No Firestore reads or writes (all pending Phase C)
+- No auth middleware (Firebase ID token verification pending Phase C)
+- No token lookup / expiry validation (pending Phase C)
+- No supplier file upload endpoint (pending Phase C)
+- No mobile UI changes
+- No changes to Firestore security rules
+
+### Phase C prerequisites
+
+1. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` as environment secrets
+2. Implement Firebase ID token verification middleware for internal routes
+3. Add Firestore write logic to `supplier-links` route using `getAdminDb()` and `SupplierLink` schema
+4. Add Firestore write logic to `supplier-response` route (write `supplier_responses`, update `supplier_links`, append `workflow_events`)
+5. Replace Phase B partial schema in `publicSupplier.ts` with full `supplierFormInputSchema` once file upload flow is in place
+6. Build the supplier public form UI (web or in-app webview)
