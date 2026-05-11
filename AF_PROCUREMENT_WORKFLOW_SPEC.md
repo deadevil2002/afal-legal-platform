@@ -731,3 +731,113 @@ Applied to all internal (non-public) API routes. For each request it:
 4. Make attachment fields required in `publicSupplier.ts` once upload flow exists
 5. Build supplier public form UI (separate web artifact or in-app webview)
 6. Build mobile procurement UI: generate link → share → view responses per request
+
+---
+
+## Phase C.1 — Runtime Verification (IMPLEMENTED)
+
+**Status**: Complete — all routes verified at runtime.  
+**Date**: 2026-05-11
+
+### Summary
+
+Phase C.1 adds diagnostic endpoints that confirm the API server is wired correctly without touching any mobile screens or adding new features. All endpoints were verified live against the running server.
+
+### New endpoints
+
+#### `GET /api/health` — always available
+
+Reports whether Firebase Admin env vars are present (never their values). Safe to expose publicly.
+
+```
+curl http://localhost:80/api/health
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "api": "AF Procurement Hub API",
+  "firebaseAdmin": {
+    "FIREBASE_PROJECT_ID": "present | missing",
+    "FIREBASE_CLIENT_EMAIL": "present | missing",
+    "FIREBASE_PRIVATE_KEY": "present | missing",
+    "allConfigured": true | false
+  },
+  "timestamp": "2026-05-11T08:58:44.789Z"
+}
+```
+
+#### `GET /api/admin-check` — dev only (`NODE_ENV !== "production"`)
+
+Calls `getAdminDb()` and `getAdminAuth()` to confirm the Firebase Admin SDK initialises. Returns `503` with a clean error message (no stack traces, no secret values) if credentials are missing.
+
+```
+curl http://localhost:80/api/admin-check
+```
+
+**Success (200):** `{ "ok": true, "firestoreInitialized": true, "authInitialized": true }`  
+**Failure (503):** `{ "ok": false, "error": "Firebase Admin SDK is not configured. Set FIREBASE_PROJECT_ID…" }`
+
+#### `GET /api/debug/me` — dev only, requires Firebase ID token
+
+Verifies the `requireInternalAuth` middleware reads the correct fields from the Firestore `users/{uid}` profile.
+
+```
+curl http://localhost:80/api/debug/me \
+  -H "Authorization: Bearer <Firebase ID token>"
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "uid": "...",
+  "email": "...",
+  "displayName": "...",
+  "role": "procurement",
+  "canSubmitRequests": false,
+  "note": "dev-only endpoint — not available in production"
+}
+```
+
+### Route registration confirmed (live curl tests)
+
+| Endpoint | Expected behaviour without credentials | Observed |
+|---|---|---|
+| `GET /api/healthz` | `{ status: "ok" }` | ✅ |
+| `GET /api/health` | env var presence flags | ✅ |
+| `GET /api/admin-check` | `503` with clean SDK error | ✅ |
+| `POST /api/procurement/supplier-links` | `401 unauthorized` (no Bearer token) | ✅ |
+| `POST /api/public/supplier-response/:token` | `500 server_error` (SDK not configured) | ✅ |
+
+### How to set the Replit secrets
+
+Open **Replit → Secrets** (or use the environment-secrets skill) and add:
+
+| Secret name | Where to find the value |
+|---|---|
+| `FIREBASE_PROJECT_ID` | Firebase Console → Project Settings → General → Project ID |
+| `FIREBASE_CLIENT_EMAIL` | Firebase Console → Project Settings → Service Accounts → Generate new private key → JSON field `client_email` |
+| `FIREBASE_PRIVATE_KEY` | Same JSON → field `private_key` (copy the full value including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----`) |
+
+After setting the secrets, restart the API Server workflow. `GET /api/health` will show `allConfigured: true` and `GET /api/admin-check` will return `{ ok: true }`.
+
+### Files changed (Phase C.1)
+
+| File | Change |
+|---|---|
+| `artifacts/api-server/src/routes/health.ts` | Added `GET /api/health` endpoint with env var presence flags |
+| `artifacts/api-server/src/routes/devTools.ts` | New — `GET /api/admin-check` + `GET /api/debug/me` (dev-only) |
+| `artifacts/api-server/src/routes/index.ts` | Registered `devToolsRouter` |
+
+### Confirmation — no secrets logged
+
+- `GET /api/health` returns `"present"` or `"missing"` strings — never the actual values
+- `GET /api/admin-check` error message comes from our own `throw new Error(...)` in `firebase-admin.ts` — contains only the guidance text we wrote, not any SDK internals or credential data
+- `GET /api/debug/me` returns only the 5 fields from `req.internalUser` — no raw Firestore document, no token, no private key
+- Pino logger redacts `req.headers.authorization` via the `redact` config in `lib/logger.ts`
+
+### Phase D prerequisites (unchanged)
+
+Set the three Replit secrets listed above — everything else is already wired.

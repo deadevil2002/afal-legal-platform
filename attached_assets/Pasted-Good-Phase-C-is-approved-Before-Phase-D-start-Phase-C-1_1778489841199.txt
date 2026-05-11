@@ -1,0 +1,93 @@
+Good. Phase C is approved.
+
+Before Phase D, start Phase C.1 only.
+
+PHASE C.1 — Runtime Verification for API Server
+
+Important:
+Do NOT add new features.
+Do NOT add upload endpoint yet.
+Do NOT add supplier UI yet.
+Do NOT change mobile screens.
+Do NOT change Firestore rules yet.
+
+Goal:
+Verify that the new API server foundation actually runs at runtime with Firebase Admin credentials.
+
+Tasks:
+
+1. Environment secrets check
+Confirm the API server reads:
+- FIREBASE_PROJECT_ID
+- FIREBASE_CLIENT_EMAIL
+- FIREBASE_PRIVATE_KEY
+
+Do not print secret values.
+Only print whether each exists:
+- present / missing
+
+2. Add a safe health endpoint if not already present
+Create or update:
+GET /api/health
+
+Return:
+- ok: true
+- api: "AF Procurement Hub API"
+- firebaseAdminConfigured: true/false
+- timestamp
+
+Do NOT expose secret values.
+
+3. Add Firebase Admin runtime check endpoint
+Create:
+GET /api/admin-check
+
+This should:
+- initialize getAdminDb()
+- initialize getAdminAuth()
+- return ok only if both initialize successfully
+
+Protect this endpoint:
+- either require an environment flag like NODE_ENV !== "production"
+- or require internal auth if middleware is ready
+
+If it cannot be safely exposed, make it local/dev only.
+
+4. Verify internal auth middleware behavior
+Create a small dev-only route or test helper if appropriate:
+GET /api/debug/me
+
+Requires Authorization: Bearer <Firebase ID token>
+Returns:
+- uid
+- email
+- role
+- canSubmitRequests
+
+Do not expose sensitive data.
+
+5. Validate endpoint registration
+Confirm these routes are registered and reachable:
+- POST /api/procurement/supplier-links
+- POST /api/public/supplier-response/:token
+
+Do not test with real writes yet unless you create a safe test request document.
+
+6. Documentation
+Update AF_PROCUREMENT_WORKFLOW_SPEC.md:
+- Phase C.1 runtime verification
+- required env vars
+- how to test without exposing secrets
+
+7. Validation
+Run:
+- api-server typecheck
+- server start if possible
+- confirm no mobile app files changed
+
+Return:
+- files changed
+- endpoints added/updated
+- how to set the Replit secrets
+- how to test health/admin-check/debug/me
+- confirmation no secrets are logged
