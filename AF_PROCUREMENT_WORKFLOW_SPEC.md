@@ -578,9 +578,156 @@ Validates body against a Phase-B variant of `SupplierFormInput` (attachment fiel
 
 ### Phase C prerequisites
 
-1. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` as environment secrets
-2. Implement Firebase ID token verification middleware for internal routes
-3. Add Firestore write logic to `supplier-links` route using `getAdminDb()` and `SupplierLink` schema
-4. Add Firestore write logic to `supplier-response` route (write `supplier_responses`, update `supplier_links`, append `workflow_events`)
+1. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` as environment secrets ← still required before endpoints are live
+2. Implement Firebase ID token verification middleware for internal routes ✅ done (Phase C)
+3. Add Firestore write logic to `supplier-links` route using `getAdminDb()` ✅ done (Phase C)
+4. Add Firestore write logic to `supplier-response` route (write `supplier_responses`, update `supplier_links`, append `workflow_events`) ✅ done (Phase C)
 5. Replace Phase B partial schema in `publicSupplier.ts` with full `supplierFormInputSchema` once file upload flow is in place
 6. Build the supplier public form UI (web or in-app webview)
+
+---
+
+## Phase C — Secure Firestore Writes (IMPLEMENTED)
+
+**Status**: Complete — both endpoints now write to Firestore using Firebase Admin SDK.  
+**Date**: 2026-05-11
+
+### Summary
+
+Phase C activates the real Firestore writes behind both API endpoints. The internal supplier-link creation route is now protected by Firebase ID token verification. The public supplier submission route performs full token validation, expiry checks, and atomic batch writes. All error responses use machine-readable `code` fields. No mobile screens were changed.
+
+### Auth middleware — `requireInternalAuth`
+
+File: `artifacts/api-server/src/lib/auth.ts`
+
+Applied to all internal (non-public) API routes. For each request it:
+
+1. Reads `Authorization: Bearer <Firebase ID token>` header — returns `401 unauthorized` if missing
+2. Verifies the ID token with `getAdminAuth().verifyIdToken()` — returns `401 unauthorized` if invalid or expired
+3. Loads `users/{uid}` from Firestore — returns `401 unauthorized` if profile missing
+4. Rejects accounts with `deletionRequested: true` — returns `403 forbidden`
+5. Attaches `req.internalUser` (`uid`, `email`, `displayName`, `role`, `canSubmitRequests`)
+
+### `POST /api/procurement/supplier-links` — now live
+
+**Auth**: Firebase ID token required. Role must be `super_admin` or `procurement`. Returns `403 forbidden` for all other roles.
+
+**Validations (in order):**
+1. Role check — `super_admin` or `procurement` only
+2. Body schema — `requestId` (required), `supplierNameHint` (optional), `expiresAt` (optional Firestore timestamp)
+3. `requestId` must exist in `procurement_requests` collection — `404 request_not_found`
+4. Request stage must not be in `TERMINAL_STAGES` (`closed`, `terminated`) — `409 request_terminated`
+5. `expiresAt` defaults to 7 days from now if not provided
+
+**Writes (atomic batch):**
+- `supplier_links/{id}` — full link document (`id`, `requestId`, `token`, `supplierNameHint`, `createdByUid`, `createdAt`, `expiresAt`, `isActive: true`, `submittedAt: null`, `responseId: null`)
+- `workflow_events/{id}` — type `supplier_link_generated` with actor snapshot and `metadata.supplierLinkId`
+
+**Response (201):**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "<firestore-doc-id>",
+    "token": "<64-char hex>",
+    "requestId": "...",
+    "supplierNameHint": null,
+    "publicFormUrl": "/supplier/<token>",
+    "expiresAt": { "seconds": 1234567890, "nanoseconds": 0 }
+  }
+}
+```
+
+### `POST /api/public/supplier-response/:token` — now live
+
+**Auth**: None — public endpoint for suppliers without Firebase accounts.
+
+**Validations (in order):**
+1. Token format — must be ≥ 32 characters
+2. Token lookup — `supplier_links` queried by `token` field — `404 link_not_found`
+3. `isActive` must be `true` — `410 link_expired`
+4. `expiresAt` must not be in the past — `410 link_expired`
+5. `responseId` and `submittedAt` must both be null — `409 link_already_used`
+6. `requestId` must exist in `procurement_requests` — `404 request_not_found`
+7. Request stage must not be terminal — `410 link_expired`
+8. Body validated against Phase C schema (full `SupplierFormInput` minus attachment fields, which remain optional until Phase D upload flow)
+9. VAT computed server-side: `vatAmountSar` and `priceIncludingVatSar` — never trusted from client
+
+**Writes (atomic Firestore batch):**
+- `supplier_responses/{id}` — full supplier form data + server-computed VAT + `reviewStatus: "pending"`
+- `supplier_links/{id}` — update: `submittedAt`, `responseId`, `isActive: false`
+- `workflow_events/{id}` — type `supplier_response_received` with `actorName: companyName`, `actorRole: "supplier"`
+
+**Response (201):**
+```json
+{
+  "ok": true,
+  "data": {
+    "responseId": "<firestore-doc-id>",
+    "status": "submitted",
+    "computedTotals": {
+      "priceExcludingVatSar": 10000,
+      "vatAmountSar": 1500,
+      "priceIncludingVatSar": 11500,
+      "vatRatePercent": 15
+    }
+  }
+}
+```
+
+### Error codes reference
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `unauthorized` | 401 | Missing/invalid auth token or user profile not found |
+| `forbidden` | 403 | Authenticated but insufficient role or account restricted |
+| `request_not_found` | 404 | `requestId` does not exist in `procurement_requests` |
+| `link_not_found` | 404 | Token not found in `supplier_links` |
+| `link_expired` | 410 | Link deactivated, past `expiresAt`, or request is terminal |
+| `link_already_used` | 409 | `responseId` or `submittedAt` already set on the link |
+| `request_terminated` | 409 | Request is in `closed` or `terminated` stage |
+| `invalid_payload` | 400 | Zod validation failure on request body |
+| `server_error` | 500 | Unexpected Firestore or SDK error (no stack trace leaked) |
+
+### New files (Phase C)
+
+| File | Purpose |
+|---|---|
+| `artifacts/api-server/src/types/express.d.ts` | `InternalUser` interface + Express `Request.internalUser` augmentation |
+| `artifacts/api-server/src/lib/auth.ts` | `requireInternalAuth` middleware |
+
+### Files updated (Phase C)
+
+| File | Change |
+|---|---|
+| `artifacts/api-server/src/lib/firebase-admin.ts` | Added `getAdminAuth()` singleton (Auth instance) |
+| `artifacts/api-server/src/lib/response.ts` | `errorJsonResponse()` now accepts optional `code?: string` |
+| `artifacts/api-server/src/routes/procurement.ts` | Full Firestore write — replaced Phase B placeholder |
+| `artifacts/api-server/src/routes/publicSupplier.ts` | Full Firestore write with batch — replaced Phase B placeholder |
+
+### Firestore collections written by Phase C
+
+| Collection | Written by | Operation |
+|---|---|---|
+| `supplier_links` | `POST /api/procurement/supplier-links` | `batch.set` (new doc) |
+| `workflow_events` | `POST /api/procurement/supplier-links` | `batch.set` (new event) |
+| `supplier_responses` | `POST /api/public/supplier-response/:token` | `batch.set` (new doc) |
+| `supplier_links` | `POST /api/public/supplier-response/:token` | `batch.update` (submittedAt, responseId, isActive) |
+| `workflow_events` | `POST /api/public/supplier-response/:token` | `batch.set` (new event) |
+
+### What Phase C does NOT include
+
+- No Firestore security rules for new collections (still `allow write: if false` for client SDK — correct, writes go through Admin SDK only)
+- No file upload endpoint (attachments optional until Phase D)
+- No mobile UI to create supplier links or view responses
+- No supplier public form UI
+- No email notification when a supplier submits
+
+### Phase D prerequisites
+
+1. Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` as Replit environment secrets — **endpoints will throw on first call without these**
+2. Deploy Firestore rules for `supplier_links`, `supplier_responses`, `workflow_events` (read access for admin roles)
+3. Implement `POST /api/public/upload/:token` — Firebase Storage proxy for supplier file uploads before form submission
+4. Make attachment fields required in `publicSupplier.ts` once upload flow exists
+5. Build supplier public form UI (separate web artifact or in-app webview)
+6. Build mobile procurement UI: generate link → share → view responses per request

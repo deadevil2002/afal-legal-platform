@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
 import { logger } from "./logger";
 
 // ─── Private key normalisation ────────────────────────────────────────────────
@@ -16,6 +17,7 @@ export function normalizePrivateKey(key: string): string {
 // needed, not on server startup.
 
 let _db: Firestore | null = null;
+let _auth: Auth | null = null;
 
 function initAdminApp(): void {
   if (getApps().length > 0) return; // already initialised
@@ -55,4 +57,17 @@ export function getAdminDb(): Firestore {
     _db = getFirestore();
   }
   return _db;
+}
+
+/**
+ * Returns the Admin Auth instance.
+ * Initialises the Admin SDK on first call.
+ * Throws if service account env vars are not set.
+ */
+export function getAdminAuth(): Auth {
+  if (!_auth) {
+    initAdminApp();
+    _auth = getAuth();
+  }
+  return _auth;
 }

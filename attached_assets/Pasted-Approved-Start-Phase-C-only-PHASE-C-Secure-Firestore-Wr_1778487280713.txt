@@ -1,0 +1,175 @@
+Approved. Start Phase C only.
+
+PHASE C — Secure Firestore Writes for Supplier Links and Supplier Responses
+
+Important:
+Do NOT modify mobile screens.
+Do NOT create supplier UI yet.
+Do NOT change Firestore rules yet.
+Do NOT remove old features.
+Do NOT add Cloudinary upload handling yet.
+Do NOT hardcode secrets.
+
+Goal:
+Make the backend endpoints created in Phase B actually write to Firestore securely using Firebase Admin SDK.
+
+Required env vars:
+- FIREBASE_PROJECT_ID
+- FIREBASE_CLIENT_EMAIL
+- FIREBASE_PRIVATE_KEY
+
+Tasks:
+
+1. Internal auth middleware foundation
+Create a middleware/helper for internal API routes:
+- read Authorization: Bearer <Firebase ID token>
+- verify it using Firebase Admin Auth
+- load the user profile from Firestore users/{uid}
+- reject if missing or inactive
+- expose:
+  - uid
+  - email
+  - role
+  - canSubmitRequests
+
+Important:
+For this phase, only allow these roles to create supplier links:
+- super_admin
+- procurement
+
+2. POST /api/procurement/supplier-links
+Implement real Firestore write.
+
+Input:
+- requestId
+- supplierNameHint optional
+- expiresAt optional
+
+Validation:
+- authenticated internal user required
+- role must be super_admin or procurement
+- requestId must exist in procurement_requests
+- request must not be closed/terminated
+- if expiresAt missing, default to a safe expiry, for example 7 days from now
+
+Write:
+collection supplier_links:
+- id
+- requestId
+- token
+- supplierNameHint
+- createdByUid
+- createdAt
+- expiresAt
+- isActive: true
+- submittedAt: null
+- responseId: null
+
+Return:
+- id
+- token
+- publicUrl or path that can later be used for supplier form
+- expiresAt
+
+Also append workflow_events:
+- eventType: supplier_link_created
+- actorUid
+- actorName
+- actorRole
+- requestId
+- comment
+
+3. POST /api/public/supplier-response/:token
+Implement real Firestore write.
+
+This route is public and does NOT require Firebase Auth.
+
+Validation:
+- token must exist in supplier_links
+- isActive must be true
+- current time must be before expiresAt
+- requestId must exist
+- request must not be closed/terminated
+- one submission per link:
+  - if submittedAt or responseId already exists, reject
+
+Input:
+Use SupplierFormInput schema.
+For Phase C, attachments can remain optional as already planned until upload flow exists.
+
+Compute:
+- vatAmountSar
+- priceIncludingVatSar
+
+Write:
+collection supplier_responses:
+- id
+- requestId
+- supplierLinkId
+- token
+- all supplier fields
+- computed VAT fields
+- status: submitted
+- createdAt
+
+Update supplier_links:
+- submittedAt
+- responseId
+- isActive: false
+
+Append workflow_events:
+- eventType: supplier_response_submitted
+- requestId
+- actorName: supplier/company/contact name
+- actorRole: supplier
+- comment
+
+Return:
+- responseId
+- computed totals
+- status submitted
+
+4. Transaction safety
+Use Firestore transaction or batch where needed:
+- supplier response submission should be atomic:
+  - create response
+  - update link
+  - append workflow event
+
+5. Error handling
+Return clean JSON errors:
+- unauthorized
+- forbidden
+- request_not_found
+- link_not_found
+- link_expired
+- link_already_used
+- invalid_payload
+- server_error
+
+Do not leak service account details or internal stack traces.
+
+6. Documentation
+Update AF_PROCUREMENT_WORKFLOW_SPEC.md:
+- Phase C implemented
+- endpoints now writing to Firestore
+- remaining TODO:
+  - supplier upload handling
+  - public supplier form UI
+  - mobile procurement UI to generate links
+  - Firestore client rules for new collections
+
+7. Validation
+Run:
+- api-server typecheck
+- procurement lib typecheck
+- mobile app sanity check if touched indirectly
+
+Return:
+- files changed
+- endpoints implemented
+- Firestore collections written
+- exact auth rules enforced in API
+- error codes implemented
+- env vars required
+- what still remains before supplier form is production-ready
