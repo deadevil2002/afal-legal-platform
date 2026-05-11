@@ -1,0 +1,169 @@
+Approved. Start Phase A only.
+
+PHASE A — Backend/Data Model Foundation for AF Procurement Hub
+
+Important:
+Do NOT modify existing mobile screens.
+Do NOT replace old request screens yet.
+Do NOT change Firestore rules yet.
+Do NOT implement UI for the workflow yet.
+Do NOT remove old collections yet.
+Do NOT add supplier UI yet.
+This phase is backend/data foundation only.
+
+Goal:
+Create the TypeScript data model foundation for the new procurement workflow safely, without breaking the existing app.
+
+Tasks:
+
+1. Create centralized TypeScript models
+Create a new folder if appropriate:
+src/procurement/
+or
+lib/procurement/
+
+Add model/schema files for:
+
+- procurement_requests
+- supplier_links
+- supplier_responses
+- workflow_events
+- approvals
+- payment_records
+
+Use TypeScript interfaces/types.
+If Zod is already installed, add Zod schemas.
+If Zod is not installed, do NOT install it yet without reporting first. Use plain TypeScript types for now.
+
+2. Define procurement request model
+Include fields for:
+- id
+- requestNumber
+- createdByUid
+- createdByName
+- createdByEmployeeNumber
+- createdAt
+- updatedAt
+- currentStage
+- status
+- productDescription
+- requestAttachments
+- selectedSupplierResponseId
+- prNumber
+- approvedBudgetSar
+- poNumber
+- poAttachment
+- paymentStatus
+- isTerminated
+- terminatedBy
+- terminationReason
+
+3. Define supplier link model
+Include:
+- id
+- requestId
+- token
+- supplierNameHint
+- createdByUid
+- createdAt
+- expiresAt
+- isActive
+- submittedAt
+- responseId
+
+4. Define supplier response model
+Include all required supplier form fields:
+- commercialRegistrationAttachment
+- commercialRegistrationNumber
+- accreditationAttachment
+- accreditationNumber
+- zatcaNumber
+- companyName
+- phone
+- email
+- contactPersonName
+- nationalAddressAttachment
+- nationalAddressText
+- ibanAttachment
+- ibanText
+- priceExcludingVatSar
+- vatAmountSar
+- priceIncludingVatSar
+- paymentTerms
+- notes
+- extraAttachments
+
+5. Define workflow event model
+Immutable timeline entry:
+- id
+- requestId
+- actorUid
+- actorName
+- actorRole
+- eventType
+- fromStage
+- toStage
+- comment
+- attachments
+- createdAt
+
+6. Define approval model
+One document per approval step:
+- id
+- requestId
+- stepOrder
+- approverRole
+- approverUid
+- status
+- decision
+- comment
+- decidedAt
+- createdAt
+
+7. Define payment record model
+- id
+- requestId
+- paymentReference
+- invoiceNumber
+- paymentAttachment
+- notes
+- paidByUid
+- paidAt
+- createdAt
+
+8. Add constants/enums
+Add constants for:
+- procurement roles:
+  super_admin, ceo, evp, operations, planning, finance, procurement
+- procurement stages
+- procurement statuses
+- approval decisions
+- supplier payment terms
+- workflow event types
+
+9. Add helper functions only
+Create small helper functions:
+- calculateVat(priceExcludingVatSar, vatRate = 0.15)
+- calculatePriceIncludingVat(priceExcludingVatSar, vatRate = 0.15)
+- generateRequestNumber(date, sequence)
+- isProcurementRole(role)
+- canRoleApproveStage(role, stage)
+
+No Firestore writes yet.
+No API routes yet unless absolutely necessary.
+No Firebase Admin SDK yet in this phase unless the project already has backend/server API structure.
+
+10. Documentation
+Update AF_PROCUREMENT_WORKFLOW_SPEC.md with a short "Phase A implemented" note listing model files created.
+
+11. Validation
+Run TypeScript check/build.
+Confirm existing app still runs.
+
+Return:
+- files created
+- files changed
+- all model names
+- helper functions added
+- whether Zod was used or skipped
+- any risks before Phase B

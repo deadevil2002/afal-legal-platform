@@ -410,3 +410,48 @@ This must be done before Phase E (Approval Chain) and is a prerequisite blocker 
 3. Deploy Phases C–F incrementally behind a feature flag (Super Admin can toggle)
 4. After all phases are stable, run Phase H migration
 5. Deprecate old `requests` collection
+
+---
+
+## Phase A — Implemented ✓
+
+**Status**: Complete  
+**Date**: 2026-05-11
+
+### Files created
+
+| File | Purpose |
+|---|---|
+| `lib/procurement/package.json` | `@workspace/procurement` ESM lib, zod dependency |
+| `lib/procurement/tsconfig.json` | Composite TypeScript config (emitDeclarationOnly) |
+| `lib/procurement/src/constants.ts` | All enums and constant arrays |
+| `lib/procurement/src/types.ts` | `FirestoreTimestamp`, `AttachmentRef` (shared primitives + Zod schemas) |
+| `lib/procurement/src/models/procurementRequest.ts` | `ProcurementRequest` Zod schema + inferred type |
+| `lib/procurement/src/models/supplierLink.ts` | `SupplierLink` Zod schema + inferred type |
+| `lib/procurement/src/models/supplierResponse.ts` | `SupplierResponse` + `SupplierFormInput` Zod schemas + inferred types |
+| `lib/procurement/src/models/workflowEvent.ts` | `WorkflowEvent` Zod schema + inferred type |
+| `lib/procurement/src/models/approval.ts` | `Approval` Zod schema + inferred type |
+| `lib/procurement/src/models/paymentRecord.ts` | `PaymentRecord` Zod schema + inferred type |
+| `lib/procurement/src/helpers.ts` | `calculateVat`, `calculatePriceIncludingVat`, `generateRequestNumber`, `isProcurementRole`, `canRoleApproveStep` / `canRoleApproveStage` |
+| `lib/procurement/src/index.ts` | Barrel re-export of everything above |
+
+### Files updated
+
+| File | Change |
+|---|---|
+| `tsconfig.json` (root) | Added `lib/procurement` to solution references |
+
+### Zod usage
+Zod **was used** — it was already installed in the workspace catalog (`"zod": "catalog:"`). All model types are derived via `z.infer<>` from their Zod schemas rather than maintained as separate interfaces.
+
+### What Phase A does NOT include
+- No Firestore reads or writes
+- No API routes
+- No Firebase Admin SDK
+- No mobile UI changes
+- No changes to existing `requests` collection or screens
+
+### Pre-Phase B prerequisites
+1. Add `"operations"` role to the mobile app (`AuthContext.tsx`, Firestore rules, admin UI, translations) — see Risk 6 above
+2. Confirm Cloudinary server-side upload preset configuration (Risk 4)
+3. Install Firebase Admin SDK in `artifacts/api-server` and configure service account credentials as environment secrets
