@@ -490,5 +490,48 @@ service cloud.firestore {
       allow create: if isSuperAdmin();
       allow update, delete: if false;
     }
+
+    // =========================
+    // procurement_requests
+    // Created by requesters (canSubmitRequests flag) or any admin role.
+    // Stage transitions are performed by api-server via Admin SDK (bypasses rules).
+    // Mobile clients may only update their own draft requests (future phase).
+    // =========================
+    match /procurement_requests/{requestId} {
+      allow create: if signedIn() && (
+        isAdmin() ||
+        (currentUserExists() && userDoc(request.auth.uid).data.get("canSubmitRequests", false) == true)
+      );
+
+      allow read: if signedIn() && (
+        isAdmin() ||
+        resource.data.createdByUid == request.auth.uid
+      );
+
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // =========================
+    // workflow_events
+    // Immutable audit trail — never updated or deleted by clients.
+    // Mobile writes the initial "request_created" event on RFQ submission.
+    // All subsequent events are written by api-server (Admin SDK).
+    // Requester can read events they authored; admins can read all.
+    // =========================
+    match /workflow_events/{eventId} {
+      allow create: if signedIn() && (
+        isAdmin() ||
+        (currentUserExists() && userDoc(request.auth.uid).data.get("canSubmitRequests", false) == true)
+      );
+
+      allow read: if signedIn() && (
+        isAdmin() ||
+        resource.data.actorUid == request.auth.uid
+      );
+
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
   }
 }

@@ -13,17 +13,19 @@ interface TabIconSpec {
 }
 
 const TAB_ICONS: Record<string, TabIconSpec> = {
-  index:    { active: "home-fill",           inactive: "home" },
-  requests: { active: "document-text-fill",  inactive: "document-text" },
-  admin:    { active: "shield-check-fill",   inactive: "shield-check" },
-  settings: { active: "cog-fill",            inactive: "cog" },
+  index:        { active: "home-fill",           inactive: "home" },
+  requests:     { active: "document-text-fill",  inactive: "document-text" },
+  procurement:  { active: "briefcase",           inactive: "briefcase" },
+  admin:        { active: "shield-check-fill",   inactive: "shield-check" },
+  settings:     { active: "cog-fill",            inactive: "cog" },
 };
 
 const TAB_CONTENT_HEIGHT = 56;
 
 export default function TabLayout() {
   const colors = useColors();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const canUseProcurement = isAdmin || profile?.canSubmitRequests === true;
   const { t } = useT();
   const insets = useSafeAreaInsets();
 
@@ -70,10 +72,14 @@ export default function TabLayout() {
         },
       })}
     >
-      <Tabs.Screen name="index"    options={{ title: t("home") }} />
-      <Tabs.Screen name="requests" options={{ title: t("requests") }} />
-      <Tabs.Screen name="admin"    options={isAdmin ? { title: t("admin") } : { href: null }} />
-      <Tabs.Screen name="settings" options={{ title: t("settings") }} />
+      <Tabs.Screen name="index"       options={{ title: t("home") }} />
+      <Tabs.Screen name="requests"    options={{ title: t("requests") }} />
+      <Tabs.Screen
+        name="procurement"
+        options={canUseProcurement ? { title: t("procurementRequests") } : { href: null }}
+      />
+      <Tabs.Screen name="admin"       options={isAdmin ? { title: t("admin") } : { href: null }} />
+      <Tabs.Screen name="settings"    options={{ title: t("settings") }} />
     </Tabs>
   );
 }

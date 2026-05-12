@@ -1,0 +1,144 @@
+Good. Audit approved.
+
+Now start Phase D only.
+
+PHASE D — Procurement Request Foundation UI + Context
+
+Important:
+Do NOT remove old legal request screens yet.
+Do NOT replace the whole tab structure yet.
+Do NOT build supplier link UI yet.
+Do NOT build approvals yet.
+Do NOT build payment flow yet.
+Do NOT build Excel export yet.
+Do NOT change Firestore rules unless strictly required and report first.
+
+Goal:
+Build the first visible procurement foundation:
+- a new ProcurementRequestsContext
+- a new RFQ creation screen
+- a basic procurement request list/detail foundation
+- using the new procurement_requests collection
+- without touching old requests collection yet
+
+Requirements:
+
+1. New context
+Create:
+context/ProcurementRequestsContext.tsx
+
+It should:
+- subscribe to procurement_requests
+- support role-based read assumptions from current Firestore rules
+- expose:
+  - procurementRequests
+  - loading
+  - error
+  - createProcurementRequest()
+  - refresh if needed
+
+For now:
+- super_admin and operational roles see all procurement requests
+- normal requester sees own requests
+- do not implement complex visibleToUids yet unless already supported cleanly
+
+2. Create RFQ screen
+Create a new screen:
+app/procurement/new.tsx
+
+Visible only to:
+- super_admin
+- users with canSubmitRequests === true
+
+Fields:
+- title
+- groupOrRequesterName
+- productDescription multiline text box
+- attachments using existing AttachmentPicker
+- submit button
+
+On submit, create a document in procurement_requests with:
+- requestNumber
+- createdByUid
+- createdByName
+- createdByEmployeeNumber
+- createdByRole
+- createdAt
+- updatedAt
+- currentStage: 1
+- status: "rfq_created" or matching current constants
+- title
+- groupOrRequesterName
+- productDescription
+- requestAttachments
+- selectedSupplierResponseId: null
+- prNumber: null
+- approvedBudgetSar: null
+- poNumber: null
+- poAttachment: null
+- paymentStatus: "not_started"
+- isTerminated: false
+- terminatedBy: null
+- terminationReason: null
+
+Also append workflow_events:
+- eventType: "rfq_created"
+- requestId
+- actorUid
+- actorName
+- actorRole
+- fromStage: null
+- toStage: 1
+- comment: "RFQ created"
+- attachments if any
+- createdAt
+
+If client rules block workflow_events create, report clearly before changing rules.
+
+3. Basic procurement detail screen
+Create:
+app/procurement/[id].tsx
+
+For now show read-only:
+- request number
+- title
+- requester name
+- product description
+- attachments
+- current stage/status
+- basic timeline from workflow_events
+
+No action buttons yet except maybe back.
+
+4. Navigation entry
+Add a safe navigation entry only where appropriate:
+- if user is super_admin, procurement, or canSubmitRequests
+- label:
+  - EN: Procurement Requests
+  - AR: طلبات المشتريات
+
+Do not remove old Requests tab yet.
+
+5. Translations
+Add all new EN/AR keys needed.
+
+6. Use existing reusable components
+Use:
+- AttachmentPicker
+- AttachmentViewer
+- Logo/Icon components if needed
+- current i18n pattern
+
+7. Validation
+Run typecheck/build.
+Confirm old app still runs.
+Commit changes.
+
+Return:
+- files created
+- files changed
+- collection writes added
+- route names
+- Firestore rules issues if any
+- what works now
+- what remains for Phase E

@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { RequestsProvider } from "@/context/RequestsContext";
+import { ProcurementRequestsProvider } from "@/context/ProcurementRequestsContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,8 @@ function RootLayoutNav() {
         <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
         <Stack.Screen name="request/new" options={{ headerShown: false }} />
         <Stack.Screen name="request/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="procurement/new" options={{ headerShown: false }} />
+        <Stack.Screen name="procurement/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="transfer-super-admin" options={{ headerShown: false }} />
         <Stack.Screen name="legal/[page]" options={{ headerShown: false }} />
       </Stack>
@@ -79,11 +82,13 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <RequestsProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
+              <ProcurementRequestsProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </ProcurementRequestsProvider>
             </RequestsProvider>
           </AuthProvider>
         </QueryClientProvider>
