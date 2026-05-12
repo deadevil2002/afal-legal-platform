@@ -28,15 +28,27 @@ service cloud.firestore {
         : null;
     }
 
+    // Super Admin is identified by TWO equivalent paths (both are checked):
+    //   1. users/{uid}.role == "super_admin"  — primary, set by Admin SDK on creation/transfer
+    //   2. settings/app.superAdminEmail matches signed-in email — safety net for bootstrap
+    //      accounts that were manually created before the role field was properly set,
+    //      and to stay consistent with AuthContext.isSuperAdmin computation.
     function isSuperAdmin() {
-      return signedIn() && currentUserRole() == "super_admin";
+      return signedIn() && (
+        currentUserRole() == "super_admin" ||
+        (
+          exists(/databases/$(database)/documents/settings/app) &&
+          get(/databases/$(database)/documents/settings/app).data.superAdminEmail.lower()
+            == request.auth.token.email.lower()
+        )
+      );
     }
 
-    // Covers all non-super-admin operational roles (new + legacy assistant_admin).
-    // Used internally by isAdmin(). Do not call directly outside isAdmin().
+    // Covers all non-super-admin operational and legacy admin roles.
+    // "operations" is included so all AF Procurement Hub operational roles work.
     function isAssistantAdmin() {
       return signedIn() && currentUserRole() in [
-        "ceo", "evp", "planning", "finance", "procurement",
+        "ceo", "evp", "operations", "planning", "finance", "procurement",
         "assistant_admin"
       ];
     }
@@ -49,13 +61,11 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // All valid AF Procurement Hub roles. Legacy roles "user" and "assistant_admin"
-    // are intentionally excluded — existing records with those values can still be
-    // read and updated by admins, but no new document may be written with them.
+    // Valid roles for new document writes.
     function validRole(role) {
       return role in [
         "super_admin",
-        "ceo", "evp", "planning", "finance", "procurement"
+        "ceo", "evp", "operations", "planning", "finance", "procurement"
       ];
     }
 
@@ -207,8 +217,6 @@ service cloud.firestore {
 
       allow update: if
         // ── Normal user — self-update whitelist ──────────────────────────
-        // role, canSubmitRequests, isActive, phone, employeeNumber are
-        // all immutable from the user's own side.
         (
           isOwner(uid)
           && request.resource.data.uid == resource.data.uid
@@ -240,8 +248,6 @@ service cloud.firestore {
         )
         ||
         // ── Super Admin — full profile management ─────────────────────────
-        // May change role (any validRole value), canSubmitRequests, isActive,
-        // and all personal fields. uid, email, createdAt are always immutable.
         (
           isSuperAdmin()
           && request.resource.data.uid == resource.data.uid
@@ -272,10 +278,12 @@ service cloud.firestore {
     // user_phone_index
     // Document ID = normalized phone (digits only, 966XXXXXXXXX format).
     // Document data = { uid, phone, createdAt }
-    // Reads denied — uniqueness enforced server-side via !exists() in create rule.
+    // Client reads DENIED — uniqueness enforced server-side via Admin SDK.
+    // Do NOT expose publicly; phone numbers are PII.
     // =========================
     match /user_phone_index/{normalizedPhone} {
-      allow read: if false;
+      allow get: if false;
+      allow list: if false;
 
       allow create: if signedIn()
         && request.resource.data.phone is string
@@ -301,10 +309,15 @@ service cloud.firestore {
     // =========================
     // user_employee_index
     // Document ID = trimmed employee number string.
-    // Document data = { uid, employeeNumber, createdAt }
+    // Document data = { uid, email, employeeNumber, createdAt }
+    //
+    // Public GET is intentionally allowed — employee number login must be able to
+    // resolve the associated email before the user is authenticated.
+    // LIST is denied to prevent enumeration of all employee numbers.
     // =========================
     match /user_employee_index/{employeeNumber} {
-      allow read: if false;
+      allow get: if true;   // public — required for employee-number login before auth
+      allow list: if false; // no enumeration
 
       allow create: if signedIn()
         && request.resource.data.employeeNumber is string
@@ -337,8 +350,6 @@ service cloud.firestore {
 
     // =========================
     // profile_change_requests
-    // Users submit requests to change phone or employeeNumber.
-    // Super Admin approves or rejects.
     // =========================
     match /profile_change_requests/{docId} {
 
@@ -369,7 +380,7 @@ service cloud.firestore {
     }
 
     // =========================
-    // requests
+    // requests  (legacy collection — kept for backward compat)
     // =========================
     match /requests/{requestId} {
 
@@ -378,7 +389,6 @@ service cloud.firestore {
         && validRequestStatus(request.resource.data.status)
         && (
           (
-            // Regular user self-submission — requires canSubmitRequests flag
             request.resource.data.userId == request.auth.uid
             && currentUserExists()
             && userDoc(request.auth.uid).data.get("canSubmitRequests", false) == true
@@ -389,7 +399,6 @@ service cloud.firestore {
           )
           ||
           (
-            // Admin-created request directed at a specific employee
             isAdmin()
             && ("createdByAdmin" in request.resource.data)
             && request.resource.data.createdByAdmin == true
@@ -493,9 +502,9 @@ service cloud.firestore {
 
     // =========================
     // procurement_requests
-    // Created by requesters (canSubmitRequests flag) or any admin role.
-    // Stage transitions are performed by api-server via Admin SDK (bypasses rules).
-    // Mobile clients may only update their own draft requests (future phase).
+    // Super Admin and all operational/admin roles can read all.
+    // Users with canSubmitRequests=true can create.
+    // Stage transitions done by api-server via Admin SDK (bypasses rules).
     // =========================
     match /procurement_requests/{requestId} {
       allow create: if signedIn() && (
@@ -514,10 +523,6 @@ service cloud.firestore {
 
     // =========================
     // workflow_events
-    // Immutable audit trail — never updated or deleted by clients.
-    // Mobile writes the initial "request_created" event on RFQ submission.
-    // All subsequent events are written by api-server (Admin SDK).
-    // Requester can read events they authored; admins can read all.
     // =========================
     match /workflow_events/{eventId} {
       allow create: if signedIn() && (

@@ -95,7 +95,7 @@ function sortByDate(a: ProcurementRequest, b: ProcurementRequest): number {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function ProcurementRequestsProvider({ children }: { children: React.ReactNode }) {
-  const { profile, isAdmin, loading: authLoading, user } = useAuth();
+  const { profile, isAdmin, loading: authLoading, user, isSuperAdmin } = useAuth();
   const { t } = useT();
 
   const [procurementRequests, setProcurementRequests] = useState<ProcurementRequest[]>([]);
@@ -107,9 +107,12 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
   const refresh = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
+    // Wait for auth to finish loading AND for Firebase Auth user to be confirmed.
+    // Without the `user` guard, Firestore queries can fire before the auth token
+    // propagates to Firestore, causing spurious permission-denied errors.
     if (authLoading) return;
 
-    if (!profile) {
+    if (!user || !profile) {
       setLoading(false);
       setProcurementRequests([]);
       return;
@@ -127,7 +130,11 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
       setLoading(false);
     };
 
-    if (isAdmin) {
+    // Super Admin and assistant_admin see all requests.
+    // Operational roles (ceo, evp, etc.) see only requests they created.
+    const shouldRunAdminQuery = isSuperAdmin || profile.role === "assistant_admin";
+
+    if (shouldRunAdminQuery) {
       const q = query(
         collection(db, "procurement_requests"),
         orderBy("createdAt", "desc")
@@ -169,7 +176,7 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
       }
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.uid, profile?.role, isAdmin, authLoading, tick]);
+  }, [user?.uid, profile?.uid, profile?.role, isSuperAdmin, authLoading, tick]);
 
   // ─── createRFQ ─────────────────────────────────────────────────────────────
 

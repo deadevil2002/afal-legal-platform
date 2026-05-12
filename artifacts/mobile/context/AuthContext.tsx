@@ -81,6 +81,15 @@ export interface ProfileChangeRequest {
   userEmail?: string;
 }
 
+export interface AdminUpdateUserParams {
+  displayName?: string;
+  department?: string;
+  role?: UserRole;
+  canSubmitRequests?: boolean;
+  phone?: string;
+  employeeNumber?: string;
+}
+
 export interface AdminCreateUserParams {
   email: string;
   password: string;
@@ -110,6 +119,7 @@ interface AuthContextType {
   activeSuperAdminEmail: string;
   login: (identifier: string, password: string) => Promise<void>;
   adminCreateUser: (params: AdminCreateUserParams) => Promise<void>;
+  adminUpdateUser: (uid: string, params: AdminUpdateUserParams) => Promise<void>;
   register: (
     email: string,
     password: string,
@@ -373,8 +383,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Sign in with either an email address or an employee number.
-   * If the identifier contains "@" it is treated as an email directly.
-   * Otherwise it is looked up in user_employee_index → users to resolve the email.
+   *
+   * Email path: identifier contains "@" → direct signInWithEmailAndPassword.
+   *
+   * Employee number path:
+   *   1. Read user_employee_index/{empNum} (Firestore rule: allow get: if true).
+   *      The document must contain { uid, email, employeeNumber, createdAt }.
+   *   2. If email is present in the document, use it directly.
+   *   3. If the document exists but has no email field (older/manually-created
+   *      docs), call the api-server lookup endpoint which uses Admin SDK.
    */
   const login = async (identifier: string, password: string) => {
     const trimmed = identifier.trim();
@@ -382,18 +399,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, trimmed.toLowerCase(), password);
       return;
     }
-    // Employee number lookup
+
+    // ── Employee number login ─────────────────────────────────────────────
+    // user_employee_index/{empNum} is publicly readable (allow get: if true).
     const empSnap = await getDoc(doc(db, "user_employee_index", trimmed));
     if (!empSnap.exists()) {
       throw new Error("employee_not_found");
     }
-    const empData = empSnap.data() as { uid: string };
-    const userSnap = await getDoc(doc(db, "users", empData.uid));
-    if (!userSnap.exists()) {
-      throw new Error("employee_not_found");
+
+    const empData = empSnap.data() as { uid: string; email?: string };
+    let resolvedEmail = empData.email;
+
+    if (!resolvedEmail) {
+      // Fallback for older index docs that pre-date the email field.
+      // The api-server uses Admin SDK so it can read users/{uid} without Firestore rules.
+      const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
+        ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
+        : "";
+      const resp = await fetch(`${apiBase}/api/admin/users/lookup-employee`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeNumber: trimmed }),
+      });
+      if (!resp.ok) throw new Error("employee_not_found");
+      const data = (await resp.json()) as { email?: string };
+      if (!data.email) throw new Error("employee_not_found");
+      resolvedEmail = data.email;
     }
-    const userData = userSnap.data() as UserProfile;
-    await signInWithEmailAndPassword(auth, userData.email, password);
+
+    await signInWithEmailAndPassword(auth, resolvedEmail.toLowerCase(), password);
   };
 
   /**
@@ -419,6 +453,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
       const code = (data?.code as string) || "";
       if (code === "email_taken") throw new Error("email_taken");
+      if (code === "phone_taken") throw new Error("phone_taken");
+      if (code === "employee_taken") throw new Error("employee_taken");
+      throw new Error((data?.error as string) || `HTTP ${response.status}`);
+    }
+  };
+
+  /**
+   * SUPER ADMIN ONLY — update a user's profile via the api-server (Admin SDK).
+   * Routes through the server so phone/employeeNumber index documents are
+   * atomically synced when those values change.
+   */
+  const adminUpdateUser = async (uid: string, params: AdminUpdateUserParams): Promise<void> => {
+    if (!isSuperAdmin || !user) throw new Error("Unauthorized: Super Admin only.");
+    const token = await user.getIdToken();
+    const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
+      ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
+      : "";
+    const response = await fetch(`${apiBase}/api/admin/users/${uid}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+      const code = (data?.code as string) || "";
       if (code === "phone_taken") throw new Error("phone_taken");
       if (code === "employee_taken") throw new Error("employee_taken");
       throw new Error((data?.error as string) || `HTTP ${response.status}`);
@@ -518,6 +580,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (trimmedEmpNum) {
         batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
           uid: cred.user.uid,
+          email: email.toLowerCase(),
           employeeNumber: trimmedEmpNum,
           createdAt: now,
         });
@@ -928,8 +991,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const oldEmpNum = req.currentValue.trim();
       if (!newEmpNum) throw new Error("invalid_employee_number");
       batch.update(doc(db, "users", req.userId), { employeeNumber: newEmpNum, updatedAt: now });
+      // Include email so the employee-number login path can resolve without an API fallback.
+      const emailForIndex = req.userEmail || "";
       batch.set(doc(db, "user_employee_index", newEmpNum), {
         uid: req.userId,
+        email: emailForIndex.toLowerCase(),
         employeeNumber: newEmpNum,
         createdAt: now,
       });
@@ -975,6 +1041,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         activeSuperAdminEmail,
         login,
         adminCreateUser,
+        adminUpdateUser,
         register,
         logout,
         updateUserProfile,

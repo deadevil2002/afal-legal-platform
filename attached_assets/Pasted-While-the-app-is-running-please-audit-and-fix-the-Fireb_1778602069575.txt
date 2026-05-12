@@ -1,0 +1,90 @@
+While the app is running, please audit and fix the Firebase user/index sync.
+
+Current issue:
+I manually created the first Super Admin in Firestore.
+Email login works, but:
+1. Employee number login fails.
+2. ProcurementRequestsContext shows permission-denied.
+3. When employeeNumber or phone is changed from app Settings/Admin, the related index documents must update automatically. I do not want to manually edit Firestore every time.
+
+Current Super Admin:
+uid: c04l2ZFPhQZdz1f4lQC0ljygo5v2
+email: Fatima.alsaleem@outlook.com
+role: super_admin
+canSubmitRequests: true
+showFullWorkflow: true
+
+Important:
+Registration is permanently disabled.
+Only Super Admin creates users from inside the app.
+
+Required fixes:
+
+1. Employee number login:
+The app must resolve employeeNumber before login by reading:
+user_employee_index/{employeeNumber}
+
+Firestore rules must allow:
+allow get: if true;
+allow list: if false;
+
+Do NOT expose user_phone_index publicly.
+
+2. User index auto-sync:
+Whenever Super Admin creates or updates a user:
+- users/{uid}
+- user_employee_index/{employeeNumber}
+- user_phone_index/{phone}
+
+must stay synced automatically.
+
+If employeeNumber changes:
+- create new user_employee_index/{newEmployeeNumber}
+- delete old user_employee_index/{oldEmployeeNumber}
+- update users/{uid}.employeeNumber
+
+If phone changes:
+- create new user_phone_index/{newPhone}
+- delete old user_phone_index/{oldPhone}
+- update users/{uid}.phone
+
+Do this through the API/server/admin route if possible, not fragile client-only writes.
+
+3. Super Admin transfer:
+Keep/restore the old feature:
+Super Admin can transfer super_admin role to another user/email safely.
+After transfer:
+- new user becomes super_admin
+- old super admin role changes according to selected fallback role or procurement
+- indexes remain correct
+- no user is left without valid role
+
+4. Procurement permission-denied:
+Fix:
+[ProcurementCtx] admin query failed: permission-denied
+
+Check whether:
+- ProcurementRequestsContext subscribes too early before profile loads
+- rules do not allow empty collection admin query
+- query/orderBy conflicts with rules/index
+- user role is not loaded before isAdmin is evaluated
+
+Super Admin must be able to query procurement_requests even when the collection is empty.
+
+5. Firestore rules:
+Audit current firestore.rules.
+If rules must change, output the FULL updated firestore.rules content in chat for manual copy/paste.
+Do not use CLI deploy.
+I publish rules manually in Firebase Console.
+
+6. Manual Firestore verification:
+Tell me exactly which collections/documents must exist and what fields must be present.
+
+Return:
+- root cause
+- files changed
+- whether rules changed
+- full rules file if changed
+- test result for email login
+- test result for employeeNumber login
+- test result for Procurement tab
