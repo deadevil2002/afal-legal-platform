@@ -590,6 +590,24 @@ export default function AdminScreen() {
         </TouchableOpacity>
       )}
 
+      {/* Create User FAB — only in users tab, super admin only */}
+      {activeTab === "users" && isSuperAdmin && (
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            {
+              backgroundColor: colors.primary,
+              bottom: insets.bottom + (Platform.OS === "web" ? 100 : 90),
+            },
+          ]}
+          onPress={() => router.push("/admin/create-user" as never)}
+          activeOpacity={0.85}
+        >
+          <Icon name="person-add" size={20} color="#fff" />
+          <Text style={styles.fabText}>{t("createUser")}</Text>
+        </TouchableOpacity>
+      )}
+
       {/* User Detail Modal */}
       <Modal
         visible={!!selectedUser}

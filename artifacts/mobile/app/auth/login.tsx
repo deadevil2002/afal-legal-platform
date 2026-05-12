@@ -22,11 +22,11 @@ import { mapFirebaseAuthError } from "@/lib/firebaseErrorMapper";
 export default function LoginScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
-  const { login, allowSignup } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,18 +34,29 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setErrorMsg(null);
-    if (!email || !password) {
+    if (!identifier || !password) {
       setErrorMsg(
-        language === "ar" ? "يرجى إدخال البريد الإلكتروني وكلمة المرور" : "Please enter your email and password."
+        language === "ar"
+          ? "يرجى إدخال البريد الإلكتروني أو رقم الموظف وكلمة المرور"
+          : "Please enter your email or employee number and password."
       );
       return;
     }
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await login(identifier.trim(), password);
       router.replace("/(tabs)/" as never);
     } catch (e: unknown) {
-      setErrorMsg(mapFirebaseAuthError(e, language));
+      const err = e as { message?: string; code?: string };
+      if (err?.message === "employee_not_found") {
+        setErrorMsg(
+          language === "ar"
+            ? "لا يوجد حساب بهذا الرقم الوظيفي."
+            : "No account found with this employee number."
+        );
+      } else {
+        setErrorMsg(mapFirebaseAuthError(e, language));
+      }
     } finally {
       setLoading(false);
     }
@@ -84,22 +95,22 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Email Field */}
+          {/* Email or Employee Number Field */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.foreground }, isRTL && styles.textRTL]}>
-              {t("email")}
+              {t("emailOrEmployeeNumber")}
             </Text>
             <View style={[styles.inputWrap, { borderColor: errorMsg ? "#FECACA" : colors.border, backgroundColor: colors.muted }]}>
               <View style={styles.icon}>
-                <Icon name="mail" size={16} color={colors.mutedForeground} />
+                <Icon name="person" size={16} color={colors.mutedForeground} />
               </View>
               <TextInput
                 style={[styles.input, { color: colors.foreground }, isRTL && styles.textRTL]}
-                value={email}
-                onChangeText={(v) => { setEmail(v); setErrorMsg(null); }}
-                placeholder={t("email")}
+                value={identifier}
+                onChangeText={(v) => { setIdentifier(v); setErrorMsg(null); }}
+                placeholder={t("emailOrEmployeeNumberPlaceholder")}
                 placeholderTextColor={colors.mutedForeground}
-                keyboardType="email-address"
+                keyboardType="default"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -149,20 +160,6 @@ export default function LoginScreen() {
               <Text style={styles.btnText}>{t("signIn")}</Text>
             )}
           </TouchableOpacity>
-
-          {allowSignup && (
-            <TouchableOpacity
-              style={styles.switchBtn}
-              onPress={() => router.push("/auth/register" as never)}
-            >
-              <Text style={[styles.switchText, { color: colors.mutedForeground }]}>
-                {t("noAccount")}{" "}
-                <Text style={{ color: colors.primary, fontFamily: "Inter_600SemiBold" }}>
-                  {t("signUp")}
-                </Text>
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -224,7 +221,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   btnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  switchBtn: { marginTop: 16, alignItems: "center" },
-  switchText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   textRTL: { textAlign: "right" },
 });

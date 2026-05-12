@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import devToolsRouter from "./devTools";
 import procurementRouter from "./procurement";
 import publicSupplierRouter from "./publicSupplier";
+import adminUsersRouter from "./adminUsers";
 
 const router: IRouter = Router();
 
@@ -14,6 +15,9 @@ router.use(devToolsRouter);
 
 // Internal procurement routes — Firebase ID token auth enforced
 router.use("/procurement", procurementRouter);
+
+// Admin user management — Super Admin only, Firebase ID token auth enforced
+router.use("/admin/users", adminUsersRouter);
 
 // Public routes — no auth required (supplier form submissions)
 router.use("/public", publicSupplierRouter);

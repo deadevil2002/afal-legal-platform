@@ -8,6 +8,8 @@ export const translations = {
     register: "Create Account",
     logout: "Sign Out",
     email: "Email Address",
+    emailOrEmployeeNumber: "Email or Employee Number",
+    emailOrEmployeeNumberPlaceholder: "Email address or employee number",
     password: "Password",
     confirmPassword: "Confirm Password",
     fullName: "Full Name",
@@ -126,6 +128,18 @@ export const translations = {
     assistantAdmin: "Assistant Admin",
     regularUser: "Regular User",
     userManagement: "User Management",
+
+    // ── Admin: Create User ────────────────────────────────────────────────
+    createUser: "Create User",
+    createUserTitle: "Create New User",
+    createUserSubtitle: "New account will be created immediately",
+    initialPassword: "Initial Password",
+    userCreatedSuccess: "User created successfully.",
+    emailTaken: "This email address is already registered.",
+    employeeTaken: "This employee number is already registered.",
+    phoneTaken: "This phone number is already registered.",
+    employeeNotFound: "No account found with this employee number.",
+    selectRole: "Select Role",
 
     // ── AF Procurement Hub roles ──────────────────────────────────────────
     roleSuperAdmin: "Super Admin",
@@ -256,8 +270,6 @@ export const translations = {
     passwordChanged: "Your password has been updated successfully.",
     changePasswordSubtitle: "Update your account password securely",
     wrongPassword: "Current password is incorrect. Please try again.",
-    phoneTaken: "This phone number is already registered.",
-    employeeTaken: "This employee number is already registered.",
 
     // ── Profile Change Requests ───────────────────────────────────────────
     requestPhoneChange: "Request Phone Change",
@@ -457,6 +469,8 @@ export const translations = {
     register: "إنشاء حساب",
     logout: "تسجيل الخروج",
     email: "البريد الإلكتروني",
+    emailOrEmployeeNumber: "البريد الإلكتروني أو رقم الموظف",
+    emailOrEmployeeNumberPlaceholder: "البريد الإلكتروني أو رقم الموظف",
     password: "كلمة المرور",
     confirmPassword: "تأكيد كلمة المرور",
     fullName: "الاسم الكامل",
@@ -575,6 +589,18 @@ export const translations = {
     assistantAdmin: "مسؤول مساعد",
     regularUser: "مستخدم عادي",
     userManagement: "إدارة المستخدمين",
+
+    // ── Admin: Create User ────────────────────────────────────────────────
+    createUser: "إنشاء مستخدم",
+    createUserTitle: "إنشاء مستخدم جديد",
+    createUserSubtitle: "سيتم إنشاء الحساب فوراً",
+    initialPassword: "كلمة المرور الأولية",
+    userCreatedSuccess: "تم إنشاء المستخدم بنجاح.",
+    emailTaken: "هذا البريد الإلكتروني مسجّل مسبقاً.",
+    employeeTaken: "رقم الموظف هذا مسجّل مسبقاً.",
+    phoneTaken: "رقم الهاتف هذا مسجّل مسبقاً.",
+    employeeNotFound: "لا يوجد حساب بهذا الرقم الوظيفي.",
+    selectRole: "اختر الدور",
 
     // ── AF Procurement Hub roles ──────────────────────────────────────────
     roleSuperAdmin: "المدير الأعلى",
@@ -705,8 +731,6 @@ export const translations = {
     passwordChanged: "تم تحديث كلمة المرور بنجاح.",
     changePasswordSubtitle: "تحديث كلمة مرور حسابك بأمان",
     wrongPassword: "كلمة المرور الحالية غير صحيحة. يرجى المحاولة مجدداً.",
-    phoneTaken: "رقم الهاتف هذا مسجّل مسبقاً.",
-    employeeTaken: "رقم الموظف هذا مسجّل مسبقاً.",
 
     // ── Profile Change Requests ───────────────────────────────────────────
     requestPhoneChange: "طلب تغيير رقم الهاتف",

@@ -81,6 +81,17 @@ export interface ProfileChangeRequest {
   userEmail?: string;
 }
 
+export interface AdminCreateUserParams {
+  email: string;
+  password: string;
+  displayName: string;
+  employeeNumber: string;
+  phone: string;
+  department?: string;
+  role: UserRole;
+  canSubmitRequests: boolean;
+}
+
 export interface AppSettings {
   superAdminEmail: string;
   previousSuperAdminEmail?: string;
@@ -97,7 +108,8 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   activeSuperAdminEmail: string;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  adminCreateUser: (params: AdminCreateUserParams) => Promise<void>;
   register: (
     email: string,
     password: string,
@@ -359,8 +371,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isSuperAdmin ||
     profile?.role === "assistant_admin"; // legacy backward compat — reassign via Admin → Users tab
 
-  const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+  /**
+   * Sign in with either an email address or an employee number.
+   * If the identifier contains "@" it is treated as an email directly.
+   * Otherwise it is looked up in user_employee_index → users to resolve the email.
+   */
+  const login = async (identifier: string, password: string) => {
+    const trimmed = identifier.trim();
+    if (trimmed.includes("@")) {
+      await signInWithEmailAndPassword(auth, trimmed.toLowerCase(), password);
+      return;
+    }
+    // Employee number lookup
+    const empSnap = await getDoc(doc(db, "user_employee_index", trimmed));
+    if (!empSnap.exists()) {
+      throw new Error("employee_not_found");
+    }
+    const empData = empSnap.data() as { uid: string };
+    const userSnap = await getDoc(doc(db, "users", empData.uid));
+    if (!userSnap.exists()) {
+      throw new Error("employee_not_found");
+    }
+    const userData = userSnap.data() as UserProfile;
+    await signInWithEmailAndPassword(auth, userData.email, password);
+  };
+
+  /**
+   * SUPER ADMIN ONLY — create a new user via the api-server (Admin SDK).
+   * The api-server creates the Firebase Auth account + all Firestore index docs
+   * atomically, bypassing client-side Firestore security rules.
+   */
+  const adminCreateUser = async (params: AdminCreateUserParams): Promise<void> => {
+    if (!isSuperAdmin || !user) throw new Error("Unauthorized: Super Admin only.");
+    const token = await user.getIdToken();
+    const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
+      ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
+      : "";
+    const response = await fetch(`${apiBase}/api/admin/users`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+      const code = (data?.code as string) || "";
+      if (code === "email_taken") throw new Error("email_taken");
+      if (code === "phone_taken") throw new Error("phone_taken");
+      if (code === "employee_taken") throw new Error("employee_taken");
+      throw new Error((data?.error as string) || `HTTP ${response.status}`);
+    }
   };
 
   const setAllowSignup = async (val: boolean) => {
@@ -912,6 +974,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         activeSuperAdminEmail,
         login,
+        adminCreateUser,
         register,
         logout,
         updateUserProfile,

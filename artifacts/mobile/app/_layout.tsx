@@ -53,6 +53,7 @@ function RootLayoutNav() {
         <Stack.Screen name="request/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="procurement/new" options={{ headerShown: false }} />
         <Stack.Screen name="procurement/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/create-user" options={{ headerShown: false }} />
         <Stack.Screen name="transfer-super-admin" options={{ headerShown: false }} />
         <Stack.Screen name="legal/[page]" options={{ headerShown: false }} />
       </Stack>
