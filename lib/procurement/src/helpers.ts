@@ -1,9 +1,15 @@
 import {
   VAT_RATE,
   PROCUREMENT_ROLES,
-  APPROVAL_CHAIN_STEPS,
+  BUDGET_APPROVAL_STEPS,
+  PO_APPROVAL_STEPS,
 } from "./constants";
-import type { ProcurementRole, AnyRole } from "./constants";
+import type {
+  ProcurementRole,
+  AnyRole,
+  ApprovalStepRole,
+  ApprovalChainType,
+} from "./constants";
 
 // ─── VAT Calculations ─────────────────────────────────────────────────────────
 
@@ -52,30 +58,74 @@ export function isProcurementRole(role: string): role is ProcurementRole {
   return (PROCUREMENT_ROLES as readonly string[]).includes(role);
 }
 
+// ─── Approval Chain Utilities ─────────────────────────────────────────────────
+//
+// There are two approval chains:
+//
+//  "budget" (Stage 7):  planning(1) → finance(2) → evp/ceo(3, conditional)
+//  "po"     (Stages 9-10): requester/director(1) → planning(2)
+//
+// Use the chain-specific helpers below instead of the old canRoleApproveStep.
+
 /**
- * Returns true if the given role is allowed to sign the specified approval
- * chain step.
+ * Returns true if the given role may sign the specified step in the
+ * BUDGET approval chain (Stage 7).
  *
- * Step 1 → "requester"  (the user who created the request, canSubmitRequests: true)
- * Step 2 → "operations"
- * Step 3 → "planning"
- * Step 4 → "finance"
- * Step 5 → "evp" or "ceo" (both accepted for step 5)
+ * Step 1 → planning
+ * Step 2 → finance
+ * Step 3 → evp OR ceo (both accepted; step is conditional on requiresEVPCEO)
  *
- * @param role   The actor's role string, or "requester" for the step-1 sentinel.
- * @param stepOrder  Approval chain step number (1–5).
+ * @param role       The actor's role string.
+ * @param stepOrder  Budget chain step number (1–3).
  */
-export function canRoleApproveStep(
-  role: AnyRole | "requester",
+export function canRoleApproveBudgetStep(
+  role: AnyRole,
   stepOrder: number,
 ): boolean {
-  const step = APPROVAL_CHAIN_STEPS.find((s) => s.order === stepOrder);
+  const step = BUDGET_APPROVAL_STEPS.find((s) => s.order === stepOrder);
   if (!step) return false;
-  if (step.role === "requester") return role === "requester";
-  // Step 5 accepts both evp and ceo
+  // Step 3 accepts both evp and ceo
   if (step.role === "evp") return role === "evp" || role === "ceo";
   return role === step.role;
 }
 
-/** Alias matching the name used in AF_PROCUREMENT_WORKFLOW_SPEC.md */
+/**
+ * Returns true if the given role (or "requester" sentinel) may sign the
+ * specified step in the PO approval chain (Stages 9–10).
+ *
+ * Step 1 → "requester" sentinel (the user who created the RFQ, canSubmitRequests: true)
+ * Step 2 → planning
+ *
+ * @param role       The actor's role string, or "requester" for step 1.
+ * @param stepOrder  PO chain step number (1–2).
+ */
+export function canRoleApprovePOStep(
+  role: AnyRole | "requester",
+  stepOrder: number,
+): boolean {
+  const step = PO_APPROVAL_STEPS.find((s) => s.order === stepOrder);
+  if (!step) return false;
+  if (step.role === "requester") return role === "requester";
+  return role === step.role;
+}
+
+/**
+ * Generic approval step check — delegates to the correct chain helper.
+ *
+ * @param chainType  "budget" or "po"
+ * @param role       The actor's role, or "requester" for PO chain step 1.
+ * @param stepOrder  Step number within the given chain.
+ */
+export function canRoleApproveStep(
+  chainType: ApprovalChainType,
+  role: AnyRole | ApprovalStepRole,
+  stepOrder: number,
+): boolean {
+  if (chainType === "budget") {
+    return canRoleApproveBudgetStep(role as AnyRole, stepOrder);
+  }
+  return canRoleApprovePOStep(role as AnyRole | "requester", stepOrder);
+}
+
+/** Alias for backward compatibility with any existing callers */
 export const canRoleApproveStage = canRoleApproveStep;

@@ -16,44 +16,58 @@ export const procurementRequestSchema = z.object({
   // Creator identity snapshot — captured at request creation and never mutated.
   createdByUid: z.string().min(1),
   createdByName: z.string().min(1),
+  createdByRole: z.string().min(1),
   createdByEmployeeNumber: z.string().min(1),
 
   createdAt: firestoreTimestampSchema,
   updatedAt: firestoreTimestampSchema,
 
-  // Numeric workflow step (1 = creation, 9 = closed). Derived from `status`
-  // but stored separately for easy range queries and display logic.
-  currentStage: z.number().int().min(1).max(9),
+  // Numeric workflow step (1–12). Derived from `status` but stored separately
+  // for easy range queries and list display logic.
+  currentStage: z.number().int().min(1).max(12),
 
-  // Canonical workflow state string.
+  // Canonical workflow state string — drives all business logic.
   status: z.enum(PROCUREMENT_STAGES),
 
   category: z.enum(PROCUREMENT_CATEGORIES),
 
-  // What the requester is asking to purchase / procure.
+  // ── Stage 1: RFQ Content ──────────────────────────────────────────────────
+  // What the requester is asking to procure. "productDescription" is the
+  // user-facing RFQ body; attachments carry specs, drawings, etc.
   productDescription: z.string().min(1),
   requestAttachments: z.array(attachmentRefSchema),
 
-  // Set by Procurement at Stage 5 — the supplier response the Director approved.
+  // ── Stage 5: Requester Quotation Selection ────────────────────────────────
+  // Set when the requester selects the winning supplier response.
   selectedSupplierResponseId: z.string().nullable(),
 
-  // Entered by the requester (Director) at Stage 5 when approving a quotation.
+  // Set when the requester rejects all quotations and sends back to Procurement.
+  quotationRejectedAt: firestoreTimestampSchema.nullable(),
+  quotationRejectionReason: z.string().nullable(),
+
+  // ── Stage 6: PR Number + Approved Budget ─────────────────────────────────
+  // Entered by the requester (Director) after selecting a quotation.
   prNumber: z.string().nullable(),
   approvedBudgetSar: z.number().positive().nullable(),
 
-  // Entered by Procurement at Stage 6 after creating the PO in SAP.
+  // ── Stage 8: SAP PO Details ───────────────────────────────────────────────
+  // Entered by Procurement after the budget approval chain completes.
   poNumber: z.string().nullable(),
   poAttachment: attachmentRefSchema.nullable(),
 
-  // Whether the EVP/CEO approval step (step 5) is required for this request.
+  // ── Approval Chain Flags ─────────────────────────────────────────────────
+  // Whether the EVP/CEO step (order 3) is required in the budget approval chain.
   requiresEVPCEO: z.boolean(),
 
+  // ── Visibility ────────────────────────────────────────────────────────────
   // When true, the original requester can see the full workflow timeline.
   // When false, they see only a simplified status summary.
   showFullWorkflow: z.boolean(),
 
+  // ── Finance / Payment ────────────────────────────────────────────────────
   paymentStatus: z.enum(PAYMENT_STATUSES),
 
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   isActive: z.boolean(),
 
   // Termination — set only by Super Admin.
@@ -62,13 +76,9 @@ export const procurementRequestSchema = z.object({
   terminationReason: z.string().nullable(),
   terminatedAt: firestoreTimestampSchema.nullable(),
 
-  // Closure — set by Procurement at Stage 9.
+  // Closure — set by Procurement at Stage 12.
   closedAt: firestoreTimestampSchema.nullable(),
   closedBy: z.string().nullable(),
-
-  // Director rejection at Stage 5.
-  rejectedAt: firestoreTimestampSchema.nullable(),
-  rejectionReason: z.string().nullable(),
 });
 
 export type ProcurementRequest = z.infer<typeof procurementRequestSchema>;

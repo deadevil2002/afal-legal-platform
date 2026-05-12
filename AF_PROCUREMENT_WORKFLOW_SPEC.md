@@ -1,49 +1,76 @@
 # AF Procurement Hub — Workflow Specification
-**Version**: 1.1  
-**Status**: Approved — role model finalised  
-**Date**: 2026-05-11  
-**Changes in 1.1**: `operations` added as a first-class role; role permissions table reordered to match final role list; approval chain order updated; "Director" semantics note clarified; Risk 6 resolved.
+**Version**: 1.2  
+**Status**: Approved — RFQ-first flow confirmed  
+**Date**: 2026-05-12  
+**Changes in 1.1**: `operations` added as a first-class role; role permissions table reordered; approval chain updated; Risk 6 resolved.  
+**Changes in 1.2**: Full RFQ-first rewrite. Stage count 9 → 12. Two distinct approval chains (budget + PO). Stage 5 (select quotation) and Stage 6 (enter PR/budget) split into separate stages. `operations` removed from all approval chains. New statuses: `pending_requester_selection`, `quotation_rejected`, `pending_pr_entry`, `pending_budget_approval`, `pending_director_po_approval`, `pending_planning_po_approval`. Old statuses `director_rejected`, `director_approved`, `pending_director_review` removed. Model updated: `approval.chainType`, `quotationRejectedAt`/`quotationRejectionReason`, `createdByRole` added.
 
 ---
 
 ## 1. Workflow Summary
 
-The procurement lifecycle moves a purchase request from creation through supplier quotation, director approval, PO issuance, multi-level approval, finance payment, and final closure. Every state transition is logged as an immutable event so the full timeline is always auditable.
+The procurement lifecycle starts with an RFQ from the requester, moves through Procurement-managed supplier quotation collection, requester selection and budget entry, two sequential approval chains, PO creation, and finance payment before Procurement closes the request. Every state transition is logged as an immutable event so the full timeline is always auditable.
 
 ```
 [Any user with canSubmitRequests: true — "the requester / Director"]
         │
-        ▼  Stage 1: Request Creation
+        ▼  Stage 1: RFQ Created  (status: draft)
+           Requester describes what they need and submits to Procurement.
 [role: procurement]
         │
-        ▼  Stage 2: Supplier Quotations (generate public form links)
-[Suppliers — public form, no login]
+        ▼  Stage 2: Procurement Receives Request  (status: pending_procurement)
+           Procurement reviews the RFQ and begins supplier outreach.
         │
-        ▼  Stage 3: Supplier Responses collected
+        ▼  Stage 3: Supplier Links Generated  (status: awaiting_quotations)
+           Procurement generates one public form link per supplier (min 3 supported,
+           "Add more" available). Each link is unguessable and can be deactivated.
+[Suppliers — public form, no login required]
+        │
+        ▼  Stage 4: Supplier Quotations Received  (status: quotations_received)
+           Suppliers submit their quotation forms (company info, price excl. VAT,
+           VAT auto-calculated at 15%, payment terms). Procurement reviews and
+           forwards the set to the requester.
+[canSubmitRequests: true user — "the requester / Director"]
+        │
+        ▼  Stage 5: Requester Selects Quotation  (status: pending_requester_selection)
+           Requester views all forwarded supplier quotations and either:
+           ├─ Selects one  →  (status: pending_pr_entry)
+           └─ Rejects all  →  (status: quotation_rejected) back to Procurement
+                                for a new round of supplier links
+        │
+        ▼  Stage 6: Requester Enters PR Number + Approved Budget  (status: pending_pr_entry)
+           After selecting a quotation, the requester enters the SAP PR number
+           and the approved budget in SAR.
+[Budget Approval Chain — sequential]
+        │
+        ▼  Stage 7: Budget Approvals  (status: pending_budget_approval)
+           Three approvers confirm budget availability and authorisation:
+           │  1. role: planning  ✓
+           │  2. role: finance   ✓
+           │  3. role: evp or ceo  ✓  (only if requiresEVPCEO == true)
+           All required steps must be completed before moving to Stage 8.
 [role: procurement]
         │
-        ▼  Stage 4: Procurement reviews & forwards quotations
-[canSubmitRequests: true user — acts as Director for approval]
+        ▼  Stage 8: Procurement Enters PO Details  (status: pending_po)
+           Procurement creates the PO in SAP (outside the app), then enters the
+           SAP PO number and uploads the PO attachment in the app.
+[PO Approval Chain — sequential]
         │
-        ▼  Stage 5: Director approves one quotation (enters PR number + budget)
-             │
-             └─ Reject → back to Stage 2 (Procurement re-collects)
-[role: procurement]
+        ▼  Stage 9: Director Approves PO  (status: pending_director_po_approval)
+           The original requester (Director) reviews and approves the PO document.
         │
-        ▼  Stage 6: PO created in SAP; PO number + attachment entered in app
-[Approval Chain — sequential checkmarks]
-        │  1. requester (canSubmitRequests) ✓
-        │  2. role: operations ✓
-        │  3. role: planning ✓
-        │  4. role: finance ✓
-        │  5. role: evp or ceo ✓  (if requiresEVPCEO == true)
-        ▼  Stage 7: All required approvals collected
+        ▼  Stage 10: Planning Approves PO  (status: pending_planning_po_approval)
+           Planning gives final sign-off on the PO.
 [role: finance]
         │
-        ▼  Stage 8: Payment processed in SAP; reference + attachment entered in app
+        ▼  Stage 11: Finance Payment  (status: pending_payment)
+           Finance processes payment in SAP and uploads the payment proof
+           (reference number + attachment) in the app.
 [role: procurement]
         │
-        ▼  Stage 9: Request closed with unique request number + full timeline stored
+        ▼  Stage 12: Request Closed  (status: closed)
+           Procurement confirms closure. A unique request number (PRQ-YYYY-XXXX)
+           is assigned and the full timeline is archived.
 ```
 
 ---
@@ -57,44 +84,39 @@ The primary document for each request. Replaces the current `requests` collectio
 | Field | Type | Description |
 |---|---|---|
 | `id` | string | Auto Firestore ID |
-| `requestNumber` | string | Human-readable unique ID (e.g. `PRQ-2026-0042`) — set on closure |
-| `title` | string | Brief description of the product/material needed |
-| `description` | string | Full details of what is being requested |
-| `category` | string | Procurement category (e.g. "Purchase Request") |
-| `attachments` | array\<AttachmentRef\> | File references in Firebase Storage |
-| `createdBy` | string | UID of the requester |
+| `requestNumber` | string \| null | Human-readable unique ID (e.g. `PRQ-2026-0042`) — set on closure |
+| `createdByUid` | string | UID of the requester |
 | `createdByName` | string | Display name snapshot |
 | `createdByRole` | string | Role snapshot at time of creation |
+| `createdByEmployeeNumber` | string | Employee number snapshot |
 | `createdAt` | timestamp | |
 | `updatedAt` | timestamp | |
-| `status` | string | Current workflow stage (see §4) |
-| `currentStageOwner` | string | Role responsible for the next action |
-| `prNumber` | string \| null | PR number entered by Director at Stage 5 |
-| `approvedBudgetSAR` | number \| null | Approved budget in SAR |
-| `poNumber` | string \| null | PO number entered by Procurement at Stage 6 |
-| `poAttachment` | AttachmentRef \| null | PO document |
-| `paymentReference` | string \| null | Invoice/reference number from Finance |
-| `paymentAttachment` | AttachmentRef \| null | |
-| `approvalChain` | ApprovalEntry[] | Ordered list of required approvers + status per approver |
-| `approvalChainRequired` | string[] | Roles required in the chain (set when PO is added) |
-| `requiresEVPCEO` | boolean | Whether EVP/CEO approval step is needed |
-| `rejectedAt` | timestamp \| null | Set if Director rejects at Stage 5 |
-| `rejectionReason` | string \| null | Director's reason for rejection |
-| `closedAt` | timestamp \| null | Set on final closure |
-| `closedBy` | string \| null | UID of Procurement closer |
-| `terminatedAt` | timestamp \| null | Set if Super Admin terminates |
-| `terminatedReason` | string \| null | |
-| `showFullWorkflow` | boolean | If true, requester sees full timeline |
-| `isActive` | boolean | False if terminated or closed |
+| `currentStage` | number | Numeric step 1–12 (derived from `status`, stored for queries) |
+| `status` | string | Canonical workflow state string (see §4) |
+| `category` | string | One of 6 procurement categories |
+| `productDescription` | string | RFQ body — what is being procured |
+| `requestAttachments` | AttachmentRef[] | Specs, drawings, etc. |
+| `selectedSupplierResponseId` | string \| null | Set at Stage 5 when requester selects a quotation |
+| `quotationRejectedAt` | timestamp \| null | Set at Stage 5 if requester rejects all quotations |
+| `quotationRejectionReason` | string \| null | Requester's written rejection reason |
+| `prNumber` | string \| null | SAP PR number — entered by requester at Stage 6 |
+| `approvedBudgetSar` | number \| null | Approved budget in SAR — entered by requester at Stage 6 |
+| `poNumber` | string \| null | SAP PO number — entered by Procurement at Stage 8 |
+| `poAttachment` | AttachmentRef \| null | PO document — uploaded at Stage 8 |
+| `requiresEVPCEO` | boolean | Whether budget chain step 3 (EVP/CEO) is required |
+| `paymentStatus` | string | `"pending"` \| `"recorded"` |
+| `showFullWorkflow` | boolean | If true, requester sees the full timeline |
+| `isActive` | boolean | False when closed or terminated |
+| `isTerminated` | boolean | Set by Super Admin |
+| `terminatedBy` | string \| null | UID of Super Admin who terminated |
+| `terminationReason` | string \| null | |
+| `terminatedAt` | timestamp \| null | |
+| `closedAt` | timestamp \| null | Set at Stage 12 |
+| `closedBy` | string \| null | UID of Procurement user who closed |
 
 **AttachmentRef sub-type:**
 ```
 { url: string, name: string, storagePath: string, uploadedAt: timestamp, uploadedBy: string }
-```
-
-**ApprovalEntry sub-type:**
-```
-{ role: string, uid: string | null, displayName: string | null, status: "pending" | "approved" | "skipped", approvedAt: timestamp | null, notes: string | null }
 ```
 
 ---
@@ -168,24 +190,64 @@ Immutable log of every stage transition and comment. Never updated or deleted (e
 | `comment` | string \| null | Human-readable note attached to this event |
 | `metadata` | map \| null | Extra data for the event type (e.g. `{ supplierLinkId, poNumber }`) |
 
-**Event types:** `request_created` · `sent_to_procurement` · `supplier_link_generated` · `supplier_response_received` · `quotations_forwarded` · `director_approved` · `director_rejected` · `po_added` · `approval_granted` · `approval_skipped` · `payment_recorded` · `request_closed` · `request_terminated` · `workflow_rerouted` · `comment_added`
+**Event types (v1.2):**
+
+| Type | Fired at |
+|---|---|
+| `request_created` | Stage 1 — RFQ submitted |
+| `sent_to_procurement` | Stage 1→2 — status moves to pending_procurement |
+| `supplier_link_generated` | Stage 3 — Procurement generates a link |
+| `supplier_link_deactivated` | Stage 3 — Procurement deactivates a link |
+| `supplier_response_received` | Stage 4 — Supplier submits via public form |
+| `quotations_forwarded` | Stage 4→5 — Procurement forwards to requester |
+| `quotation_selected` | Stage 5→6 — Requester selects a supplier response |
+| `quotation_rejected` | Stage 5→quotation_rejected — Requester rejects all |
+| `pr_budget_entered` | Stage 6→7 — Requester enters PR number + approved budget |
+| `budget_approval_granted` | Stage 7 — A budget-chain approver signs off |
+| `budget_approval_skipped` | Stage 7 — Conditional EVP/CEO step skipped |
+| `po_added` | Stage 8 — Procurement enters SAP PO number + attachment |
+| `po_director_approved` | Stage 9 — Director (requester) approves the PO |
+| `po_planning_approved` | Stage 10 — Planning approves the PO |
+| `payment_recorded` | Stage 11 — Finance records payment + proof |
+| `request_closed` | Stage 12 — Procurement closes |
+| `request_terminated` | — Super Admin terminates |
+| `workflow_rerouted` | — Super Admin manually reroutes stage |
+| `comment_added` | Any stage — free-text comment |
 
 ---
 
 ### 2.5 `approvals` (top-level collection)
 
-One document per approver-per-request. Created when PO is added and the approval chain is set.
+One document per approver step per request. Two chains are created at different workflow stages.
+
+**Budget chain** (Stage 7 — created when requester submits PR + budget at Stage 6):
+
+| stepOrder | approverRole | Conditional |
+|---|---|---|
+| 1 | `planning` | always |
+| 2 | `finance` | always |
+| 3 | `evp` (or `ceo`) | only if `requiresEVPCEO == true` |
+
+**PO chain** (Stages 9–10 — created when Procurement enters PO at Stage 8):
+
+| stepOrder | approverRole | Conditional |
+|---|---|---|
+| 1 | `requester` (sentinel) | always — the original requester (Director) |
+| 2 | `planning` | always |
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | string | Auto Firestore ID |
 | `requestId` | string | FK to `procurement_requests` |
-| `role` | string | The approving role |
-| `uid` | string \| null | UID of the specific approver (may be null until they act) |
-| `order` | number | 1 = requester (canSubmitRequests), 2 = operations, 3 = planning, 4 = finance, 5 = evp/ceo (if required) |
+| `chainType` | string | `"budget"` \| `"po"` — identifies which chain |
+| `stepOrder` | number | Position within the chain (1-based) |
+| `approverRole` | string | Role responsible; `"requester"` sentinel for PO chain step 1 |
+| `approverUid` | string \| null | UID of the user who acted (null until acted) |
 | `status` | string | `"pending"` \| `"approved"` \| `"skipped"` |
-| `approvedAt` | timestamp \| null | |
-| `notes` | string \| null | |
+| `decision` | string \| null | `"approved"` \| `"skipped"` — null while pending |
+| `comment` | string \| null | Optional note attached to the decision |
+| `decidedAt` | timestamp \| null | |
+| `createdAt` | timestamp | |
 
 ---
 
@@ -211,27 +273,30 @@ Columns are the 7 system roles in rank order. The **canSubmitRequests** column i
 
 | Action | super_admin | ceo | evp | operations | planning | finance | procurement | +canSubmitRequests |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Create request (Stage 1) | ✓ | — | — | — | — | — | — | ✓ |
+| Create RFQ (Stage 1) | ✓ | — | — | — | — | — | — | ✓ |
 | View own request | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | View all requests | ✓ | — | — | — | — | — | ✓ | — |
-| Generate supplier links | ✓ | — | — | — | — | — | ✓ | — |
-| View supplier responses | ✓ | — | — | — | — | — | ✓ | ✓† |
-| Forward quotations for approval | ✓ | — | — | — | — | — | ✓ | — |
-| Approve / reject quotation (Stage 5) | ✓ | — | — | — | — | — | — | ✓ |
-| Enter PR number + approved budget | ✓ | — | — | — | — | — | — | ✓ |
-| Add PO number + attachment (Stage 6) | ✓ | — | — | — | — | — | ✓ | — |
-| Sign approval chain — Step 1 | ✓ | — | — | — | — | — | — | ✓ (requester) |
-| Sign approval chain — Step 2 | ✓ | — | — | ✓ | — | — | — | — |
-| Sign approval chain — Step 3 | ✓ | — | — | — | ✓ | — | — | — |
-| Sign approval chain — Step 4 | ✓ | — | — | — | — | ✓ | — | — |
-| Sign approval chain — Step 5 (if req.) | ✓ | ✓ | ✓ | — | — | — | — | — |
-| Record payment (Stage 8) | ✓ | — | — | — | — | ✓ | — | — |
-| Close request (Stage 9) | ✓ | — | — | — | — | — | ✓ | — |
+| Generate supplier links (Stage 3) | ✓ | — | — | — | — | — | ✓ | — |
+| View raw supplier responses | ✓ | — | — | — | — | — | ✓ | — |
+| View forwarded quotations (Stage 5) | ✓ | — | — | — | — | — | ✓ | ✓† |
+| Forward quotations to requester | ✓ | — | — | — | — | — | ✓ | — |
+| Select / reject quotation (Stage 5) | ✓ | — | — | — | — | — | — | ✓ |
+| Enter PR number + approved budget (Stage 6) | ✓ | — | — | — | — | — | — | ✓ |
+| Budget chain — Planning sign-off (Stage 7, step 1) | ✓ | — | — | — | ✓ | — | — | — |
+| Budget chain — Finance sign-off (Stage 7, step 2) | ✓ | — | — | — | — | ✓ | — | — |
+| Budget chain — EVP/CEO sign-off (Stage 7, step 3) | ✓ | ✓ | ✓ | — | — | — | — | — |
+| Enter PO details (Stage 8) | ✓ | — | — | — | — | — | ✓ | — |
+| PO chain — Director sign-off (Stage 9) | ✓ | — | — | — | — | — | — | ✓ (requester) |
+| PO chain — Planning sign-off (Stage 10) | ✓ | — | — | — | ✓ | — | — | — |
+| Record payment + upload proof (Stage 11) | ✓ | — | — | — | — | ✓ | — | — |
+| Close request (Stage 12) | ✓ | — | — | — | — | — | ✓ | — |
 | View full timeline | ✓ | — | — | — | — | — | ✓ | if showFullWorkflow |
 | Terminate / reroute request | ✓ | — | — | — | — | — | — | — |
 | Manage users / roles / canSubmitRequests | ✓ | — | — | — | — | — | — | — |
 
-† canSubmitRequests user (requester) sees forwarded quotations only — not the raw unreviewed supplier responses.
+† Requester sees **forwarded** quotations only — not the raw unreviewed supplier responses.
+
+> **Note on "operations" role**: `operations` is a valid system role and may hold `canSubmitRequests: true`, but it has no dedicated approval chain step in the current workflow. Operations users participate as requesters (via the flag) or as viewers of their own requests.
 
 > **Note on "Director"**: "Director" is used in workflow descriptions as a shorthand for the person who initiated the request. It is **not** a role value in the system. Any user — regardless of their role — who holds `canSubmitRequests: true` may create requests and perform Stage 5 quotation approval. If a dedicated Director role is required in the future it will be added as a new `UserRole` value; for now the permission flag is the sole gate.
 
@@ -241,64 +306,111 @@ Columns are the 7 system roles in rank order. The **canSubmitRequests** column i
 
 | Status | Stage | Owner Role | Description |
 |---|---|---|---|
-| `draft` | 1 | requester | Created but not yet submitted |
-| `pending_procurement` | 1→2 | procurement | Sent to Procurement; awaiting supplier outreach |
-| `awaiting_quotations` | 2 | procurement | Supplier form links generated; waiting for responses |
-| `quotations_received` | 3→4 | procurement | At least one response in; Procurement reviewing |
-| `pending_director_review` | 4→5 | director | Procurement has forwarded quotations to Director |
-| `director_rejected` | 5 | procurement | Director rejected; Procurement must re-collect |
-| `director_approved` | 5→6 | procurement | Director approved; PR number + budget recorded |
-| `pending_po` | 6 | procurement | Waiting for Procurement to add PO |
-| `pending_approvals` | 7 | approval chain | PO added; sequential approvals in progress |
-| `pending_payment` | 8 | finance | All approvals done; waiting for Finance payment |
-| `closed` | 9 | — | Request completed and archived |
-| `terminated` | — | super_admin | Stopped by Super Admin |
+| `draft` | 1 | requester | RFQ created; not yet submitted to Procurement |
+| `pending_procurement` | 2 | procurement | Submitted to Procurement; awaiting supplier outreach |
+| `awaiting_quotations` | 3 | procurement | Supplier form links generated; waiting for responses |
+| `quotations_received` | 4 | procurement | At least one response in; Procurement reviewing and forwarding |
+| `pending_requester_selection` | 5 | requester | Quotations forwarded; requester must select one or reject all |
+| `quotation_rejected` | 5b | procurement | Requester rejected all quotations; Procurement re-collects |
+| `pending_pr_entry` | 6 | requester | Quotation selected; requester entering PR number + approved budget |
+| `pending_budget_approval` | 7 | planning → finance → evp/ceo | Budget approval chain in progress |
+| `pending_po` | 8 | procurement | Budget approved; Procurement entering SAP PO details |
+| `pending_director_po_approval` | 9 | requester (director) | PO entered; requester approving the PO |
+| `pending_planning_po_approval` | 10 | planning | Director approved PO; Planning signing off |
+| `pending_payment` | 11 | finance | All PO approvals done; Finance processing payment |
+| `closed` | 12 | — | Request completed and archived |
+| `terminated` | — | super_admin | Stopped by Super Admin at any stage |
 
 ---
 
 ## 5. Required Fields per Stage
 
-### Stage 1 — Request Creation
-- `title` (required)
-- `description` (required)
-- `category` (required)
-- `attachments` (optional at creation, but Procurement may require before forwarding)
+### Stage 1 — RFQ Creation (`draft`)
+- `productDescription` (required) — what the requester needs to procure
+- `category` (required) — one of the 6 procurement categories
+- `requestAttachments` (optional at creation; Procurement may request before forwarding)
+- `createdByRole` — snapshot of requester's role at time of creation
 
-### Stage 2 — Supplier Quotations
-- At least one `supplier_links` document created
-- Procurement enters link label for tracking
+### Stage 3 — Supplier Links (`awaiting_quotations`)
+- At least one `supplier_links` document created per round
+- `label` (recommended) — e.g. "Supplier A", "Supplier B"
+- System supports **3+ links per request** with an "Add more" option
+- Each token is cryptographically random (64-char hex, never auto-increment)
 
-### Stage 3 — Supplier Form (public, no login)
+### Stage 4 — Supplier Form Submission (public, no login)
 Required fields on submission:
-- `companyName`, `crNumber`, `crAttachment`
-- `sacNumber`, `sacAttachment`
-- `zatcaNumber`
-- `phone`, `email`, `contactPerson`
-- `nationalAddress`, `nationalAddressAttachment`
-- `iban`, `ibanAttachment`
-- `priceExcludingVAT` → `priceIncludingVAT` auto-calculated (× 1.15)
-- `paymentTerms` (one of three enum values)
 
-Optional:
-- `notes`
-- `extraAttachments[]`
+| Field | Notes |
+|---|---|
+| `companyName` | |
+| `commercialRegistrationNumber` | |
+| `commercialRegistrationAttachment` | file upload |
+| `accreditationNumber` | SAC number |
+| `accreditationAttachment` | file upload |
+| `zatcaNumber` | ZATCA / Zakat Customs number |
+| `phone` | |
+| `email` | |
+| `contactPersonName` | |
+| `nationalAddressText` | |
+| `nationalAddressAttachment` | file upload |
+| `ibanText` | |
+| `ibanAttachment` | file upload |
+| `priceExcludingVatSar` | SAR; VAT auto-calculated server-side (× 1.15) |
+| `paymentTerms` | `"advance"` · `"50_50"` · `"after_supply"` |
 
-### Stage 5 — Director Approval
-- Director must select exactly one supplier response to approve
-- On approval: `prNumber` and `approvedBudgetSAR` are required
+Optional: `notes`, `extraAttachments[]` (supports multiple additional files)
 
-### Stage 6 — Procurement PO
-- `poNumber` (required)
-- `poAttachment` (required)
-- `requiresEVPCEO` flag set here (determines approval chain length)
+`vatAmountSar` and `priceIncludingVatSar` are **always computed server-side** — never trusted from the form payload.
 
-### Stage 8 — Finance Payment
-- `paymentReference` (required)
-- `paymentAttachment` (required)
+### Stage 5 — Requester Selects Quotation (`pending_requester_selection`)
+- Requester sees all **forwarded** supplier responses (not unreviewed raw submissions)
+- Must select **exactly one** response OR reject all with a written reason
+- On selection: `selectedSupplierResponseId` set on the request; status → `pending_pr_entry`
+- On rejection: `quotationRejectedAt` + `quotationRejectionReason` set; status → `quotation_rejected`
 
-### Stage 9 — Closure
+### Stage 6 — Requester Enters PR + Budget (`pending_pr_entry`)
+- `prNumber` (required) — SAP Purchase Requisition number
+- `approvedBudgetSar` (required) — approved budget in SAR (positive number)
+- Both entered by the requester (Director) who selected the quotation
+- On completion: status → `pending_budget_approval`; budget approval chain documents created
+
+### Stage 7 — Budget Approval Chain (`pending_budget_approval`)
+Sequential approvals by:
+1. `planning` — confirms budget is available in the plan
+2. `finance` — confirms financial authorisation
+3. `evp` or `ceo` — required only if `requiresEVPCEO == true`
+
+Each step creates one `approvals` document (`chainType: "budget"`).
+On all required steps approved: status → `pending_po`
+
+### Stage 8 — Procurement Enters PO Details (`pending_po`)
+- `poNumber` (required) — SAP PO number (created by Procurement outside the app)
+- `poAttachment` (required) — uploaded PO document
+- `requiresEVPCEO` — set here if not already determined (gates budget chain step 3)
+- On completion: two `approvals` documents created (`chainType: "po"`); status → `pending_director_po_approval`
+
+### Stage 9 — Director Approves PO (`pending_director_po_approval`)
+- The original requester (Director) reviews the PO document
+- Approves or comments; `approvals` doc (`chainType: "po"`, `stepOrder: 1`) updated
+- On approval: status → `pending_planning_po_approval`
+
+### Stage 10 — Planning Approves PO (`pending_planning_po_approval`)
+- Planning gives final sign-off on the PO
+- `approvals` doc (`chainType: "po"`, `stepOrder: 2`) updated
+- On approval: status → `pending_payment`
+
+### Stage 11 — Finance Payment (`pending_payment`)
+- Finance processes payment in SAP (outside the app)
+- `paymentReference` (required) — invoice / reference number
+- `paymentAttachment` (required) — payment proof upload
+- Creates a `payment_records` document
+- On completion: status → `closed` (pending Procurement confirmation) or directly closed
+
+### Stage 12 — Closure (`closed`)
 - Procurement confirms closure
 - `requestNumber` assigned (e.g. `PRQ-2026-XXXX`)
+- `closedAt` and `closedBy` set
+- Request archived; `isActive: false`
 
 ---
 
