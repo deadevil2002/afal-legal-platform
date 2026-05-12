@@ -75,7 +75,7 @@ router.post("/lookup-employee", async (req, res) => {
 
     // If the index doc already has an email, return it directly
     if (empData.email) {
-      safeJsonResponse(res, { email: empData.email }, 200);
+      safeJsonResponse(res, { email: empData.email.toLowerCase() }, 200);
       return;
     }
 
@@ -92,7 +92,7 @@ router.post("/lookup-employee", async (req, res) => {
       return;
     }
 
-    safeJsonResponse(res, { email: userData.email }, 200);
+    safeJsonResponse(res, { email: userData.email.toLowerCase() }, 200);
   } catch (err) {
     req.log.error({ err }, "lookup-employee failed");
     errorJsonResponse(res, "An internal error occurred.", 500, "server_error");

@@ -508,7 +508,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     employeeNumber?: string,
     phone?: string
   ) => {
-    if (email.toLowerCase() === activeSuperAdminEmail.toLowerCase()) {
+    // Normalize email once at entry — all comparisons and writes use lowerEmail.
+    const lowerEmail = email.trim().toLowerCase();
+
+    if (lowerEmail === activeSuperAdminEmail.toLowerCase()) {
       throw new Error(
         "This email is reserved for the primary administrator. Please sign in directly."
       );
@@ -525,7 +528,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ── Create Firebase Auth account ───────────────────────────────────────
     let cred!: Awaited<ReturnType<typeof createUserWithEmailAndPassword>>;
     try {
-      cred = await createUserWithEmailAndPassword(auth, email, password);
+      cred = await createUserWithEmailAndPassword(auth, lowerEmail, password);
     } catch (authErr: unknown) {
       throw authErr;
     }
@@ -537,7 +540,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const now = serverTimestamp();
     const newProfile: UserProfile = {
       uid: cred.user.uid,
-      email,
+      email: lowerEmail,
       displayName,
       employeeNumber: trimmedEmpNum,
       role: "procurement",
@@ -580,7 +583,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (trimmedEmpNum) {
         batch.set(doc(db, "user_employee_index", trimmedEmpNum), {
           uid: cred.user.uid,
-          email: email.toLowerCase(),
+          email: lowerEmail,
           employeeNumber: trimmedEmpNum,
           createdAt: now,
         });
