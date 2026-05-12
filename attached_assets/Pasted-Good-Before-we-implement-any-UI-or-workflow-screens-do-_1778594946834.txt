@@ -1,0 +1,119 @@
+Good. Before we implement any UI or workflow screens, do a full current-app capability audit.
+
+Goal:
+Identify which existing app features, utilities, components, and flows can be reused in AF Procurement Hub so we do not rebuild or break useful functionality.
+
+Do NOT modify code in this task.
+Do NOT remove old features.
+Do NOT implement new workflow yet.
+This is audit/report only.
+
+Audit these areas carefully:
+
+1. Excel Export
+- Find the current Excel export implementation.
+- Identify:
+  - file path(s)
+  - library used
+  - whether it exports requests/users/logs/messages
+  - whether it can be reused for procurement workflow logs
+  - what needs to change to export:
+    - full workflow timeline
+    - approvals
+    - supplier quotations
+    - PR/PO/payment records
+    - user actions/audit log
+- Include any current known issues, such as Expo FileSystem legacy usage or Buffer issues.
+
+2. Logs / Audit Trail
+- Find every existing log/audit mechanism:
+  - audit_logs collection
+  - workflow/event logging
+  - status change tracking
+  - deletion/profile-change logs if any
+- Identify what currently exists and what is missing for enterprise tracking.
+- Recommend how to map old logs into new workflow_events.
+
+3. Attachments
+- Find how attachments are currently handled:
+  - picker
+  - upload
+  - preview
+  - download
+  - Cloudinary usage
+  - file metadata shape
+- Identify what can be reused for:
+  - RFQ attachments
+  - supplier form attachments
+  - PO attachment
+  - payment proof attachment
+- Note iOS/Android limitations already discovered.
+
+4. User Management
+- Audit:
+  - user creation/editing
+  - role assignment
+  - canSubmitRequests
+  - showFullWorkflow if present or needed
+  - account activation/deactivation
+  - employee number / phone indexes
+- Identify what is reusable for the new procurement roles.
+
+5. Existing Dashboard / Tabs
+- Find dashboard files and current tab structure.
+- Identify what can be reused for:
+  - Super Admin dashboard
+  - Procurement dashboard
+  - Requester dashboard
+  - Approval-role dashboards
+
+6. Notifications / Badges
+- Find current in-app notification/badge logic.
+- Identify what can be reused for:
+  - pending RFQ
+  - pending quotation review
+  - pending approval
+  - pending payment
+  - rejected/returned request
+  - completed request
+
+7. Localization
+- Identify current i18n structure.
+- Confirm how to safely add procurement terms in EN/AR.
+- Identify any duplicate keys or known translation issues.
+
+8. Web Dashboard readiness
+- Identify whether current project has any web dashboard foundation.
+- If not, recommend whether to build:
+  - inside existing repo
+  - separate Next.js app
+  - or separate Replit service
+- Do not build it yet.
+
+9. Firestore / API / Backend
+- Identify current Firebase client usage.
+- Identify current api-server usage.
+- Identify what currently writes via client vs Admin SDK.
+- Confirm new procurement backend routes already created:
+  - supplier link route
+  - supplier response route
+  - admin health routes
+
+10. Risk Report
+Create a report named:
+CURRENT_APP_REUSE_AUDIT.md
+
+Include:
+- Reusable features
+- Features to rewrite
+- Features to delete later
+- Risks
+- Recommended migration order
+- Specific notes for Excel export and full workflow log export
+
+Return:
+- report summary
+- files audited
+- reusable modules
+- critical risks
+- recommended next implementation phase
