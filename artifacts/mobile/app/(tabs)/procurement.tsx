@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   RefreshControl,
   ScrollView,
@@ -24,9 +25,11 @@ import { useT } from "@/hooks/useT";
 function ProcurementCard({
   item,
   onPress,
+  onDelete,
 }: {
   item: ProcurementRequest;
   onPress: () => void;
+  onDelete?: () => void;
 }) {
   const colors = useColors();
   const { isRTL } = useT();
@@ -47,7 +50,10 @@ function ProcurementCard({
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: item.isTerminated ? "#FECACA" : colors.border },
+      ]}
       onPress={onPress}
       activeOpacity={0.75}
     >
@@ -68,7 +74,18 @@ function ProcurementCard({
             {item.groupOrRequesterName}
           </Text>
         </View>
-        <Icon name="chevron-right" size={18} color={colors.mutedForeground} />
+        <View style={styles.cardActions}>
+          {!!onDelete && !item.isTerminated && (
+            <TouchableOpacity
+              onPress={onDelete}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.trashBtn}
+            >
+              <Icon name="trash" size={16} color="#EF4444" />
+            </TouchableOpacity>
+          )}
+          <Icon name="chevron-right" size={18} color={colors.mutedForeground} />
+        </View>
       </View>
       <View style={styles.cardBottom}>
         <ProcurementStageBadge stage={item.status} />
@@ -82,26 +99,58 @@ function ProcurementCard({
 
 export default function ProcurementScreen() {
   const colors = useColors();
-  const { t, isRTL } = useT();
-  const { profile, isAdmin } = useAuth();
-  const { procurementRequests, loading, error, refresh } = useProcurementRequests();
+  const { t, language, isRTL } = useT();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
+  const { procurementRequests, loading, error, refresh, deleteRequest } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [showTerminated, setShowTerminated] = useState(false);
 
   const canCreate = profile?.canSubmitRequests === true || isAdmin;
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return procurementRequests;
+    let results = procurementRequests;
+    // Hide terminated requests by default; Super Admin can toggle to reveal them.
+    if (!showTerminated) {
+      results = results.filter((r) => !r.isTerminated);
+    }
+    if (!search.trim()) return results;
     const q = search.toLowerCase();
-    return procurementRequests.filter(
+    return results.filter(
       (r) =>
         r.title?.toLowerCase().includes(q) ||
         r.groupOrRequesterName?.toLowerCase().includes(q) ||
         r.requestNumber?.toLowerCase().includes(q)
     );
-  }, [procurementRequests, search]);
+  }, [procurementRequests, search, showTerminated]);
+
+  const handleDelete = (item: ProcurementRequest) => {
+    Alert.alert(
+      language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
+      language === "ar"
+        ? "سيتم تحديد الطلب كمنهي وإخفاؤه من القائمة الرئيسية. يمكنك الاطلاع عليه لاحقاً عبر خيار عرض المنهية."
+        : "The request will be marked as terminated and hidden from the main list. You can view it later via Show Terminated.",
+      [
+        { text: language === "ar" ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: language === "ar" ? "إنهاء" : "Terminate",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteRequest(item.id);
+            } catch (err) {
+              Alert.alert(
+                language === "ar" ? "خطأ" : "Error",
+                language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate request."
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -123,14 +172,25 @@ export default function ProcurementScreen() {
       >
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>{t("procurementRequests")}</Text>
-          {canCreate && (
-            <TouchableOpacity
-              style={styles.newBtn}
-              onPress={() => router.push("/procurement/new" as never)}
-            >
-              <Icon name="plus" size={20} color="#fff" />
-            </TouchableOpacity>
-          )}
+          <View style={styles.headerBtns}>
+            {isSuperAdmin && (
+              <TouchableOpacity
+                style={[styles.iconBtn, showTerminated && { backgroundColor: "rgba(239,68,68,0.25)" }]}
+                onPress={() => setShowTerminated((v) => !v)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Icon name="trash" size={17} color={showTerminated ? "#EF4444" : "rgba(255,255,255,0.7)"} />
+              </TouchableOpacity>
+            )}
+            {canCreate && (
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => router.push("/procurement/new" as never)}
+              >
+                <Icon name="plus" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Search */}
@@ -205,6 +265,7 @@ export default function ProcurementScreen() {
                 key={item.id}
                 item={item}
                 onPress={() => router.push(`/procurement/${item.id}` as never)}
+                onDelete={isSuperAdmin ? () => handleDelete(item) : undefined}
               />
             ))
           )}
@@ -232,7 +293,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     flex: 1,
   },
-  newBtn: {
+  headerBtns: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -308,6 +374,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
+  },
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  trashBtn: {
+    padding: 4,
   },
   cardMeta: { flex: 1, gap: 3 },
   requestNum: {

@@ -1,0 +1,69 @@
+Good progress.
+
+Employee number login now works and RFQ creation works.
+
+Remaining issues:
+
+1. Create User screen fails
+When Super Admin opens Create User, it shows:
+"Failed to load user profile."
+Please debug the exact root cause.
+
+Requirements:
+- Add clear logs for:
+  - current auth uid
+  - current profile loaded true/false
+  - current profile role
+  - isSuperAdmin
+  - API base URL used for POST /api/admin/users
+  - response status/body from create-user API
+- The screen must not show "Failed to load user profile" without the actual cause.
+- If API server returns an error, show a clear localized message.
+- Confirm create user writes:
+  - Firebase Auth user
+  - users/{uid}
+  - user_employee_index/{employeeNumber}
+  - user_phone_index/{phone}
+
+2. Firestore index error
+I got:
+FirebaseError: failed-precondition: The query requires an index.
+
+This happened from an active snapshot listener after opening the app.
+
+Please identify the exact query that requires the index and report:
+- collection name
+- where clauses
+- orderBy fields
+- required composite index fields/order
+
+If the index is for procurement_requests or requests/request_messages, tell me the exact Firebase index to create.
+
+3. Add delete button to Procurement Request detail/list
+Super Admin needs a universal trash/delete icon for procurement requests.
+
+Requirements:
+- Show trash icon only for super_admin.
+- Add confirmation dialog before deletion.
+- Delete/close safely:
+  - If hard delete is safe, delete procurement_requests/{id}
+  - If workflow_events should remain immutable, use soft delete instead:
+    isTerminated: true
+    terminatedAt
+    terminatedBy
+    terminationReason: "Deleted by Super Admin"
+    status: "terminated"
+- Prefer soft delete if there are linked workflow_events.
+- Hide terminated/deleted requests from normal list by default.
+- Keep Super Admin able to view deleted/terminated records later if needed.
+
+4. Do not change Firestore rules unless strictly required.
+Current rules already allow super_admin delete on procurement_requests.
+If rules must change, output the FULL firestore.rules file in chat for manual publish.
+
+Return:
+- root cause of create-user failure
+- exact index required
+- deletion approach chosen: hard delete or soft delete
+- files changed
+- test result

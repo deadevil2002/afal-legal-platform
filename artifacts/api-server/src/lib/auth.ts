@@ -35,12 +35,26 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
   try {
     const snap = await getAdminDb().collection("users").doc(uid).get();
     if (!snap.exists) {
+      req.log.warn({ uid }, "requireInternalAuth: users/{uid} document not found in Firestore");
       errorJsonResponse(res, "User profile not found.", 401, "unauthorized");
       return;
     }
     profileData = snap.data() as { [key: string]: unknown };
-  } catch {
-    errorJsonResponse(res, "Failed to load user profile.", 500, "server_error");
+  } catch (profileReadErr: unknown) {
+    const e = profileReadErr as { code?: string; message?: string };
+    // Surface the real error so the client (and server logs) can diagnose it.
+    // Common causes: service-account credentials don't match FIREBASE_PROJECT_ID,
+    // or the Admin SDK Firestore connection fails on first use.
+    req.log.error(
+      { err: e, uid },
+      "requireInternalAuth: Firestore users read threw — check FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY match FIREBASE_PROJECT_ID",
+    );
+    errorJsonResponse(
+      res,
+      `Failed to load user profile (${e?.code ?? e?.message ?? "unknown error"}).`,
+      500,
+      "server_error",
+    );
     return;
   }
 

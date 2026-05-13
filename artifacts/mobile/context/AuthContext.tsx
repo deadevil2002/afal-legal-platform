@@ -479,6 +479,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
       ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
       : "";
+    console.log("[adminCreateUser] uid:", user.uid, "| isSuperAdmin:", isSuperAdmin);
+    console.log("[adminCreateUser] apiBase:", apiBase || "(empty — will use relative URL)");
     const response = await fetch(`${apiBase}/api/admin/users`, {
       method: "POST",
       headers: {
@@ -487,14 +489,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       body: JSON.stringify(params),
     });
+    console.log("[adminCreateUser] response.status:", response.status);
     if (!response.ok) {
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+      console.error("[adminCreateUser] server error data:", JSON.stringify(data));
       const code = (data?.code as string) || "";
       if (code === "email_taken") throw new Error("email_taken");
       if (code === "phone_taken") throw new Error("phone_taken");
       if (code === "employee_taken") throw new Error("employee_taken");
       throw new Error((data?.error as string) || `HTTP ${response.status}`);
     }
+    console.log("[adminCreateUser] user created successfully");
   };
 
   /**

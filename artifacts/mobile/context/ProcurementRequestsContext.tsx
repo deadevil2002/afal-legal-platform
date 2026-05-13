@@ -1,10 +1,12 @@
 import {
   addDoc,
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import React, {
@@ -67,6 +69,7 @@ interface ProcurementRequestsContextValue {
   error: string | null;
   refresh: () => void;
   createRFQ: (params: CreateRFQParams) => Promise<string>;
+  deleteRequest: (requestId: string) => Promise<void>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -77,6 +80,9 @@ const ProcurementRequestsContext = createContext<ProcurementRequestsContextValue
   error: null,
   refresh: () => {},
   createRFQ: async () => {
+    throw new Error("ProcurementRequestsProvider not mounted");
+  },
+  deleteRequest: async () => {
     throw new Error("ProcurementRequestsProvider not mounted");
   },
 });
@@ -258,9 +264,33 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
     [user, profile]
   );
 
+  // ─── deleteRequest (soft delete) ───────────────────────────────────────────
+  // Super Admin only. Sets isTerminated: true + status: "terminated" on the
+  // document. workflow_events are intentionally left intact (immutable audit).
+  // The list screen filters out terminated records by default; Super Admin can
+  // toggle to see them.
+
+  const deleteRequest = useCallback(
+    async (requestId: string): Promise<void> => {
+      if (!user || !profile) throw new Error("Not authenticated");
+      if (!isSuperAdmin) throw new Error("Only Super Admin can terminate requests");
+
+      await updateDoc(doc(db, "procurement_requests", requestId), {
+        isTerminated: true,
+        terminatedBy: user.uid,
+        terminatedAt: serverTimestamp(),
+        terminationReason: "Deleted by Super Admin",
+        status: "terminated",
+        isActive: false,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    [user, profile, isSuperAdmin]
+  );
+
   return (
     <ProcurementRequestsContext.Provider
-      value={{ procurementRequests, loading, error, refresh, createRFQ }}
+      value={{ procurementRequests, loading, error, refresh, createRFQ, deleteRequest }}
     >
       {children}
     </ProcurementRequestsContext.Provider>

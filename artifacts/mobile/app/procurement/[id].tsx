@@ -11,6 +11,7 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -22,7 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProcurementStageBadge } from "@/components/ProcurementStageBadge";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/context/AuthContext";
-import { ProcurementRequest } from "@/context/ProcurementRequestsContext";
+import { ProcurementRequest, useProcurementRequests } from "@/context/ProcurementRequestsContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -126,8 +127,9 @@ function TimelineEvent({ event, isLast }: { event: WorkflowEvent; isLast: boolea
 export default function ProcurementDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
-  const { t, isRTL } = useT();
-  const { profile, isAdmin } = useAuth();
+  const { t, isRTL, language } = useT();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
+  const { deleteRequest } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -240,7 +242,42 @@ export default function ProcurementDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {request.requestNumber ?? request.title}
         </Text>
-        <View style={{ width: 30 }} />
+        {isSuperAdmin && !request.isTerminated ? (
+          <TouchableOpacity
+            style={styles.trashBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              Alert.alert(
+                language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
+                language === "ar"
+                  ? "سيتم تحديد الطلب كمنهي وإخفاؤه من القائمة الرئيسية."
+                  : "The request will be marked as terminated and hidden from the main list.",
+                [
+                  { text: language === "ar" ? "إلغاء" : "Cancel", style: "cancel" },
+                  {
+                    text: language === "ar" ? "إنهاء" : "Terminate",
+                    style: "destructive",
+                    onPress: async () => {
+                      try {
+                        await deleteRequest(id!);
+                        router.back();
+                      } catch {
+                        Alert.alert(
+                          language === "ar" ? "خطأ" : "Error",
+                          language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate request."
+                        );
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Icon name="trash" size={20} color="rgba(255,255,255,0.85)" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 30 }} />
+        )}
       </View>
 
       <ScrollView
@@ -321,6 +358,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     flex: 1,
   },
+  trashBtn: { padding: 4 },
   scroll: { padding: 20, gap: 16 },
   stageRow: {
     flexDirection: "row",
