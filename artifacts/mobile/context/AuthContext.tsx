@@ -395,24 +395,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const login = async (identifier: string, password: string) => {
     const trimmed = identifier.trim();
-    if (trimmed.includes("@")) {
-      await signInWithEmailAndPassword(auth, trimmed.toLowerCase(), password);
+    const mode = trimmed.includes("@") ? "email" : "employeeNumber";
+    console.log("[Login] mode:", mode, "| identifier:", trimmed);
+
+    if (mode === "email") {
+      try {
+        await signInWithEmailAndPassword(auth, trimmed.toLowerCase(), password);
+      } catch (err: unknown) {
+        const e = err as { code?: string; message?: string };
+        console.error("[Login] email signIn failed:", e?.code, e?.message);
+        throw err;
+      }
       return;
     }
 
     // ── Employee number login ─────────────────────────────────────────────
     // user_employee_index/{empNum} is publicly readable (allow get: if true).
-    const empSnap = await getDoc(doc(db, "user_employee_index", trimmed));
+    console.log("[Login] reading Firestore path: user_employee_index/" + trimmed);
+    let empSnap: Awaited<ReturnType<typeof getDoc>>;
+    try {
+      empSnap = await getDoc(doc(db, "user_employee_index", trimmed));
+    } catch (fsErr: unknown) {
+      const e = fsErr as { code?: string; message?: string };
+      console.error("[Login] user_employee_index read failed:", e?.code, e?.message);
+      // Firestore errors (e.g. permission-denied) should surface clearly,
+      // not silently collapse to employee_not_found.
+      throw new Error(
+        e?.code === "permission-denied"
+          ? "employee_index_permission_denied"
+          : "employee_not_found"
+      );
+    }
+
+    console.log("[Login] doc exists:", empSnap.exists());
     if (!empSnap.exists()) {
       throw new Error("employee_not_found");
     }
 
     const empData = empSnap.data() as { uid: string; email?: string };
+    console.log("[Login] empData.uid:", empData.uid, "| empData.email:", empData.email ?? "(missing)");
     let resolvedEmail = empData.email;
 
     if (!resolvedEmail) {
       // Fallback for older index docs that pre-date the email field.
       // The api-server uses Admin SDK so it can read users/{uid} without Firestore rules.
+      console.log("[Login] email missing from index doc — calling API fallback");
       const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
         ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
         : "";
@@ -421,13 +448,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeNumber: trimmed }),
       });
-      if (!resp.ok) throw new Error("employee_not_found");
+      if (!resp.ok) {
+        console.error("[Login] lookup-employee API returned", resp.status);
+        throw new Error("employee_not_found");
+      }
       const data = (await resp.json()) as { email?: string };
       if (!data.email) throw new Error("employee_not_found");
       resolvedEmail = data.email;
     }
 
-    await signInWithEmailAndPassword(auth, resolvedEmail.toLowerCase(), password);
+    console.log("[Login] resolved email (lowercased):", resolvedEmail.toLowerCase());
+    try {
+      await signInWithEmailAndPassword(auth, resolvedEmail.toLowerCase(), password);
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
+      console.error("[Login] signInWithEmailAndPassword failed:", e?.code, e?.message);
+      throw err;
+    }
+    console.log("[Login] signIn success");
   };
 
   /**

@@ -23,6 +23,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+// ── DEBUG: confirm which Firebase project the app is connected to ──────────
+// Remove after verifying EXPO_PUBLIC_FIREBASE_* secrets point to af-procurement-hub
+console.log("[Firebase] firebaseConfig.projectId   =", firebaseConfig.projectId);
+console.log("[Firebase] firebaseConfig.authDomain  =", firebaseConfig.authDomain);
+console.log("[Firebase] app.options.projectId      =", app.options.projectId);
+// ───────────────────────────────────────────────────────────────────────────
+
 export const auth =
   Platform.OS === "web"
     ? initializeAuth(app, { persistence: browserLocalPersistence })

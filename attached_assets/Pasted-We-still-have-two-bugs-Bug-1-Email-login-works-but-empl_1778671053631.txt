@@ -1,0 +1,76 @@
+We still have two bugs.
+
+Bug 1:
+Email login works, but employee number login with 34650 fails with generic error.
+
+Bug 2:
+Procurement Requests tab opens but shows generic error:
+[ProcurementCtx] admin query failed: permission-denied
+Even when procurement_requests collection is empty.
+
+Before fixing anything, verify which Firebase project the mobile app is actually using.
+
+You have full code access, so check both:
+1. Static config file:
+- Find the Firebase config file used by the mobile app.
+- Report projectId, authDomain, storageBucket.
+
+2. Runtime proof:
+- Add temporary console logs during app startup:
+  - firebaseConfig.projectId
+  - firebaseConfig.authDomain
+  - app.options.projectId
+  - getAuth().app.options.projectId
+  - getFirestore().app.options.projectId
+
+Expected NEW Firebase project:
+projectId = af-procurement-hub
+authDomain = af-procurement-hub.firebaseapp.com
+
+If runtime shows old project:
+projectId = afal-legal-platform
+then fix the mobile Firebase config and clear/restart Expo cache.
+
+Then debug and fix employee-number login:
+- Add logs:
+  - login mode detected: email or employeeNumber
+  - employee number input after trim
+  - exact document path read: user_employee_index/{employeeNumber}
+  - whether doc exists
+  - resolved email
+  - Firebase auth error code/message if sign-in fails
+- It must read user_employee_index/34650
+- It must use the email field from that document
+- It must lowercase the email before signInWithEmailAndPassword
+- It must not require typing email
+
+Then debug and fix Procurement permission-denied:
+- Add logs:
+  - current user uid
+  - profile loaded true/false
+  - profile role
+  - isSuperAdmin
+  - isAdmin
+  - query used for procurement_requests
+  - full Firestore error code/message
+- Super admin must be able to query procurement_requests even if the collection is empty.
+- If Firestore rules are the issue, output the FULL updated firestore.rules file in chat for manual publish.
+- If code fires before auth/profile is ready, fix the guard.
+
+Important:
+Do not build new features.
+Do not remove old screens.
+Only debug and fix:
+1. Firebase project config verification
+2. employee-number login
+3. procurement permission-denied
+
+Return:
+- static Firebase projectId
+- runtime Firebase projectId
+- whether mobile app was using old or new Firebase
+- root cause of employee-number login failure
+- root cause of Procurement permission-denied
+- files changed
+- full firestore.rules if changed
+- exact manual Firebase changes needed, if any

@@ -134,6 +134,12 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
     // Operational roles (ceo, evp, etc.) see only requests they created.
     const shouldRunAdminQuery = isSuperAdmin || profile.role === "assistant_admin";
 
+    console.log("[ProcurementCtx] user.uid:", user?.uid);
+    console.log("[ProcurementCtx] profile.role:", profile?.role);
+    console.log("[ProcurementCtx] isSuperAdmin:", isSuperAdmin);
+    console.log("[ProcurementCtx] shouldRunAdminQuery:", shouldRunAdminQuery);
+    console.log("[ProcurementCtx] query:", shouldRunAdminQuery ? "ADMIN (all docs, orderBy createdAt)" : "USER (createdByUid == " + user?.uid + ")");
+
     if (shouldRunAdminQuery) {
       const q = query(
         collection(db, "procurement_requests"),
@@ -149,7 +155,7 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
           flush();
         },
         (err) => {
-          console.error("[ProcurementCtx] admin query failed:", err.code, err.message);
+          console.error("[ProcurementCtx] admin query failed — code:", err.code, "| message:", err.message);
           setError(t("errGeneric"));
           setLoading(false);
         }

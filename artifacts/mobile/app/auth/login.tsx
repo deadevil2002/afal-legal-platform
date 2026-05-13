@@ -54,6 +54,14 @@ export default function LoginScreen() {
             ? "لا يوجد حساب بهذا الرقم الوظيفي."
             : "No account found with this employee number."
         );
+      } else if (err?.message === "employee_index_permission_denied") {
+        // Firestore blocked the user_employee_index read — likely wrong Firebase
+        // project or security rules not deployed. Check console logs for details.
+        setErrorMsg(
+          language === "ar"
+            ? "خطأ في ضبط قاعدة البيانات. راجع سجلات التطبيق."
+            : "Database configuration error. Check app console logs."
+        );
       } else {
         setErrorMsg(mapFirebaseAuthError(e, language));
       }
