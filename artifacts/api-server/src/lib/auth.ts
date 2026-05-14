@@ -23,21 +23,9 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
   const idToken = authHeader.slice(7);
 
   let uid: string;
-  let decodedEmail: string;
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
     uid = decoded.uid;
-    decodedEmail = decoded.email ?? "(no email in token)";
-
-    req.log.info(
-      {
-        decodedUid: uid,
-        decodedEmail,
-        adminProjectId: process.env["FIREBASE_PROJECT_ID"] ?? "(FIREBASE_PROJECT_ID not set!)",
-        firestorePath: `users/${uid}`,
-      },
-      "requireInternalAuth: token verified — reading Firestore users/{uid}",
-    );
   } catch {
     errorJsonResponse(res, "Invalid or expired Firebase ID token.", 401, "unauthorized");
     return;
@@ -47,60 +35,19 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
   try {
     const snap = await getAdminDb().collection("users").doc(uid).get();
 
-    req.log.info(
-      {
-        decodedUid: uid,
-        decodedEmail,
-        firestorePath: `users/${uid}`,
-        docExists: snap.exists,
-      },
-      "requireInternalAuth: Firestore users read completed",
-    );
-
     if (!snap.exists) {
-      req.log.warn(
-        { uid, decodedEmail, firestorePath: `users/${uid}` },
-        `requireInternalAuth: users/${uid} does NOT exist in Firestore (profile_not_found)`,
-      );
-      errorJsonResponse(
-        res,
-        `User profile not found in Firestore (users/${uid}). ` +
-          `decodedUid=${uid} decodedEmail=${decodedEmail}`,
-        404,
-        "profile_not_found",
-      );
+      req.log.warn({ uid }, "requireInternalAuth: user profile not found in Firestore");
+      errorJsonResponse(res, "User profile not found.", 404, "profile_not_found");
       return;
     }
 
     profileData = snap.data() as { [key: string]: unknown };
   } catch (profileReadErr: unknown) {
-    const e = profileReadErr as {
-      code?: string | number;
-      message?: string;
-      details?: string;
-      stack?: string;
-    };
+    const e = profileReadErr as { code?: string | number; message?: string };
 
     req.log.error(
-      {
-        decodedUid: uid,
-        decodedEmail,
-        adminProjectId: process.env["FIREBASE_PROJECT_ID"] ?? "(not set)",
-        firestorePath: `users/${uid}`,
-        errCode: e?.code,
-        errMessage: e?.message,
-        errDetails: e?.details,
-        errFull: (() => {
-          try {
-            return JSON.stringify(profileReadErr);
-          } catch {
-            return String(profileReadErr);
-          }
-        })(),
-      },
-      "requireInternalAuth: Firestore .get() THREW — Admin SDK cannot read Firestore. " +
-        "Most likely cause: FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY do not belong to " +
-        "the project set in FIREBASE_PROJECT_ID, OR the service account lacks Firestore access.",
+      { uid, errCode: e?.code, errMessage: e?.message },
+      "requireInternalAuth: Admin SDK Firestore read failed",
     );
 
     const isPermissionDenied =
@@ -108,13 +55,9 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
       String(e?.code).toUpperCase() === "PERMISSION_DENIED" ||
       String(e?.message).toLowerCase().includes("permission");
 
-    const humanMsg =
-      `Admin SDK Firestore read failed for users/${uid}. ` +
-      `code=${e?.code ?? "?"} message=${e?.message ?? "?"} details=${e?.details ?? "?"}`;
-
     errorJsonResponse(
       res,
-      humanMsg,
+      "An internal error occurred while verifying your session.",
       500,
       isPermissionDenied ? "admin_sdk_permission_denied" : "admin_sdk_error",
     );

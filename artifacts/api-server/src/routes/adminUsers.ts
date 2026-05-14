@@ -115,28 +115,12 @@ router.post("/", requireInternalAuth, async (req, res) => {
   try {
     const caller = req.internalUser!;
 
-    req.log.info(
-      {
-        callerUid: caller.uid,
-        callerEmail: caller.email,
-        callerRole: caller.role,
-        callerCanSubmitRequests: caller.canSubmitRequests,
-        isSuperAdmin: caller.role === "super_admin",
-      },
-      "POST /api/admin/users: caller context",
-    );
-
     if (caller.role !== "super_admin") {
       req.log.warn(
-        { callerUid: caller.uid, callerEmail: caller.email, callerRole: caller.role },
+        { callerUid: caller.uid, callerRole: caller.role },
         "POST /api/admin/users: rejected — caller is not super_admin",
       );
-      errorJsonResponse(
-        res,
-        `Only Super Admin may create users. Caller role is: "${caller.role}" (uid: ${caller.uid}).`,
-        403,
-        "not_super_admin",
-      );
+      errorJsonResponse(res, "Only Super Admin may create users.", 403, "not_super_admin");
       return;
     }
 

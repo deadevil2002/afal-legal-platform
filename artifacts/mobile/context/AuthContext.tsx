@@ -396,14 +396,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (identifier: string, password: string) => {
     const trimmed = identifier.trim();
     const mode = trimmed.includes("@") ? "email" : "employeeNumber";
-    console.log("[Login] mode:", mode, "| identifier:", trimmed);
 
     if (mode === "email") {
       try {
         await signInWithEmailAndPassword(auth, trimmed.toLowerCase(), password);
       } catch (err: unknown) {
-        const e = err as { code?: string; message?: string };
-        console.error("[Login] email signIn failed:", e?.code, e?.message);
         throw err;
       }
       return;
@@ -411,13 +408,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // ── Employee number login ─────────────────────────────────────────────
     // user_employee_index/{empNum} is publicly readable (allow get: if true).
-    console.log("[Login] reading Firestore path: user_employee_index/" + trimmed);
     let empSnap: Awaited<ReturnType<typeof getDoc>>;
     try {
       empSnap = await getDoc(doc(db, "user_employee_index", trimmed));
     } catch (fsErr: unknown) {
       const e = fsErr as { code?: string; message?: string };
-      console.error("[Login] user_employee_index read failed:", e?.code, e?.message);
       // Firestore errors (e.g. permission-denied) should surface clearly,
       // not silently collapse to employee_not_found.
       throw new Error(
@@ -427,19 +422,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
-    console.log("[Login] doc exists:", empSnap.exists());
     if (!empSnap.exists()) {
       throw new Error("employee_not_found");
     }
 
     const empData = empSnap.data() as { uid: string; email?: string };
-    console.log("[Login] empData.uid:", empData.uid, "| empData.email:", empData.email ?? "(missing)");
     let resolvedEmail = empData.email;
 
     if (!resolvedEmail) {
       // Fallback for older index docs that pre-date the email field.
       // The api-server uses Admin SDK so it can read users/{uid} without Firestore rules.
-      console.log("[Login] email missing from index doc — calling API fallback");
       const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
         ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
         : "";
@@ -449,7 +441,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ employeeNumber: trimmed }),
       });
       if (!resp.ok) {
-        console.error("[Login] lookup-employee API returned", resp.status);
         throw new Error("employee_not_found");
       }
       const data = (await resp.json()) as { email?: string };
@@ -457,15 +448,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resolvedEmail = data.email;
     }
 
-    console.log("[Login] resolved email (lowercased):", resolvedEmail.toLowerCase());
     try {
       await signInWithEmailAndPassword(auth, resolvedEmail.toLowerCase(), password);
     } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
-      console.error("[Login] signInWithEmailAndPassword failed:", e?.code, e?.message);
       throw err;
     }
-    console.log("[Login] signIn success");
   };
 
   /**
@@ -479,8 +466,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
       ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
       : "";
-    console.log("[adminCreateUser] uid:", user.uid, "| isSuperAdmin:", isSuperAdmin);
-    console.log("[adminCreateUser] apiBase:", apiBase || "(empty — will use relative URL)");
     const response = await fetch(`${apiBase}/api/admin/users`, {
       method: "POST",
       headers: {
@@ -489,17 +474,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       body: JSON.stringify(params),
     });
-    console.log("[adminCreateUser] response.status:", response.status);
     if (!response.ok) {
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-      console.error("[adminCreateUser] server error data:", JSON.stringify(data));
       const code = (data?.code as string) || "";
       if (code === "email_taken") throw new Error("email_taken");
       if (code === "phone_taken") throw new Error("phone_taken");
       if (code === "employee_taken") throw new Error("employee_taken");
       throw new Error((data?.error as string) || `HTTP ${response.status}`);
     }
-    console.log("[adminCreateUser] user created successfully");
   };
 
   /**
