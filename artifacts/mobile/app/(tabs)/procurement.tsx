@@ -255,7 +255,7 @@ export default function ProcurementScreen() {
                   style={[styles.createBtn, { backgroundColor: colors.primary }]}
                   onPress={() => router.push("/procurement/new" as never)}
                 >
-                  <Text style={styles.createBtnText}>{t("newProcurementRequest")}</Text>
+                  <Text style={styles.createBtnText}>{t("newRFQ")}</Text>
                 </TouchableOpacity>
               )}
             </View>

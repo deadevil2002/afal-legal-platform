@@ -57,10 +57,20 @@ export interface ProcurementRequest {
   closedBy: string | null;
 }
 
+export interface RFQAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+  uploadedByUid: string;
+}
+
 export interface CreateRFQParams {
   title: string;
   groupOrRequesterName: string;
   productDescription: string;
+  attachments?: RFQAttachment[];
 }
 
 interface ProcurementRequestsContextValue {
@@ -206,6 +216,7 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
         groupOrRequesterName: params.groupOrRequesterName.trim() || profile.displayName,
         productDescription: params.productDescription.trim(),
         requestAttachments: [],
+        attachments: params.attachments ?? [],
         selectedSupplierResponseId: null,
         quotationRejectedAt: null,
         quotationRejectionReason: null,

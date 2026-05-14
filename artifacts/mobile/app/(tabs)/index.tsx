@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -11,26 +11,95 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ProcurementStageBadge } from "@/components/ProcurementStageBadge";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
-import { RequestCard } from "@/components/RequestCard";
-import { UserProfileModal } from "@/components/UserProfileModal";
 import { useAuth } from "@/context/AuthContext";
-import { useRequests } from "@/context/RequestsContext";
+import { ProcurementRequest, useProcurementRequests } from "@/context/ProcurementRequestsContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+
+// ─── Mini card for recent procurement items ────────────────────────────────────
+
+function HomeProcurementItem({
+  item,
+  onPress,
+}: {
+  item: ProcurementRequest;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const { isRTL } = useT();
+
+  const dateStr = useMemo(() => {
+    try {
+      const ts = item.createdAt as { toDate?: () => Date };
+      const d = ts?.toDate?.() ?? new Date(item.createdAt as string);
+      return d.toLocaleDateString(isRTL ? "ar-SA" : "en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
+  }, [item.createdAt, isRTL]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.itemCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: item.isTerminated ? "#FECACA" : colors.border,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <View style={[styles.itemRow, isRTL && styles.itemRowRTL]}>
+        <View style={styles.itemMeta}>
+          {item.requestNumber ? (
+            <Text style={[styles.itemNum, { color: colors.primary }]}>
+              {item.requestNumber}
+            </Text>
+          ) : null}
+          <Text
+            style={[styles.itemTitle, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          {item.groupOrRequesterName ? (
+            <Text
+              style={[styles.itemSub, { color: colors.mutedForeground }]}
+              numberOfLines={1}
+            >
+              {item.groupOrRequesterName}
+            </Text>
+          ) : null}
+        </View>
+        <View style={[styles.itemRight, isRTL && styles.itemRightRTL]}>
+          <ProcurementStageBadge stage={item.status} />
+          <Text style={[styles.itemDate, { color: colors.mutedForeground }]}>
+            {dateStr}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, profile, isAdmin, isSuperAdmin } = useAuth();
-  const canSubmit = profile?.canSubmitRequests === true;
-  const { requests, loading, error, refresh } = useRequests();
+  const { profile, isAdmin, isSuperAdmin } = useAuth();
+  const { procurementRequests, loading, error, refresh } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading) setRefreshing(false);
@@ -41,18 +110,22 @@ export default function HomeScreen() {
     refresh();
   };
 
-  const recentRequests = requests.slice(0, 5);
+  const TERMINAL_STATUSES = ["closed", "terminated"];
+  const visible = procurementRequests.filter((r) => !r.isTerminated);
+  const recentRequests = visible.slice(0, 5);
 
-  const TERMINAL_STATUSES = ["Approved / PO Issued", "Rejected", "Resolved / Closed", "Escalated"];
   const stats = {
-    total: requests.length,
-    submitted: requests.filter((r) => r.status === "Submitted").length,
-    active: requests.filter((r) => !TERMINAL_STATUSES.includes(r.status)).length,
-    closed: requests.filter((r) => TERMINAL_STATUSES.includes(r.status)).length,
+    total: visible.length,
+    draft: visible.filter((r) => r.status === "draft").length,
+    active: visible.filter(
+      (r) => r.status !== "draft" && !TERMINAL_STATUSES.includes(r.status)
+    ).length,
+    closed: procurementRequests.filter(
+      (r) => r.isTerminated || TERMINAL_STATUSES.includes(r.status)
+    ).length,
   };
 
   return (
-    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={{
@@ -67,7 +140,7 @@ export default function HomeScreen() {
         />
       }
     >
-      {/* Hero — white clean header with transparent logo */}
+      {/* Hero */}
       <View
         style={[
           styles.heroSection,
@@ -89,10 +162,10 @@ export default function HomeScreen() {
       {/* Stats */}
       <View style={styles.statsRow}>
         {[
-          { label: t("statTotal"),     value: stats.total,     color: colors.primary },
-          { label: t("statSubmitted"), value: stats.submitted,  color: "#D97706" },
-          { label: t("statActive"),    value: stats.active,     color: colors.secondary },
-          { label: t("statResolved"),  value: stats.closed,     color: "#16A34A" },
+          { label: t("statTotal"),    value: stats.total,  color: colors.primary },
+          { label: t("stageDraft"),   value: stats.draft,  color: "#D97706" },
+          { label: t("statActive"),   value: stats.active, color: colors.secondary },
+          { label: t("statResolved"), value: stats.closed, color: "#16A34A" },
         ].map((stat) => (
           <View
             key={stat.label}
@@ -104,34 +177,24 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Recent Requests */}
+      {/* Recent Procurement Requests */}
       <View style={styles.section}>
         <View style={[styles.sectionHeader, isRTL && styles.sectionHeaderRTL]}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }, isRTL && styles.textRTL]}>
+          <Text
+            style={[styles.sectionTitle, { color: colors.foreground }, isRTL && styles.textRTL]}
+          >
             {isAdmin ? t("recentRequests") : t("myRequests")}
           </Text>
-          <View style={[styles.sectionActions, isRTL && styles.sectionActionsRTL]}>
-            {canSubmit && (
-              <TouchableOpacity
-                style={[styles.newBtn, { backgroundColor: colors.accent }]}
-                onPress={() => router.push("/procurement/new" as never)}
-                activeOpacity={0.85}
-              >
-                <Icon name="plus" size={13} color="#fff" />
-                <Text style={styles.newBtnText}>{t("newRequest")}</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => router.push("/(tabs)/requests" as never)}>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>{t("allRequests")}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => router.push("/(tabs)/procurement" as never)}>
+            <Text style={[styles.seeAll, { color: colors.primary }]}>{t("allRequests")}</Text>
+          </TouchableOpacity>
         </View>
 
         {loading && !refreshing ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.primary} size="large" />
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              {t("loadingRequests")}
+              {t("loadingProcurement")}
             </Text>
           </View>
         ) : error ? (
@@ -140,38 +203,28 @@ export default function HomeScreen() {
             <Text style={[styles.errorText, { color: "#991B1B" }]}>{error}</Text>
           </View>
         ) : recentRequests.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
             <Icon name="archive" size={40} color={colors.border} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>{t("noRequests")}</Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {isSuperAdmin ? t("allRequests") : t("createFirstRequest")}
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              {t("noProcurementRequests")}
             </Text>
-            {canSubmit && (
-              <TouchableOpacity
-                style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-                onPress={() => router.push("/procurement/new" as never)}
-              >
-                <Icon name="plus" size={16} color="#fff" />
-                <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              {isSuperAdmin ? t("allRequests") : t("createFirstRFQ")}
+            </Text>
           </View>
         ) : (
           recentRequests.map((req) => (
-            <RequestCard
+            <HomeProcurementItem
               key={req.id}
-              request={req}
-              showUser={isAdmin}
-              currentUserId={user?.uid}
-              onSenderPress={isAdmin ? (uid) => setProfileModalUserId(uid) : undefined}
+              item={req}
+              onPress={() => router.push(`/procurement/${req.id}` as never)}
             />
           ))
         )}
       </View>
-
     </ScrollView>
-    <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
-    </>
   );
 }
 
@@ -227,25 +280,6 @@ const styles = StyleSheet.create({
   },
   sectionHeaderRTL: { flexDirection: "row-reverse" },
   sectionTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  sectionActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  sectionActionsRTL: { flexDirection: "row-reverse" },
-  newBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 8,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  newBtnText: {
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
   seeAll: { fontSize: 13, fontFamily: "Inter_500Medium" },
   loadingBox: { alignItems: "center", paddingVertical: 48, gap: 14 },
   loadingText: { fontSize: 13, fontFamily: "Inter_400Regular" },
@@ -267,15 +301,25 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginTop: 8 },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center" },
-  emptyBtn: {
+  itemCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 12,
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    gap: 10,
   },
-  emptyBtnText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 14 },
+  itemRowRTL: { flexDirection: "row-reverse" },
+  itemMeta: { flex: 1, gap: 2 },
+  itemNum: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
+  itemTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold", lineHeight: 19 },
+  itemSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  itemRight: { alignItems: "flex-end", gap: 6 },
+  itemRightRTL: { alignItems: "flex-start" },
+  itemDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
   textRTL: { textAlign: "right" },
 });

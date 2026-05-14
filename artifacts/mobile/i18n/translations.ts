@@ -421,6 +421,7 @@ export const translations = {
     // ── Procurement workflow ───────────────────────────────────────────────
     procurementRequests: "Procurement Requests",
     newProcurementRequest: "New Procurement Request",
+    newRFQ: "New RFQ",
     myProcurementRequests: "My Requests",
     allProcurementRequests: "All Requests",
     submitRFQ: "Submit",
@@ -882,6 +883,7 @@ export const translations = {
     // ── Procurement workflow ───────────────────────────────────────────────
     procurementRequests: "طلبات المشتريات",
     newProcurementRequest: "طلب مشتريات جديد",
+    newRFQ: "طلب مشتريات جديد",
     myProcurementRequests: "طلباتي",
     allProcurementRequests: "جميع الطلبات",
     submitRFQ: "إرسال",

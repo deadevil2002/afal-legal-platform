@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AttachmentMeta, AttachmentPicker } from "@/components/AttachmentPicker";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/context/AuthContext";
 import { useProcurementRequests } from "@/context/ProcurementRequestsContext";
@@ -23,7 +24,7 @@ import { useT } from "@/hooks/useT";
 export default function NewProcurementRequestScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { createRFQ } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -33,6 +34,7 @@ export default function NewProcurementRequestScreen() {
   const [title, setTitle] = useState("");
   const [groupOrRequesterName, setGroupOrRequesterName] = useState("");
   const [productDescription, setProductDescription] = useState("");
+  const [attachmentMetas, setAttachmentMetas] = useState<AttachmentMeta[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -52,6 +54,14 @@ export default function NewProcurementRequestScreen() {
         title,
         groupOrRequesterName,
         productDescription,
+        attachments: attachmentMetas.map((a) => ({
+          name: a.fileName,
+          url: a.fileUrl,
+          type: a.fileType,
+          size: a.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedByUid: user?.uid ?? "",
+        })),
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(t("success"), t("rfqCreatedSuccess"), [
@@ -222,6 +232,18 @@ export default function NewProcurementRequestScreen() {
           autoCapitalize="sentences"
           textAlign={isRTL ? "right" : "left"}
           editable={!submitting}
+        />
+
+        {/* Attachments */}
+        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 24 }]}>
+          {t("rfqAttachments").toUpperCase()}
+        </Text>
+        <AttachmentPicker
+          attachments={attachmentMetas}
+          onChange={setAttachmentMetas}
+          uploadContext={{ type: "request" }}
+          maxFiles={5}
+          disabled={submitting}
         />
       </ScrollView>
     </KeyboardAvoidingView>
