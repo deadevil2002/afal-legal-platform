@@ -86,7 +86,7 @@ export default function RequestsScreen() {
         {canSubmit && (
           <TouchableOpacity
             style={styles.addBtn}
-            onPress={() => router.push("/request/new" as never)}
+            onPress={() => router.push("/procurement/new" as never)}
           >
             <Icon name="plus" size={26} color="#fff" />
           </TouchableOpacity>
@@ -177,7 +177,7 @@ export default function RequestsScreen() {
             ) : canSubmit ? (
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-                onPress={() => router.push("/request/new" as never)}
+                onPress={() => router.push("/procurement/new" as never)}
               >
                 <Icon name="plus" size={16} color="#fff" />
                 <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>

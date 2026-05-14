@@ -114,7 +114,7 @@ export default function HomeScreen() {
             {canSubmit && (
               <TouchableOpacity
                 style={[styles.newBtn, { backgroundColor: colors.accent }]}
-                onPress={() => router.push("/request/new" as never)}
+                onPress={() => router.push("/procurement/new" as never)}
                 activeOpacity={0.85}
               >
                 <Icon name="plus" size={13} color="#fff" />
@@ -149,7 +149,7 @@ export default function HomeScreen() {
             {canSubmit && (
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-                onPress={() => router.push("/request/new" as never)}
+                onPress={() => router.push("/procurement/new" as never)}
               >
                 <Icon name="plus" size={16} color="#fff" />
                 <Text style={styles.emptyBtnText}>{t("newRequest")}</Text>

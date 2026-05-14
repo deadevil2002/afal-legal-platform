@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,13 +29,6 @@ export default function NewProcurementRequestScreen() {
   const insets = useSafeAreaInsets();
 
   const canCreate = profile?.canSubmitRequests === true || isAdmin;
-
-  // Redirect users who cannot create procurement requests
-  useEffect(() => {
-    if (profile !== null && !canCreate) {
-      router.replace("/(tabs)/procurement" as never);
-    }
-  }, [canCreate, profile, router]);
 
   const [title, setTitle] = useState("");
   const [groupOrRequesterName, setGroupOrRequesterName] = useState("");
@@ -79,6 +72,45 @@ export default function NewProcurementRequestScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!canCreate) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.primary,
+              paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Icon name="close" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {t("newProcurementRequest")}
+          </Text>
+          <View style={{ width: 72 }} />
+        </View>
+        <View style={styles.deniedContainer}>
+          <Icon name="lock" size={52} color="#CBD5E1" />
+          <Text style={[styles.deniedTitle, { color: colors.foreground }]}>
+            {t("noSubmitPermission")}
+          </Text>
+          <Text style={[styles.deniedDesc, { color: colors.mutedForeground }]}>
+            {t("noSubmitPermissionDesc")}
+          </Text>
+          <TouchableOpacity
+            style={[styles.backHomeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.replace("/(tabs)/procurement" as never)}
+          >
+            <Text style={styles.backHomeBtnText}>{t("back")}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -258,4 +290,30 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     minHeight: 160,
   },
+  deniedContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+    gap: 16,
+  },
+  deniedTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  deniedDesc: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  backHomeBtn: {
+    marginTop: 8,
+    borderRadius: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+  },
+  backHomeBtnText: { color: "#fff", fontFamily: "Inter_600SemiBold", fontSize: 15 },
 });
