@@ -550,6 +550,7 @@ function SupplierLinkCard({
   link,
   onShare,
   onDeactivate,
+  canDeactivate,
   colors,
   t,
   isRTL,
@@ -557,6 +558,7 @@ function SupplierLinkCard({
   link: SupplierLink;
   onShare: (url: string, hint: string | null) => void;
   onDeactivate: (id: string) => void;
+  canDeactivate: boolean;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   t: (k: never) => string;
   isRTL: boolean;
@@ -643,7 +645,7 @@ function SupplierLinkCard({
             <Text style={sl.actionBtnText}>{t("shareLink" as never)}</Text>
           </TouchableOpacity>
         )}
-        {isLinkActive && (
+        {isLinkActive && canDeactivate && (
           <TouchableOpacity
             style={[sl.actionBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }]}
             onPress={() => onDeactivate(link.id)}
@@ -1416,6 +1418,7 @@ export default function ProcurementDetailScreen() {
                   link={link}
                   onShare={handleShareLink}
                   onDeactivate={handleDeactivateLink}
+                  canDeactivate={isProcurementRole}
                   colors={colors}
                   t={t as never}
                   isRTL={isRTL}
