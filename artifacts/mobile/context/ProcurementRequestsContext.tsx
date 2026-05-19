@@ -134,6 +134,21 @@ function sortByDate(a: ProcurementRequest, b: ProcurementRequest): number {
   return toMs(b.createdAt) - toMs(a.createdAt);
 }
 
+// ─── Stage-filtered roles ─────────────────────────────────────────────────────
+//
+// Approval-chain roles see:
+//   (a) requests they personally created
+//   (b) requests currently at their actionable stage
+//
+// Both sets are merged via a shared Map, deduplicated by document ID.
+
+const STAGE_ROLE_STATUS: Partial<Record<string, string>> = {
+  planning: "planning_review",
+  finance:  "finance_review",
+  evp:      "evp_review",
+  ceo:      "ceo_review",
+};
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function ProcurementRequestsProvider({ children }: { children: React.ReactNode }) {
@@ -172,9 +187,12 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
       setLoading(false);
     };
 
-    // Super Admin and assistant_admin see all requests.
-    // Operational roles (ceo, evp, etc.) see only requests they created.
-    const shouldRunAdminQuery = isSuperAdmin || profile.role === "assistant_admin";
+    // ── All-requests query (super_admin, assistant_admin, procurement) ──────────
+    // procurement must see every RFQ from day 1 to manage them.
+    const shouldRunAdminQuery =
+      isSuperAdmin ||
+      profile.role === "assistant_admin" ||
+      profile.role === "procurement";
 
     if (shouldRunAdminQuery) {
       const q = query(
@@ -198,6 +216,82 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
       );
     }
 
+    // ── Stage-filtered query (planning, finance, evp, ceo) ────────────────────
+    // Two parallel listeners merged via resultsRef:
+    //   qOwn   — requests created by this user (always visible regardless of stage)
+    //   qStage — requests currently at this role's actionable stage
+    const actionableStatus = STAGE_ROLE_STATUS[profile.role];
+
+    if (actionableStatus) {
+      const ownIds   = new Set<string>();
+      const stageIds = new Set<string>();
+      let ownLoaded   = false;
+      let stageLoaded = false;
+
+      const mergeAndFlush = () => {
+        if (ownLoaded && stageLoaded) flush();
+      };
+
+      const qOwn = query(
+        collection(db, "procurement_requests"),
+        where("createdByUid", "==", profile.uid)
+      );
+      const qStage = query(
+        collection(db, "procurement_requests"),
+        where("status", "==", actionableStatus)
+      );
+
+      const unsubOwn = onSnapshot(
+        qOwn,
+        (snap) => {
+          ownIds.forEach((id) => {
+            if (!stageIds.has(id)) resultsRef.current.delete(id);
+          });
+          ownIds.clear();
+          snap.docs.forEach((d) => {
+            ownIds.add(d.id);
+            resultsRef.current.set(d.id, { id: d.id, ...d.data() } as ProcurementRequest);
+          });
+          ownLoaded = true;
+          mergeAndFlush();
+          if (ownLoaded && stageLoaded) flush();
+        },
+        (err) => {
+          console.error("[ProcurementCtx] own query failed:", err.code, err.message);
+          setError(t("errGeneric"));
+          setLoading(false);
+        }
+      );
+
+      const unsubStage = onSnapshot(
+        qStage,
+        (snap) => {
+          stageIds.forEach((id) => {
+            if (!ownIds.has(id)) resultsRef.current.delete(id);
+          });
+          stageIds.clear();
+          snap.docs.forEach((d) => {
+            stageIds.add(d.id);
+            resultsRef.current.set(d.id, { id: d.id, ...d.data() } as ProcurementRequest);
+          });
+          stageLoaded = true;
+          mergeAndFlush();
+          if (ownLoaded && stageLoaded) flush();
+        },
+        (err) => {
+          console.error("[ProcurementCtx] stage query failed:", err.code, err.message);
+          setError(t("errGeneric"));
+          setLoading(false);
+        }
+      );
+
+      return () => {
+        unsubOwn();
+        unsubStage();
+      };
+    }
+
+    // ── Own-requests only (requesters, operations, unknown roles) ──────────────
     const q = query(
       collection(db, "procurement_requests"),
       where("createdByUid", "==", profile.uid)

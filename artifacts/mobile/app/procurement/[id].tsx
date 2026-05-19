@@ -237,16 +237,22 @@ function QuotationCard({
 }) {
   const fileColor = fileColorForType(quotation.type);
   const fileIcon = fileIconForType(quotation.type);
-  const label = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
+  const shortLabel = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
+  const showFilename = quotation.name && quotation.name !== shortLabel;
 
   return (
     <View style={[sub.quotationCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
       <View style={[sub.qcIconWrap, { backgroundColor: fileColor + "18" }]}>
         <Icon name={fileIcon} size={22} color={fileColor} />
       </View>
-      <Text style={[sub.qcLabel, { color: colors.foreground }]} numberOfLines={2}>
-        {label}
+      <Text style={[sub.qcLabel, { color: colors.foreground }]} numberOfLines={1}>
+        {shortLabel}
       </Text>
+      {showFilename ? (
+        <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {quotation.name}
+        </Text>
+      ) : null}
       {quotation.size ? (
         <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
           {formatFileSize(quotation.size)}
@@ -258,12 +264,11 @@ function QuotationCard({
         </Text>
       ) : null}
       <AttachmentViewer
-        attachment={{ fileName: label, url: quotation.url, fileType: quotation.type, size: quotation.size }}
+        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type, size: quotation.size }}
         style={sub.qcViewBtn}
         iconColor={colors.secondary}
         textColor={colors.secondary}
       />
-      <View style={sub.qcCircle} />
     </View>
   );
 }
@@ -287,7 +292,8 @@ function SelectableQuotationCard({
 }) {
   const fileColor = fileColorForType(quotation.type);
   const fileIcon = fileIconForType(quotation.type);
-  const label = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
+  const shortLabel = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
+  const showFilename = quotation.name && quotation.name !== shortLabel;
 
   return (
     <TouchableOpacity
@@ -303,21 +309,26 @@ function SelectableQuotationCard({
       activeOpacity={0.75}
     >
       <View style={[sub.qcIconWrap, { backgroundColor: fileColor + "18" }]}>
-        <Icon name={fileIcon} size={22} color={fileColor} />
+        <Icon name={fileIcon} size={22} color={selected ? colors.primary : fileColor} />
       </View>
-      <Text style={[sub.qcLabel, { color: colors.foreground }]} numberOfLines={2}>
-        {label}
+      <Text style={[sub.qcLabel, { color: selected ? colors.primary : colors.foreground }]} numberOfLines={1}>
+        {shortLabel}
       </Text>
+      {showFilename ? (
+        <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {quotation.name}
+        </Text>
+      ) : null}
       {quotation.size ? (
         <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
           {formatFileSize(quotation.size)}
         </Text>
       ) : null}
       <AttachmentViewer
-        attachment={{ fileName: label, url: quotation.url, fileType: quotation.type }}
+        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type }}
         style={sub.qcViewBtn}
-        iconColor={colors.secondary}
-        textColor={colors.secondary}
+        iconColor={selected ? colors.primary : colors.secondary}
+        textColor={selected ? colors.primary : colors.secondary}
       />
       <View
         style={[
@@ -344,7 +355,8 @@ function ApprovedCard({
 }) {
   const fileColor = fileColorForType(quotation.type);
   const fileIcon = fileIconForType(quotation.type);
-  const label = quotation.customLabel ?? quotation.name;
+  const shortLabel = quotation.customLabel ?? t("approvedQuotationLabel" as never);
+  const showFilename = quotation.name && quotation.name !== shortLabel;
 
   return (
     <View style={[sub.approvedCard, { borderColor: "#16A34A30", backgroundColor: "#F0FDF4" }]}>
@@ -355,15 +367,20 @@ function ApprovedCard({
         <View style={sub.approvedRow}>
           <Icon name={fileIcon} size={15} color={fileColor} />
           <Text style={[sub.approvedName, { color: "#166534" }]} numberOfLines={1}>
-            {label}
+            {shortLabel}
           </Text>
         </View>
-        <Text style={[sub.approvedMeta, { color: "#16A34A" }]}>
+        {showFilename ? (
+          <Text style={[sub.approvedFilename, { color: "#16A34A" }]} numberOfLines={1}>
+            {quotation.name}
+          </Text>
+        ) : null}
+        <Text style={[sub.approvedMeta, { color: "#4ADE80" }]}>
           {t("approvedAttachmentDesc" as never)}
         </Text>
       </View>
       <AttachmentViewer
-        attachment={{ fileName: label, url: quotation.url, fileType: quotation.type }}
+        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type }}
         style={sub.approvedViewBtn}
         iconColor="#16A34A"
         textColor="#16A34A"
@@ -858,7 +875,7 @@ export default function ProcurementDetailScreen() {
   const isProcurementRole = profile?.role === "procurement" || isSuperAdmin;
   const canUploadQuotations = isProcurementRole;
   const canSelectQuotation =
-    (isCreator && !request?.selectedQuotationAttachmentId) || isSuperAdmin;
+    isCreator && !request?.selectedQuotationAttachmentId;
   const canManageSAP = isProcurementRole;
 
   const canView =
@@ -1672,6 +1689,13 @@ const sub = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
   },
+  qcFilename: {
+    fontSize: 9,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 13,
+    opacity: 0.7,
+  },
   qcViewBtn: {
     paddingVertical: 2,
   },
@@ -1717,6 +1741,12 @@ const sub = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 16,
     marginTop: 2,
+  },
+  approvedFilename: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 15,
+    opacity: 0.75,
   },
   approvedViewBtn: { marginTop: 4 },
 
