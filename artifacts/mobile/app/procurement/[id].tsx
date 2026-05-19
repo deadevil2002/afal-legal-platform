@@ -12,18 +12,20 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { apiGet, apiPost } from "@/lib/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { ProcurementStageBadge } from "@/components/ProcurementStageBadge";
@@ -61,6 +63,37 @@ interface WorkflowEvent {
   comment: string | null;
   createdAt: unknown;
   metadata: Record<string, unknown> | null;
+}
+
+interface SupplierResponse {
+  id: string;
+  linkId: string;
+  requestId: string;
+  companyName?: string;
+  contactPersonName?: string;
+  phone?: string;
+  email?: string;
+  priceExcludingVatSar?: number;
+  vatAmountSar?: number;
+  priceIncludingVatSar?: number;
+  paymentTerms?: "advance" | "50_50" | "after_supply";
+  notes?: string | null;
+  reviewStatus?: string;
+  submittedAt?: { seconds: number; nanoseconds: number } | null;
+}
+
+interface SupplierLink {
+  id: string;
+  requestId: string;
+  token: string;
+  supplierNameHint: string | null;
+  createdByUid: string;
+  isActive: boolean;
+  expiresAt: { seconds: number; nanoseconds: number } | null;
+  submittedAt: { seconds: number; nanoseconds: number } | null;
+  responseId: string | null;
+  response: SupplierResponse | null;
+  createdAt: { seconds: number; nanoseconds: number } | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -122,7 +155,7 @@ function getBudgetStageStatus(status: string, stageKey: string): BudgetStageStat
     ceo: ["approved", "ceo_approved", "closed"],
   };
   const current: Record<string, string[]> = {
-    planning: ["planning_review", "quotation_selected"],
+    planning: ["planning_review"],
     finance: ["finance_review"],
     evp: ["evp_review"],
     ceo: ["ceo_review"],
@@ -511,6 +544,226 @@ function TimelineEvent({ event, isLast, colors, isRTL }: {
   );
 }
 
+// ─── Supplier Link sub-components ────────────────────────────────────────────
+
+function SupplierLinkCard({
+  link,
+  onShare,
+  onDeactivate,
+  colors,
+  t,
+  isRTL,
+}: {
+  link: SupplierLink;
+  onShare: (url: string, hint: string | null) => void;
+  onDeactivate: (id: string) => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  const nowSeconds = Date.now() / 1000;
+  const isExpired  = link.expiresAt ? link.expiresAt.seconds < nowSeconds : false;
+  const isResponded = !!link.response;
+  const isLinkActive = link.isActive && !isExpired && !isResponded;
+  const statusColor =
+    isResponded        ? "#16A34A"
+    : !link.isActive || isExpired ? "#DC2626"
+    : colors.secondary;
+  const statusKey: never = (
+    isResponded          ? "linkStatusResponded"
+    : !link.isActive || isExpired ? "linkStatusExpired"
+    : "linkStatusActive"
+  ) as never;
+
+  const baseUrl  = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+  const publicUrl = `${baseUrl}/supplier/${link.token}`;
+  const resp = link.response;
+
+  return (
+    <View style={[sl.linkCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <View style={[sl.linkHeader, isRTL && { flexDirection: "row-reverse" }]}>
+        <View style={[sl.statusDot, { backgroundColor: statusColor }]} />
+        <Text style={[sl.linkHint, { color: colors.foreground }]} numberOfLines={1}>
+          {link.supplierNameHint ?? "—"}
+        </Text>
+        <View style={[sl.statusChip, { backgroundColor: statusColor + "18" }]}>
+          <Text style={[sl.statusChipText, { color: statusColor }]}>{t(statusKey)}</Text>
+        </View>
+      </View>
+
+      {resp && (
+        <View style={[sl.responseBox, { backgroundColor: "#F0FDF4", borderColor: "#16A34A30" }]}>
+          <View style={[sl.responseRow, isRTL && { flexDirection: "row-reverse" }]}>
+            <Icon name="check-circle" size={14} color="#16A34A" />
+            <Text style={[sl.responseLabel, { color: "#166534" }]}>{t("supplierResponseSection" as never)}</Text>
+          </View>
+          <View style={sl.responseDetails}>
+            {resp.companyName ? (
+              <Text style={[sl.responseDetail, { color: "#166534" }]}>
+                {t("companyNameLabel" as never)}: {resp.companyName}
+              </Text>
+            ) : null}
+            {resp.contactPersonName ? (
+              <Text style={[sl.responseDetail, { color: "#166534" }]}>
+                {t("contactPersonLabel" as never)}: {resp.contactPersonName}
+              </Text>
+            ) : null}
+            {resp.priceExcludingVatSar != null ? (
+              <Text style={[sl.responseDetail, { color: "#166534" }]}>
+                {t("priceExclVatLabel" as never)}: SAR {resp.priceExcludingVatSar.toLocaleString()}
+              </Text>
+            ) : null}
+            {resp.priceIncludingVatSar != null ? (
+              <Text style={[sl.responseDetail, { color: "#166534", fontFamily: "Inter_600SemiBold" }]}>
+                {t("priceInclVatLabel" as never)}: SAR {resp.priceIncludingVatSar.toLocaleString()}
+              </Text>
+            ) : null}
+            {resp.paymentTerms ? (
+              <Text style={[sl.responseDetail, { color: "#166534" }]}>
+                {t("paymentTermsLabel" as never)}:{" "}
+                {resp.paymentTerms === "advance"
+                  ? t("paymentAdvance" as never)
+                  : resp.paymentTerms === "50_50"
+                  ? t("payment50_50" as never)
+                  : t("paymentAfterSupply" as never)}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      )}
+
+      <View style={[sl.linkActions, isRTL && { flexDirection: "row-reverse" }]}>
+        {isLinkActive && (
+          <TouchableOpacity
+            style={[sl.actionBtn, { backgroundColor: colors.primary }]}
+            onPress={() => onShare(publicUrl, link.supplierNameHint)}
+            activeOpacity={0.8}
+          >
+            <Icon name="send" size={13} color="#fff" />
+            <Text style={sl.actionBtnText}>{t("shareLink" as never)}</Text>
+          </TouchableOpacity>
+        )}
+        {isLinkActive && (
+          <TouchableOpacity
+            style={[sl.actionBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }]}
+            onPress={() => onDeactivate(link.id)}
+            activeOpacity={0.8}
+          >
+            <Text style={[sl.actionBtnText, { color: colors.mutedForeground }]}>
+              {t("deactivateLink" as never)}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function WorkflowActionBanner({
+  requestId,
+  status,
+  userRole,
+  isSuperAdmin,
+  colors,
+  t,
+  isRTL,
+}: {
+  requestId: string;
+  status: string;
+  userRole: string;
+  isSuperAdmin: boolean;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  const [comment, setComment] = useState("");
+  const [acting, setActing] = useState(false);
+
+  const ACTION_MAP: Record<string, { approve: string; reject: string }> = {
+    planning_review: { approve: "planning_approve", reject: "planning_reject" },
+    finance_review:  { approve: "finance_approve",  reject: "finance_reject" },
+    evp_review:      { approve: "evp_approve",      reject: "evp_reject" },
+    ceo_review:      { approve: "ceo_approve",      reject: "ceo_reject" },
+  };
+  const ROLE_FOR_STATUS: Record<string, string> = {
+    planning_review: "planning",
+    finance_review:  "finance",
+    evp_review:      "evp",
+    ceo_review:      "ceo",
+  };
+
+  const actions = ACTION_MAP[status];
+  if (!actions) return null;
+  const requiredRole = ROLE_FOR_STATUS[status];
+  if (!isSuperAdmin && userRole !== requiredRole) return null;
+
+  const act = async (action: string) => {
+    setActing(true);
+    try {
+      await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
+        action,
+        comment: comment.trim() || null,
+      });
+      Alert.alert(
+        action.endsWith("_approve") ? t("workflowApproved" as never) : t("workflowRejected" as never),
+        ""
+      );
+      setComment("");
+    } catch (err) {
+      Alert.alert(t("error" as never), (err as Error).message);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  return (
+    <View style={[sl.actionBanner, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "30" }]}>
+      <View style={[sl.bannerHeader, isRTL && { flexDirection: "row-reverse" }]}>
+        <Icon name="shield-check" size={16} color={colors.primary} />
+        <Text style={[sl.bannerTitle, { color: colors.primary }]}>
+          {t("workflowActionRequired" as never)}
+        </Text>
+      </View>
+      <TextInput
+        style={[
+          sl.bannerInput,
+          { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background },
+        ]}
+        value={comment}
+        onChangeText={setComment}
+        placeholder={t("approvalCommentPlaceholder" as never)}
+        placeholderTextColor={colors.mutedForeground}
+        textAlign={isRTL ? "right" : "left"}
+        editable={!acting}
+        multiline
+        numberOfLines={2}
+      />
+      <View style={[sl.bannerBtns, isRTL && { flexDirection: "row-reverse" }]}>
+        <TouchableOpacity
+          style={[sl.bannerApproveBtn, { backgroundColor: "#16A34A" }, acting && { opacity: 0.6 }]}
+          onPress={() => act(actions.approve)}
+          disabled={acting}
+          activeOpacity={0.8}
+        >
+          {acting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={sl.bannerBtnText}>{t("approveAction" as never)}</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[sl.bannerRejectBtn, { borderColor: "#DC2626" }, acting && { opacity: 0.6 }]}
+          onPress={() => act(actions.reject)}
+          disabled={acting}
+          activeOpacity={0.8}
+        >
+          <Text style={[sl.bannerBtnText, { color: "#DC2626" }]}>{t("rejectAction" as never)}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProcurementDetailScreen() {
@@ -533,6 +786,13 @@ export default function ProcurementDetailScreen() {
   const [sapPoInput, setSapPoInput] = useState("");
   const [editingSap, setEditingSap] = useState(false);
   const [savingSap, setSavingSap] = useState(false);
+
+  const [supplierLinks, setSupplierLinks] = useState<SupplierLink[]>([]);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [linkHint, setLinkHint] = useState("");
+  const [linksRefreshKey, setLinksRefreshKey] = useState(0);
+  const refreshLinks = useCallback(() => setLinksRefreshKey((k) => k + 1), []);
 
   const pickingRef = useRef(false);
 
@@ -609,6 +869,20 @@ export default function ProcurementDetailScreen() {
 
   const quotations = (request?.quotationAttachments ?? []) as QuotationAttachment[];
   const requesterAtts = (request?.attachments ?? []) as StoredAttachment[];
+
+  // ── Supplier links fetch ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!id || (!isProcurementRole && !isCreator)) return;
+    let cancelled = false;
+    setLoadingLinks(true);
+    apiGet<{ links: SupplierLink[] }>(`/api/procurement/supplier-links/${id}`)
+      .then(({ links }) => { if (!cancelled) setSupplierLinks(links); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingLinks(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, linksRefreshKey, isProcurementRole, isCreator]);
 
   // ── Quotation upload ────────────────────────────────────────────────────────
 
@@ -763,6 +1037,71 @@ export default function ProcurementDetailScreen() {
     } finally {
       setSavingSap(false);
     }
+  };
+
+  // ── Supplier link actions ───────────────────────────────────────────────────
+
+  const handleGenerateLink = async () => {
+    if (!id) return;
+    setGeneratingLink(true);
+    try {
+      await apiPost("/api/procurement/supplier-links", {
+        requestId: id,
+        supplierNameHint: linkHint.trim() || null,
+      });
+      setLinkHint("");
+      refreshLinks();
+      Alert.alert(t("success"), t("linkGeneratedSuccess"));
+    } catch (err) {
+      Alert.alert(t("error"), (err as Error).message);
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const handleShareLink = async (url: string, hint: string | null) => {
+    try {
+      await Share.share({ message: url, title: hint ?? undefined });
+    } catch {
+      Alert.alert(t("success"), url);
+    }
+  };
+
+  const handleDeactivateLink = (linkId: string) => {
+    Alert.alert(t("deactivateLink"), "", [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("deactivateLink"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await apiPost(`/api/procurement/supplier-links/${linkId}/deactivate`, {});
+            refreshLinks();
+          } catch (err) {
+            Alert.alert(t("error"), (err as Error).message);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleAdvanceToBudget = () => {
+    Alert.alert(t("sendToBudgetWorkflow"), t("sendToBudgetWorkflowConfirm"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("submitApproval"),
+        onPress: async () => {
+          try {
+            await apiPost(`/api/procurement/workflow/${id}/advance`, {
+              action: "procurement_advance",
+              comment: null,
+            });
+          } catch (err) {
+            Alert.alert(t("error"), (err as Error).message);
+          }
+        },
+      },
+    ]);
   };
 
   // ── Loading / not found ─────────────────────────────────────────────────────
@@ -1009,13 +1348,104 @@ export default function ProcurementDetailScreen() {
           </SectionCard>
         )}
 
-        {/* ── Section E: Budget Workflow ──────────────────────────────────── */}
-        {(request.approvedAttachment || ["planning_review", "planning_approved", "finance_review", "finance_approved", "evp_review", "evp_approved", "ceo_review", "approved", "closed"].includes(request.status)) && (
+        {/* ── Section E: Supplier Links ────────────────────────────────────── */}
+        {request.approvedAttachment &&
+          (isProcurementRole || (isCreator && supplierLinks.some((l) => !!l.response))) && (
+          <SectionCard
+            icon="send"
+            label={t("supplierLinkSection")}
+            badge={isProcurementRole ? t("procurementOnlySection") : undefined}
+            colors={colors}
+          >
+            <Text style={[sc.sectionDesc, { color: colors.mutedForeground }]}>
+              {t("supplierLinkSectionDesc")}
+            </Text>
+
+            {isProcurementRole && request.status === "quotation_selected" && (
+              <TouchableOpacity
+                style={[sl.advanceBtn, { backgroundColor: colors.primary }]}
+                onPress={handleAdvanceToBudget}
+                activeOpacity={0.85}
+              >
+                <Icon name="trending-up" size={15} color="#fff" />
+                <Text style={sl.advanceBtnText}>{t("sendToBudgetWorkflow")}</Text>
+              </TouchableOpacity>
+            )}
+
+            {isProcurementRole && (
+              <View style={[sl.generateForm, { borderColor: colors.border }]}>
+                <TextInput
+                  style={[sl.hintInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                  value={linkHint}
+                  onChangeText={setLinkHint}
+                  placeholder={t("supplierNameHintPlaceholder")}
+                  placeholderTextColor={colors.mutedForeground}
+                  textAlign={isRTL ? "right" : "left"}
+                  editable={!generatingLink}
+                />
+                <TouchableOpacity
+                  style={[sl.generateBtn, { backgroundColor: colors.secondary }, generatingLink && { opacity: 0.6 }]}
+                  onPress={handleGenerateLink}
+                  disabled={generatingLink}
+                  activeOpacity={0.8}
+                >
+                  {generatingLink ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Icon name="plus" size={14} color="#fff" />
+                      <Text style={sl.generateBtnText}>{t("generateLink")}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {loadingLinks ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} />
+            ) : supplierLinks.length === 0 ? (
+              isProcurementRole ? (
+                <Text style={[sc.emptyText, { color: colors.mutedForeground }]}>
+                  {t("noLinksYet")}
+                </Text>
+              ) : null
+            ) : (
+              supplierLinks.map((link) => (
+                <SupplierLinkCard
+                  key={link.id}
+                  link={link}
+                  onShare={handleShareLink}
+                  onDeactivate={handleDeactivateLink}
+                  colors={colors}
+                  t={t as never}
+                  isRTL={isRTL}
+                />
+              ))
+            )}
+          </SectionCard>
+        )}
+
+        {/* ── Section F: Budget Workflow ──────────────────────────────────── */}
+        {(request.approvedAttachment ||
+          ["planning_review", "finance_review", "evp_review", "ceo_review",
+           "approved", "closed", "planning_rejected", "finance_rejected",
+           "evp_rejected", "ceo_rejected"].includes(request.status)) && (
           <SectionCard icon="trending-up" label={t("budgetWorkflowSection")} colors={colors}>
             <Text style={[sc.sectionDesc, { color: colors.mutedForeground }]}>
               {t("approvedAttachmentDesc")}
             </Text>
             <BudgetWorkflow status={request.status} colors={colors} t={t as never} isRTL={isRTL} />
+            {profile && (
+              <WorkflowActionBanner
+                requestId={id!}
+                status={request.status}
+                userRole={profile.role}
+                isSuperAdmin={isSuperAdmin}
+                colors={colors}
+                t={t as never}
+                isRTL={isRTL}
+              />
+            )}
           </SectionCard>
         )}
 
@@ -1503,4 +1933,170 @@ const sc = StyleSheet.create({
   },
   sapEditBtnText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 4 },
+});
+
+const sl = StyleSheet.create({
+  linkCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginTop: 4,
+  },
+  linkHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  linkHint: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  statusChip: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusChipText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+  },
+  responseBox: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  responseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  responseLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  responseDetails: { gap: 4 },
+  responseDetail: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+  },
+  linkActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  generateForm: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+  },
+  hintInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  generateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  generateBtnText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  advanceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  advanceBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+  actionBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginTop: 4,
+  },
+  bannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    flex: 1,
+  },
+  bannerInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  bannerBtns: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  bannerApproveBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bannerRejectBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    borderWidth: 1.5,
+  },
+  bannerBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
 });

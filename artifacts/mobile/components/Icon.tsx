@@ -12,6 +12,7 @@ import React from "react";
 import Svg, { Path, Circle, G } from "react-native-svg";
 
 export type IconName =
+  | "trending-up"
   | "home"
   | "home-fill"
   | "document-text"
@@ -356,6 +357,12 @@ const ICONS: Record<IconName, PathSpec> = {
     d: [
       "M12.75 15l3-3m0 0l-3-3m3 3h-7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
     ],
+  },
+
+  // ── Trending Up / Arrow Trending Up ────────────────────────────────────
+  "trending-up": {
+    type: "stroke",
+    d: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941",
   },
 };
 
