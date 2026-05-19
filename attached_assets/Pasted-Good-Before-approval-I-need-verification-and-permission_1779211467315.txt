@@ -1,0 +1,119 @@
+Good.
+
+Before approval, I need verification and permission confirmation.
+
+Please verify everything end-to-end and provide screenshots.
+
+Checklist:
+
+1
+Supplier Link section
+
+Procurement / super_admin only:
+Confirm they can:
+- generate supplier link
+- see generated links
+- share link
+- deactivate link
+
+Requester:
+Confirm requester CANNOT:
+- generate links
+- deactivate links
+- manage supplier links
+
+Requester may only VIEW supplier responses when they exist.
+
+2
+Supplier response flow
+
+Verify:
+
+Supplier link opens public form.
+
+Supplier can submit:
+
+- Commercial registration attachment + number
+- Saudi accreditation attachment + number
+- ZATCA number
+- Company name
+- Phone
+- Email
+- Contact person
+- National address attachment + text
+- IBAN attachment + text
+- Price before VAT
+- Price incl VAT auto-calculated
+- Payment terms
+
+Confirm VAT calculation works.
+
+3
+Workflow actions
+
+Confirm role restrictions:
+
+Planning:
+- planning approval only
+
+Finance:
+- finance approval only
+
+EVP:
+- EVP only
+
+CEO:
+- CEO only
+
+Procurement:
+- quotation + supplier + SAP only
+
+Requester:
+- quotation selection only
+
+Super Admin:
+- full override
+
+Very important:
+Confirm unrelated roles cannot advance unrelated stages.
+
+4
+API verification
+
+Confirm:
+
+EXPO_PUBLIC_API_BASE_URL works.
+
+Workflow actions reach API server successfully.
+
+No hardcoded localhost or dev-only URL remains.
+
+5
+Firestore rules confirmation
+
+Very important:
+
+Did firestore.rules change?
+
+If YES:
+Output the FULL updated firestore.rules before I publish.
+
+If NO:
+Explicitly confirm:
+"No firestore.rules changes were made."
+
+6
+Screenshots required
+
+Provide screenshots for:
+
+- Procurement Supplier Link section
+- Generated supplier links
+- Public supplier form
+- Supplier submitted response card
+- Procurement "Send to Budget Approval"
+- Planning/Finance/EVP/CEO approval banner
+- Requester view (restricted)
+- Super Admin view (full access)
+
+Do not proceed further until verification is complete.
