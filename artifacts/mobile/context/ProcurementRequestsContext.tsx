@@ -187,12 +187,10 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
       setLoading(false);
     };
 
-    // ── All-requests query (super_admin, assistant_admin, procurement) ──────────
-    // procurement must see every RFQ from day 1 to manage them.
-    const shouldRunAdminQuery =
-      isSuperAdmin ||
-      profile.role === "assistant_admin" ||
-      profile.role === "procurement";
+    // ── All-requests query (all operational / admin roles) ────────────────────
+    // Option B visibility: every non-requester role sees all requests read-only.
+    // Editing is gated by UI guards and API role checks — not by query filtering.
+    const shouldRunAdminQuery = isAdmin;
 
     if (shouldRunAdminQuery) {
       const q = query(

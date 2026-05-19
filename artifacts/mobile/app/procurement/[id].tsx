@@ -16,6 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   ScrollView,
   Share,
@@ -40,6 +41,40 @@ import { db } from "@/lib/firebase";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
+
+// ─── Quotation file helpers ───────────────────────────────────────────────────
+// Lightweight open/download used by quotation card buttons.
+// Avoids embedding the full AttachmentViewer (which renders two wide text
+// buttons that don't fit inside compact cards).
+
+async function openQuotationFile(url: string): Promise<void> {
+  if (!url) return;
+  if (Platform.OS === "web") {
+    if (typeof document !== "undefined") {
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    return;
+  }
+  try {
+    await Linking.openURL(url);
+  } catch {
+    // ignore — user can try again
+  }
+}
+
+function downloadQuotationFile(url: string): void {
+  if (!url) return;
+  const dlUrl = url.includes("?")
+    ? `${url}&fl_attachment=true`
+    : `${url}?fl_attachment=true`;
+  openQuotationFile(dlUrl).catch(() => openQuotationFile(url).catch(() => {}));
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,36 +274,45 @@ function QuotationCard({
   const fileIcon = fileIconForType(quotation.type);
   const shortLabel = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
   const showFilename = quotation.name && quotation.name !== shortLabel;
+  const meta = [
+    quotation.size ? formatFileSize(quotation.size) : null,
+    quotation.uploadedAt ? formatDateShort(quotation.uploadedAt, isRTL) : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <View style={[sub.quotationCard, { borderColor: colors.border, backgroundColor: colors.background }]}>
       <View style={[sub.qcIconWrap, { backgroundColor: fileColor + "18" }]}>
-        <Icon name={fileIcon} size={22} color={fileColor} />
+        <Icon name={fileIcon} size={20} color={fileColor} />
       </View>
-      <Text style={[sub.qcLabel, { color: colors.foreground }]} numberOfLines={1}>
-        {shortLabel}
-      </Text>
-      {showFilename ? (
-        <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {quotation.name}
+      <View style={sub.qcContent}>
+        <Text style={[sub.qcLabel, { color: colors.foreground }]} numberOfLines={1}>
+          {shortLabel}
         </Text>
-      ) : null}
-      {quotation.size ? (
-        <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
-          {formatFileSize(quotation.size)}
-        </Text>
-      ) : null}
-      {quotation.uploadedAt ? (
-        <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
-          {formatDateShort(quotation.uploadedAt, isRTL)}
-        </Text>
-      ) : null}
-      <AttachmentViewer
-        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type, size: quotation.size }}
-        style={sub.qcViewBtn}
-        iconColor={colors.secondary}
-        textColor={colors.secondary}
-      />
+        {showFilename ? (
+          <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {quotation.name}
+          </Text>
+        ) : null}
+        {meta ? (
+          <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>{meta}</Text>
+        ) : null}
+      </View>
+      <View style={sub.qcActions}>
+        <TouchableOpacity
+          style={sub.qcActionBtn}
+          onPress={() => { openQuotationFile(quotation.url).catch(() => {}); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="external-link" size={17} color={colors.secondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={sub.qcActionBtn}
+          onPress={() => downloadQuotationFile(quotation.url)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="download" size={17} color={colors.secondary} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -294,6 +338,7 @@ function SelectableQuotationCard({
   const fileIcon = fileIconForType(quotation.type);
   const shortLabel = quotation.customLabel ?? `${t("quotationLabel" as never)} ${index + 1}`;
   const showFilename = quotation.name && quotation.name !== shortLabel;
+  const accent = selected ? colors.primary : fileColor;
 
   return (
     <TouchableOpacity
@@ -308,36 +353,34 @@ function SelectableQuotationCard({
       onPress={onSelect}
       activeOpacity={0.75}
     >
-      <View style={[sub.qcIconWrap, { backgroundColor: fileColor + "18" }]}>
-        <Icon name={fileIcon} size={22} color={selected ? colors.primary : fileColor} />
+      <View style={[sub.qcCircle, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+        {selected ? <Icon name="check" size={11} color="#fff" /> : null}
       </View>
-      <Text style={[sub.qcLabel, { color: selected ? colors.primary : colors.foreground }]} numberOfLines={1}>
-        {shortLabel}
-      </Text>
-      {showFilename ? (
-        <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {quotation.name}
+      <View style={[sub.qcIconWrap, { backgroundColor: accent + "18" }]}>
+        <Icon name={fileIcon} size={20} color={accent} />
+      </View>
+      <View style={sub.qcContent}>
+        <Text style={[sub.qcLabel, { color: selected ? colors.primary : colors.foreground }]} numberOfLines={1}>
+          {shortLabel}
         </Text>
-      ) : null}
-      {quotation.size ? (
-        <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
-          {formatFileSize(quotation.size)}
-        </Text>
-      ) : null}
-      <AttachmentViewer
-        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type }}
-        style={sub.qcViewBtn}
-        iconColor={selected ? colors.primary : colors.secondary}
-        textColor={selected ? colors.primary : colors.secondary}
-      />
-      <View
-        style={[
-          sub.qcCircle,
-          selected && { backgroundColor: colors.primary, borderColor: colors.primary },
-        ]}
+        {showFilename ? (
+          <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {quotation.name}
+          </Text>
+        ) : null}
+        {quotation.size ? (
+          <Text style={[sub.qcMeta, { color: colors.mutedForeground }]}>
+            {formatFileSize(quotation.size)}
+          </Text>
+        ) : null}
+      </View>
+      <TouchableOpacity
+        style={sub.qcActionBtn}
+        onPress={() => { openQuotationFile(quotation.url).catch(() => {}); }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        {selected && <Icon name="check" size={12} color="#fff" />}
-      </View>
+        <Icon name="external-link" size={17} color={selected ? colors.primary : colors.secondary} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -363,7 +406,7 @@ function ApprovedCard({
       <View style={[sub.approvedIconWrap, { backgroundColor: "#16A34A" }]}>
         <Icon name="check" size={16} color="#fff" />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={sub.approvedRow}>
           <Icon name={fileIcon} size={15} color={fileColor} />
           <Text style={[sub.approvedName, { color: "#166534" }]} numberOfLines={1}>
@@ -375,16 +418,26 @@ function ApprovedCard({
             {quotation.name}
           </Text>
         ) : null}
-        <Text style={[sub.approvedMeta, { color: "#4ADE80" }]}>
+        <Text style={[sub.approvedMeta, { color: "#166534", opacity: 0.7 }]}>
           {t("approvedAttachmentDesc" as never)}
         </Text>
       </View>
-      <AttachmentViewer
-        attachment={{ fileName: shortLabel, url: quotation.url, fileType: quotation.type }}
-        style={sub.approvedViewBtn}
-        iconColor="#16A34A"
-        textColor="#16A34A"
-      />
+      <View style={sub.qcActions}>
+        <TouchableOpacity
+          style={sub.qcActionBtn}
+          onPress={() => { openQuotationFile(quotation.url).catch(() => {}); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="external-link" size={17} color="#16A34A" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={sub.qcActionBtn}
+          onPress={() => downloadQuotationFile(quotation.url)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="download" size={17} color="#16A34A" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -1282,20 +1335,18 @@ export default function ProcurementDetailScreen() {
             </Text>
 
             {quotations.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={[sc.quotationsRow, isRTL && { flexDirection: "row-reverse" }]}>
-                  {quotations.map((q, i) => (
-                    <QuotationCard
-                      key={q.id}
-                      quotation={q}
-                      index={i}
-                      colors={colors}
-                      t={t as never}
-                      isRTL={isRTL}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
+              <View style={{ gap: 8, marginTop: 8 }}>
+                {quotations.map((q, i) => (
+                  <QuotationCard
+                    key={q.id}
+                    quotation={q}
+                    index={i}
+                    colors={colors}
+                    t={t as never}
+                    isRTL={isRTL}
+                  />
+                ))}
+              </View>
             )}
 
             <TouchableOpacity
@@ -1326,32 +1377,30 @@ export default function ProcurementDetailScreen() {
                 ? t("quotationSectionDesc")
                 : t("quotationSelectedLabel")}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={[sc.quotationsRow, isRTL && { flexDirection: "row-reverse" }]}>
-                {quotations.map((q, i) => (
-                  <SelectableQuotationCard
-                    key={q.id}
-                    quotation={q}
-                    index={i}
-                    selected={request.selectedQuotationAttachmentId === q.id}
-                    onSelect={() => {
-                      if (!canSelectQuotation) return;
-                      Alert.alert(
-                        t("selectThis"),
-                        q.customLabel ?? q.name,
-                        [
-                          { text: t("cancel"), style: "cancel" },
-                          { text: t("selectThis"), onPress: () => handleSelectQuotation(q) },
-                        ]
-                      );
-                    }}
-                    colors={colors}
-                    t={t as never}
-                    isRTL={isRTL}
-                  />
-                ))}
-              </View>
-            </ScrollView>
+            <View style={{ gap: 8, marginTop: 8 }}>
+              {quotations.map((q, i) => (
+                <SelectableQuotationCard
+                  key={q.id}
+                  quotation={q}
+                  index={i}
+                  selected={request.selectedQuotationAttachmentId === q.id}
+                  onSelect={() => {
+                    if (!canSelectQuotation) return;
+                    Alert.alert(
+                      t("selectThis"),
+                      q.customLabel ?? q.name,
+                      [
+                        { text: t("cancel"), style: "cancel" },
+                        { text: t("selectThis"), onPress: () => handleSelectQuotation(q) },
+                      ]
+                    );
+                  }}
+                  colors={colors}
+                  t={t as never}
+                  isRTL={isRTL}
+                />
+              ))}
+            </View>
           </SectionCard>
         )}
 
@@ -1663,51 +1712,62 @@ const sub = StyleSheet.create({
   infoValue: { fontSize: 13, fontFamily: "Inter_500Medium", flex: 2, textAlign: "right" },
 
   quotationCard: {
-    width: 130,
     borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginRight: 10,
+    gap: 10,
   },
   qcIconWrap: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+  },
+  qcContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   qcLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
-    lineHeight: 17,
+    lineHeight: 18,
+  },
+  qcFilename: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 14,
+    opacity: 0.7,
   },
   qcMeta: {
     fontSize: 10,
     fontFamily: "Inter_400Regular",
-    textAlign: "center",
+    lineHeight: 14,
   },
-  qcFilename: {
-    fontSize: 9,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 13,
-    opacity: 0.7,
+  qcActions: {
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+    flexShrink: 0,
   },
-  qcViewBtn: {
-    paddingVertical: 2,
+  qcActionBtn: {
+    padding: 6,
+    borderRadius: 6,
   },
   qcCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
+    flexShrink: 0,
   },
 
   approvedCard: {
