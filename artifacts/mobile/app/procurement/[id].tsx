@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { ProcurementStageBadge } from "@/components/ProcurementStageBadge";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/context/AuthContext";
@@ -29,6 +30,15 @@ import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface StoredAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size?: number;
+  uploadedAt?: string;
+  uploadedByUid?: string;
+}
 
 interface WorkflowEvent {
   id: string;
@@ -45,6 +55,12 @@ interface WorkflowEvent {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function formatTs(ts: unknown, isRTL: boolean): string {
   try {
@@ -118,6 +134,54 @@ function TimelineEvent({ event, isLast }: { event: WorkflowEvent; isLast: boolea
           {formatTs(event.createdAt, isRTL)}
         </Text>
       </View>
+    </View>
+  );
+}
+
+// ─── Attachment Card ──────────────────────────────────────────────────────────
+
+function RFQAttachmentCard({ att }: { att: StoredAttachment }) {
+  const colors = useColors();
+  const { isRTL } = useT();
+
+  const meta: string[] = [];
+  if (att.size) meta.push(formatFileSize(att.size));
+  if (att.uploadedAt) {
+    try {
+      meta.push(
+        new Date(att.uploadedAt).toLocaleDateString(isRTL ? "ar-SA" : "en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      );
+    } catch {
+      // ignore bad date
+    }
+  }
+
+  return (
+    <View
+      style={[
+        attStyles.card,
+        { backgroundColor: colors.muted ?? colors.background, borderColor: colors.border },
+      ]}
+    >
+      <AttachmentViewer
+        attachment={{
+          fileName: att.name,
+          url: att.url,
+          fileType: att.type,
+          size: att.size,
+        }}
+        iconColor={colors.primary}
+        textColor={colors.foreground}
+      />
+      {meta.length > 0 && (
+        <Text style={[attStyles.meta, { color: colors.mutedForeground }]}>
+          {meta.join(" · ")}
+        </Text>
+      )}
     </View>
   );
 }
@@ -310,6 +374,22 @@ export default function ProcurementDetailScreen() {
           </Text>
         </View>
 
+        {/* Attachments */}
+        {(() => {
+          const atts = (request.attachments ?? []) as StoredAttachment[];
+          if (atts.length === 0) return null;
+          return (
+            <View
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <SectionHeader label={t("procurementAttachments")} />
+              {atts.map((att, i) => (
+                <RFQAttachmentCard key={`${att.url}-${i}`} att={att} />
+              ))}
+            </View>
+          );
+        })()}
+
         {/* Timeline */}
         <View style={styles.timelineSection}>
           <SectionHeader label={t("rfqTimeline")} />
@@ -329,6 +409,23 @@ export default function ProcurementDetailScreen() {
     </View>
   );
 }
+
+const attStyles = StyleSheet.create({
+  card: {
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginTop: 8,
+    gap: 4,
+  },
+  meta: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    paddingHorizontal: 10,
+    paddingBottom: 4,
+  },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

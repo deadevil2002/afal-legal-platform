@@ -38,6 +38,7 @@ export interface ProcurementRequest {
   groupOrRequesterName: string;
   productDescription: string;
   requestAttachments: unknown[];
+  attachments: unknown[];
   selectedSupplierResponseId: string | null;
   quotationRejectedAt: unknown | null;
   quotationRejectionReason: string | null;
