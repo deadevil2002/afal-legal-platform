@@ -29,7 +29,9 @@ function AuthGate() {
   useEffect(() => {
     const seg0 = segments[0] ?? "(none)";
     const inAuth = seg0 === "auth";
+    const isPublic = seg0 === "supplier";
     if (loading) return;
+    if (isPublic) return;
     if (!user && !inAuth) {
       router.replace("/auth/login" as never);
     } else if (user && profile && inAuth) {
@@ -56,6 +58,7 @@ function RootLayoutNav() {
         <Stack.Screen name="admin/create-user" options={{ headerShown: false }} />
         <Stack.Screen name="transfer-super-admin" options={{ headerShown: false }} />
         <Stack.Screen name="legal/[page]" options={{ headerShown: false }} />
+        <Stack.Screen name="supplier/[token]" options={{ headerShown: false }} />
       </Stack>
     </>
   );

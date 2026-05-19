@@ -38,6 +38,57 @@ const phaseCPublicSubmissionSchema = supplierFormInputSchema
 const router = Router();
 
 /**
+ * GET /api/public/supplier-link/:token
+ *
+ * Public — no auth. Returns minimal context for the supplier form UI:
+ * whether the link is valid/active/expired/used, and the optional hint.
+ * Never exposes internal IDs or request details.
+ */
+router.get("/supplier-link/:token", async (req, res) => {
+  try {
+    const token = String(req.params.token);
+    if (!token || token.length < 32) {
+      errorJsonResponse(res, "Invalid token.", 400, "invalid_payload");
+      return;
+    }
+
+    const db = getAdminDb();
+    const linkQuery = await db
+      .collection("supplier_links")
+      .where("token", "==", token)
+      .limit(1)
+      .get();
+
+    if (linkQuery.empty) {
+      errorJsonResponse(res, "Supplier link not found.", 404, "link_not_found");
+      return;
+    }
+
+    const link = linkQuery.docs[0]!.data();
+    const nowSeconds = Date.now() / 1000;
+    const expiresAt = link["expiresAt"] as { seconds: number } | null | undefined;
+    const isExpired = expiresAt ? nowSeconds > expiresAt.seconds : false;
+    const isUsed = link["responseId"] != null || link["submittedAt"] != null;
+    const isActive = link["isActive"] === true && !isExpired && !isUsed;
+
+    let status: "active" | "expired" | "used" | "deactivated";
+    if (isUsed) status = "used";
+    else if (!link["isActive"]) status = "deactivated";
+    else if (isExpired) status = "expired";
+    else status = "active";
+
+    safeJsonResponse(res, {
+      status,
+      supplierNameHint: (link["supplierNameHint"] as string | null) ?? null,
+      isActive,
+    });
+  } catch (err) {
+    req.log.error({ err }, "supplier-link info failed");
+    errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
+  }
+});
+
+/**
  * POST /api/public/supplier-response/:token
  *
  * Public endpoint — no Firebase Auth required.
