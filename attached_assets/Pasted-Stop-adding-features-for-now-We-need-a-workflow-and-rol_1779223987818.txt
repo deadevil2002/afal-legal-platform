@@ -1,0 +1,132 @@
+Stop adding features for now.
+
+We need a workflow and role audit before making more changes.
+
+Current issue:
+The app works, but workflow permissions and visibility are mixed up.
+
+Observed problems:
+
+1. Super Admin currently sees requester-only quotation selection UI.
+I do NOT want that.
+Even though super_admin has full override, the UI should not automatically show requester-only selection unless super_admin explicitly chooses to act as requester.
+Quotation selection is requester-only.
+
+2. Finance user sees nothing on Home / Requests.
+Expected:
+Finance should see requests when the request reaches the finance stage.
+Finance should not see all requests from the beginning.
+Finance should only see actionable requests assigned to finance stage, plus view relevant request details.
+
+3. File cards look unprofessional.
+Long file names overflow and break the UI.
+Need clean professional filename display:
+- truncate long names
+- show short label like Quotation 1 / Quotation 2
+- show original filename only in small secondary text or details
+- no overlapping buttons
+- no broken card layout
+
+Before coding, please audit and document the current workflow implementation.
+
+Required audit:
+
+A. Current roles in code
+List every role currently supported:
+- super_admin
+- procurement
+- planning
+- finance
+- evp
+- ceo
+- operations if still used
+- requester via canSubmitRequests
+
+B. Current request stages/statuses
+List every procurement request status/stage currently used in code and Firestore.
+
+C. Current visibility rules
+For each role, explain:
+- What requests they see on Home
+- What requests they see in Procurement tab
+- What sections they see inside request detail
+- What actions they can perform
+
+D. Current action permissions
+For each action, list who can do it:
+- create RFQ
+- upload requester attachment
+- upload quotation attachments
+- generate supplier link
+- deactivate supplier link
+- select approved quotation
+- send to budget approval
+- planning approve/reject
+- finance approve/reject
+- evp approve/reject
+- ceo approve/reject
+- SAP PR/PO edit
+- delete request
+
+E. Compare current behavior against intended behavior below.
+
+Intended workflow:
+
+1. Requester
+- creates RFQ
+- views own requests
+- views quotation attachments after procurement uploads them
+- selects ONE approved quotation
+- enters PR number and budget if required by flow
+- cannot upload quotation attachments
+- cannot generate supplier links
+- cannot approve planning/finance/evp/ceo
+- cannot edit SAP
+
+2. Procurement
+- sees RFQs after creation
+- uploads quotation attachments
+- generates supplier links
+- sees supplier responses
+- sends selected quotation to budget approval
+- edits SAP PR/PO section
+- cannot select quotation on behalf of requester unless super_admin explicitly acts as requester
+- cannot approve planning/finance/evp/ceo
+
+3. Planning
+- sees request only when it reaches planning stage
+- approves/rejects planning stage only
+
+4. Finance
+- sees request only when it reaches finance stage
+- approves/rejects finance stage only
+- handles payment stage later
+- should not see unrelated draft/planning/procurement-only requests
+
+5. EVP
+- sees request only when it reaches EVP stage
+- approves/rejects EVP stage only
+
+6. CEO
+- sees request only when it reaches CEO stage
+- approves/rejects CEO stage only
+
+7. Super Admin
+- full visibility
+- full override
+- can act as any role
+- BUT UI should be clear:
+  show an “Act as” mode or explicit override controls
+  do not mix requester-only controls with procurement controls by default
+
+F. Required output before coding:
+- current workflow map
+- mismatch list
+- proposed corrected workflow map
+- exact files that need changes
+- whether Firestore rules need changes
+- whether API endpoints need changes
+- recommended implementation order
+
+Do not edit code yet.
+Audit only.
