@@ -1,0 +1,391 @@
+We now need to move to the next Procurement Hub phase and redesign the RFQ workflow UI and role flow to match management requirements.
+
+Important:
+This is NOT a rebuild.
+Current state already works:
+- Login by employee number works
+- User creation works
+- procurement_requests creation works
+- Home reads procurement_requests
+- Attachments upload + viewing work
+- Procurement tab is the single RFQ entry point
+Keep all existing working functionality.
+
+Goal:
+Redesign the RFQ creation + procurement detail workflow to match the attached management reference (image 3 style).
+
+Reference style requirements:
+- Blue header
+- White rounded cards
+- RFQ icon beside title
+- Professional procurement dashboard feel
+- Soft shadows
+- Modern workflow cards
+- Green completed indicators
+- Clean spacing
+- Arabic-first UI with RTL
+- English secondary support
+- Same visual language as image 3
+
+--------------------------------------------------
+PHASE 1
+Requester RFQ Creation Screen
+--------------------------------------------------
+
+Requester creation screen must visually resemble image 3.
+
+Requester should ONLY see:
+
+1 RFQ Header
+- RFQ icon
+- Request title
+
+2 Group / Director / Requester
+Field:
+- Group / Director / Requester name
+
+3 Request details
+Large description box:
+- Product / service description
+- Procurement details
+
+4 Optional attachments
+- Optional upload
+- Existing AttachmentPicker / Cloudinary uploader may be reused
+- Keep working upload logic
+
+DO NOT show these to requester during creation:
+- quotation section
+- pricing attachments section
+- approved attachment section
+- SAP PR section
+- finance section
+- planning section
+- CEO/EVP controls
+
+This screen is requester-only RFQ creation.
+
+--------------------------------------------------
+PHASE 2
+Procurement Detail Screen
+--------------------------------------------------
+
+After RFQ creation, request detail becomes workflow-based like image 3.
+
+Sections:
+
+A — RFQ Details
+Always visible
+
+Show:
+- RFQ icon
+- Title
+- Group / requester
+- Request details
+- Requester attachments
+
+Use clean card UI.
+
+--------------------------------------------------
+B — Quotation Attachments Section
+--------------------------------------------------
+
+Visible ONLY to:
+- procurement
+- super_admin
+
+This is the section management referred to as:
+
+قسم التسعيرات (المرفقات)
+
+This section is hidden from requester until procurement uploads quotations.
+
+Procurement can:
+
+- upload multiple quotation attachments
+- auto-fill filename from uploaded file
+- optionally edit/customize display name
+- each attachment displayed as quotation card
+- each quotation card contains:
+
+  - file icon
+  - file name
+  - upload date
+  - uploader
+  - check-circle placeholder underneath
+
+Suggested Firestore:
+
+quotationAttachments: [
+  {
+    id,
+    name,
+    customLabel,
+    url,
+    type,
+    size,
+    uploadedAt,
+    uploadedByUid,
+    uploadedByName
+  }
+]
+
+Use existing Cloudinary upload system.
+
+Do NOT rebuild uploader.
+
+--------------------------------------------------
+C — Requester Quotation Selection
+--------------------------------------------------
+
+Once procurement uploaded quotation attachments:
+
+Requester sees quotation section.
+
+Requester can:
+
+- preview quotations
+- compare
+- choose ONE attachment only
+
+Each quotation has:
+
+○ check circle beneath
+
+When requester selects:
+
+✔ selected quotation
+
+Save:
+
+selectedQuotationAttachmentId
+approvedAttachment
+
+Selected quotation becomes:
+
+المرفق المعتمد
+
+After requester selection:
+
+Workflow moves forward.
+
+Requester CANNOT:
+
+- upload quotations
+- modify procurement uploads
+- approve planning
+- approve finance
+- approve CEO/EVP
+- modify SAP
+
+Requester only selects quotation.
+
+--------------------------------------------------
+D — Approved Attachment Section
+--------------------------------------------------
+
+Show section:
+
+المرفق المعتمد
+
+Design:
+- green approved card
+- green check
+- highlighted state
+
+Only appears after requester selects quotation.
+
+This section feeds budget approvals.
+
+--------------------------------------------------
+E — Budget Workflow Visualization
+--------------------------------------------------
+
+Below approved attachment.
+
+Show visual workflow like image 3.
+
+Stages:
+
+Planning
+Finance
+EVP
+CEO
+
+Use modern flow diagram.
+
+Visual state:
+
+Completed:
+- green check
+- green glow
+
+Current:
+- blue active
+- highlighted
+
+Pending:
+- grey
+
+Everyone can VIEW workflow progress.
+
+Example:
+
+RFQ Created
+Quotation Uploaded
+Quotation Selected
+Planning
+Finance
+EVP
+CEO
+Completed
+
+Make workflow visually clear and professional.
+
+--------------------------------------------------
+F — SAP PR Section
+--------------------------------------------------
+
+Visible ONLY to:
+
+- procurement
+- super_admin
+
+Section:
+
+SAP PR
+
+Procurement can:
+
+- add SAP PR number
+- add SAP PO number
+- upload SAP files
+
+Workflow examples:
+
+PR Created
+Reviewed
+Approved
+Sent to SAP
+
+Use same visual style as image 3.
+
+Requester may VIEW this section later if visible in workflow.
+
+Requester CANNOT edit.
+
+--------------------------------------------------
+PERMISSION MODEL
+VERY IMPORTANT
+--------------------------------------------------
+
+Do NOT allow everyone to edit requests.
+
+Viewing workflow is broader.
+
+Editing is STRICTLY role-based.
+
+Rules:
+
+Requester:
+- create RFQ
+- upload requester attachments
+- view workflow
+- select quotation only
+
+Procurement:
+- upload quotation attachments
+- supplier links
+- SAP PR / PO
+- procurement-stage actions only
+
+Planning:
+- view request
+- approve/reject planning stage only
+
+Finance:
+- view request
+- finance stage only
+- payment actions only
+
+EVP:
+- approve EVP stage only
+
+CEO:
+- approve CEO stage only
+
+No role may edit unrelated stages.
+
+--------------------------------------------------
+SUPER ADMIN
+--------------------------------------------------
+
+Super Admin is special.
+
+Full override.
+
+Super Admin can:
+
+- act as requester
+- act as procurement
+- act as planning
+- act as finance
+- act as EVP
+- act as CEO
+
+No restrictions for super_admin.
+
+Super admin sees and controls entire workflow.
+
+--------------------------------------------------
+IMPLEMENTATION / SECURITY
+--------------------------------------------------
+
+Current Firestore rules should NOT be loosened carelessly.
+
+Preferred architecture:
+
+- role-based workflow updates
+- API server endpoints
+- Admin SDK writes
+- server verifies role before stage update
+- workflow_events remain immutable
+
+If Firestore rules require change:
+
+Output FULL firestore.rules file.
+
+Do not provide partial snippets.
+
+--------------------------------------------------
+FILES LIKELY INVOLVED
+--------------------------------------------------
+
+Likely:
+
+- app/procurement/new.tsx
+- app/procurement/[id].tsx
+- ProcurementRequestsContext.tsx
+- translations.ts
+- workflow components
+- quotation cards
+- API endpoints if needed
+
+--------------------------------------------------
+DELIVERABLE
+--------------------------------------------------
+
+Return:
+
+1 Files changed
+2 Data fields added
+3 Whether Firestore rules changed
+4 If changed -> FULL rules file
+5 Test result:
+
+- requester
+- procurement
+- super_admin
+
+Do not break any existing working functionality.
+Preserve all working flows.

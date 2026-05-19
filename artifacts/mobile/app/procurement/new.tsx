@@ -21,6 +21,51 @@ import { useProcurementRequests } from "@/context/ProcurementRequestsContext";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
 
+// ─── RFQ Icon Badge ───────────────────────────────────────────────────────────
+
+function RFQIconBadge() {
+  return (
+    <View style={rfqStyles.badge}>
+      <View style={rfqStyles.inner}>
+        <Text style={rfqStyles.rfqText}>RFQ</Text>
+        <View style={rfqStyles.lines}>
+          <View style={rfqStyles.line} />
+          <View style={rfqStyles.line} />
+          <View style={[rfqStyles.line, { width: "60%" }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const rfqStyles = StyleSheet.create({
+  badge: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: "#2D6491",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  inner: { alignItems: "center", gap: 3 },
+  rfqText: {
+    color: "#fff",
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  lines: { gap: 2, width: 26 },
+  line: {
+    height: 2,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderRadius: 1,
+    width: "100%",
+  },
+});
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function NewProcurementRequestScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
@@ -163,88 +208,107 @@ export default function NewProcurementRequestScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 48 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* RFQ Title */}
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>
-          {t("rfqTitle").toUpperCase()} *
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              color: colors.foreground,
-            },
-          ]}
-          value={title}
-          onChangeText={setTitle}
-          placeholder={t("rfqTitlePlaceholder")}
-          placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="sentences"
-          textAlign={isRTL ? "right" : "left"}
-          editable={!submitting}
-        />
+        {/* Card 1: RFQ Title */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.cardHeader, isRTL && styles.rowRTL]}>
+            <RFQIconBadge />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+              {t("rfqHeaderLabel")}
+              <Text style={{ color: colors.destructive }}> *</Text>
+            </Text>
+          </View>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                color: colors.foreground,
+              },
+            ]}
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t("rfqTitlePlaceholder")}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="sentences"
+            textAlign={isRTL ? "right" : "left"}
+            editable={!submitting}
+          />
+        </View>
 
-        {/* Group / Requester Name */}
-        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 24 }]}>
-          {t("rfqGroupOrRequester").toUpperCase()}
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              color: colors.foreground,
-            },
-          ]}
-          value={groupOrRequesterName}
-          onChangeText={setGroupOrRequesterName}
-          placeholder={profile.displayName}
-          placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="words"
-          textAlign={isRTL ? "right" : "left"}
-          editable={!submitting}
-        />
-        <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-          {t("rfqGroupOrRequesterPlaceholder")}
-        </Text>
+        {/* Card 2: Group / Requester */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.fieldHeader, isRTL && styles.rowRTL]}>
+            <Icon name="person" size={16} color={colors.primary} />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+              {t("rfqGroupOrRequester")}
+            </Text>
+          </View>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                color: colors.foreground,
+              },
+            ]}
+            value={groupOrRequesterName}
+            onChangeText={setGroupOrRequesterName}
+            placeholder={profile.displayName}
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="words"
+            textAlign={isRTL ? "right" : "left"}
+            editable={!submitting}
+          />
+        </View>
 
-        {/* Product / Service Description */}
-        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 24 }]}>
-          {t("rfqProductDescription").toUpperCase()} *
-        </Text>
-        <TextInput
-          style={[
-            styles.textarea,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              color: colors.foreground,
-            },
-          ]}
-          value={productDescription}
-          onChangeText={setProductDescription}
-          placeholder={t("rfqProductDescriptionPlaceholder")}
-          placeholderTextColor={colors.mutedForeground}
-          multiline
-          textAlignVertical="top"
-          autoCapitalize="sentences"
-          textAlign={isRTL ? "right" : "left"}
-          editable={!submitting}
-        />
+        {/* Card 3: Product Description */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.fieldHeader, isRTL && styles.rowRTL]}>
+            <Icon name="file-doc" size={16} color={colors.primary} />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+              {t("rfqDetailsSection")}
+              <Text style={{ color: colors.destructive }}> *</Text>
+            </Text>
+          </View>
+          <TextInput
+            style={[
+              styles.textarea,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                color: colors.foreground,
+              },
+            ]}
+            value={productDescription}
+            onChangeText={setProductDescription}
+            placeholder={t("rfqProductDescriptionPlaceholder")}
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+            textAlign={isRTL ? "right" : "left"}
+            editable={!submitting}
+          />
+        </View>
 
-        {/* Attachments */}
-        <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 24 }]}>
-          {t("rfqAttachments").toUpperCase()}
-        </Text>
-        <AttachmentPicker
-          attachments={attachmentMetas}
-          onChange={setAttachmentMetas}
-          uploadContext={{ type: "request" }}
-          maxFiles={5}
-          disabled={submitting}
-        />
+        {/* Card 4: Attachments */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.fieldHeader, isRTL && styles.rowRTL]}>
+            <Icon name="paperclip" size={16} color={colors.primary} />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+              {t("rfqAttachments")}
+            </Text>
+          </View>
+          <AttachmentPicker
+            attachments={attachmentMetas}
+            onChange={setAttachmentMetas}
+            uploadContext={{ type: "request" }}
+            maxFiles={5}
+            disabled={submitting}
+          />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -282,19 +346,40 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
   },
-  scroll: { padding: 20 },
-  label: {
-    fontSize: 11,
+  scroll: { padding: 16, gap: 14 },
+  card: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.6,
-    marginBottom: 8,
+    flex: 1,
   },
-  hint: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginTop: 6,
-    lineHeight: 17,
+  fieldHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
   },
+  fieldLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.2,
+  },
+  rowRTL: { flexDirection: "row-reverse" },
   input: {
     borderWidth: 1,
     borderRadius: 10,

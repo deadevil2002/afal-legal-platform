@@ -504,7 +504,8 @@ service cloud.firestore {
     // procurement_requests
     // Super Admin and all operational/admin roles can read all.
     // Users with canSubmitRequests=true can create.
-    // Stage transitions done by api-server via Admin SDK (bypasses rules).
+    // Creators may update only the quotation selection fields (selectedQuotationAttachmentId,
+    // approvedAttachment, updatedAt) — all other stage transitions use api-server + Admin SDK.
     // =========================
     match /procurement_requests/{requestId} {
       allow create: if signedIn() && (
@@ -517,12 +518,32 @@ service cloud.firestore {
         resource.data.createdByUid == request.auth.uid
       );
 
-      allow update: if isAdmin();
+      allow update: if
+        // ── Admin / procurement team — full update ─────────────────────────
+        isAdmin()
+        ||
+        // ── Request creator — quotation selection only ─────────────────────
+        // Allows the requester to pick a quotation without granting broad
+        // write access. Only the three listed fields may change.
+        (
+          signedIn()
+          && resource.data.createdByUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "selectedQuotationAttachmentId",
+            "approvedAttachment",
+            "updatedAt"
+          ])
+          && request.resource.data.createdByUid == resource.data.createdByUid
+        );
+
       allow delete: if isSuperAdmin();
     }
 
     // =========================
     // workflow_events
+    // Immutable audit trail — no updates allowed.
+    // Reads allowed for admins, event actors, and request creators
+    // (identified by requestCreatorUid field written at event creation time).
     // =========================
     match /workflow_events/{eventId} {
       allow create: if signedIn() && (
@@ -532,7 +553,8 @@ service cloud.firestore {
 
       allow read: if signedIn() && (
         isAdmin() ||
-        resource.data.actorUid == request.auth.uid
+        resource.data.actorUid == request.auth.uid ||
+        resource.data.requestCreatorUid == request.auth.uid
       );
 
       allow update: if false;

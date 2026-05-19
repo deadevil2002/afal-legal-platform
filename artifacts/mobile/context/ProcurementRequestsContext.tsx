@@ -23,6 +23,27 @@ import { useT } from "@/hooks/useT";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface QuotationAttachment {
+  id: string;
+  name: string;
+  customLabel: string | null;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+  uploadedByUid: string;
+  uploadedByName: string;
+}
+
+export interface SapFile {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+  uploadedByUid: string;
+}
+
 export interface ProcurementRequest {
   id: string;
   requestNumber: string | null;
@@ -39,6 +60,10 @@ export interface ProcurementRequest {
   productDescription: string;
   requestAttachments: unknown[];
   attachments: unknown[];
+  quotationAttachments: QuotationAttachment[];
+  selectedQuotationAttachmentId: string | null;
+  approvedAttachment: QuotationAttachment | null;
+  sapFiles: SapFile[];
   selectedSupplierResponseId: string | null;
   quotationRejectedAt: unknown | null;
   quotationRejectionReason: string | null;
@@ -218,6 +243,10 @@ export function ProcurementRequestsProvider({ children }: { children: React.Reac
         productDescription: params.productDescription.trim(),
         requestAttachments: [],
         attachments: params.attachments ?? [],
+        quotationAttachments: [],
+        selectedQuotationAttachmentId: null,
+        approvedAttachment: null,
+        sapFiles: [],
         selectedSupplierResponseId: null,
         quotationRejectedAt: null,
         quotationRejectionReason: null,
