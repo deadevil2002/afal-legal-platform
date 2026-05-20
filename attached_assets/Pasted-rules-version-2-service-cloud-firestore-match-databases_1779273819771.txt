@@ -1,0 +1,518 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function userExists(uid) {
+      return exists(userPath(uid));
+    }
+
+    function userDoc(uid) {
+      return get(userPath(uid));
+    }
+
+    function currentUserExists() {
+      return signedIn() && userExists(request.auth.uid);
+    }
+
+    function currentUserRole() {
+      return currentUserExists()
+        ? userDoc(request.auth.uid).data.role
+        : null;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && currentUserRole() == "super_admin";
+    }
+
+    function isOperationalRole() {
+      return signedIn() && (
+        currentUserRole() == "assistant_admin" ||
+        currentUserRole() == "ceo" ||
+        currentUserRole() == "evp" ||
+        currentUserRole() == "operations" ||
+        currentUserRole() == "planning" ||
+        currentUserRole() == "finance" ||
+        currentUserRole() == "procurement"
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || isOperationalRole();
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function canSubmitRequests() {
+      return currentUserExists()
+        && (
+          userDoc(request.auth.uid).data.canSubmitRequests == true ||
+          isSuperAdmin()
+        );
+    }
+
+    function validRole(role) {
+      return role in [
+        "super_admin",
+        "ceo",
+        "evp",
+        "operations",
+        "planning",
+        "finance",
+        "procurement",
+        "user",
+        "assistant_admin"
+      ];
+    }
+
+    function validOldRequestCategory(category) {
+      return category in [
+        "Amicable Settlement",
+        "Complaint",
+        "Legal Consultation",
+        "Investigation Request",
+        "Contract Issue",
+        "Violation Report"
+      ];
+    }
+
+    function validOldRequestStatus(status) {
+      return status in [
+        "Submitted",
+        "Under Review",
+        "Employee Contacted",
+        "In Progress",
+        "Proposed Resolution",
+        "Employee Feedback",
+        "Resolved / Closed",
+        "Escalated"
+      ];
+    }
+
+    function validProfileChangeField(field) {
+      return field in ["phone", "employeeNumber"];
+    }
+
+    function validProfileChangeStatus(status) {
+      return status in ["pending", "approved", "rejected", "cancelled"];
+    }
+
+    function oldRequestPath(requestId) {
+      return /databases/$(database)/documents/requests/$(requestId);
+    }
+
+    function oldRequestExists(requestId) {
+      return exists(oldRequestPath(requestId));
+    }
+
+    function oldRequestDoc(requestId) {
+      return get(oldRequestPath(requestId));
+    }
+
+    function isOldRequestParticipantByRequestId(requestId) {
+      return signedIn()
+        && oldRequestExists(requestId)
+        && (
+          oldRequestDoc(requestId).data.userId == request.auth.uid ||
+          (
+            "targetEmployeeUid" in oldRequestDoc(requestId).data &&
+            oldRequestDoc(requestId).data.targetEmployeeUid == request.auth.uid
+          ) ||
+          isAdmin()
+        );
+    }
+
+    function isOldRequestParticipantFromResource() {
+      return signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        (
+          "targetEmployeeUid" in resource.data &&
+          resource.data.targetEmployeeUid == request.auth.uid
+        ) ||
+        isAdmin()
+      );
+    }
+
+    function bothMissingOrSame(field) {
+      return (
+        !(field in resource.data) && !(field in request.resource.data)
+      ) || (
+        (field in resource.data) &&
+        (field in request.resource.data) &&
+        request.resource.data[field] == resource.data[field]
+      );
+    }
+
+    function procurementRequestPath(requestId) {
+      return /databases/$(database)/documents/procurement_requests/$(requestId);
+    }
+
+    function procurementRequestExists(requestId) {
+      return exists(procurementRequestPath(requestId));
+    }
+
+    function procurementRequestDoc(requestId) {
+      return get(procurementRequestPath(requestId));
+    }
+
+    function canReadProcurementRequest(requestId) {
+      return signedIn()
+        && procurementRequestExists(requestId)
+        && (
+          isAdmin() ||
+          procurementRequestDoc(requestId).data.createdByUid == request.auth.uid ||
+          (
+            "visibleToUids" in procurementRequestDoc(requestId).data &&
+            request.auth.uid in procurementRequestDoc(requestId).data.visibleToUids
+          )
+        );
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow create: if isSuperAdmin()
+        && request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && validRole(request.resource.data.role)
+        && request.resource.data.employeeNumber is string
+        && request.resource.data.employeeNumber.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() > 0
+        && (
+          !("canSubmitRequests" in request.resource.data) ||
+          request.resource.data.canSubmitRequests is bool
+        )
+        && (
+          !("showFullWorkflow" in request.resource.data) ||
+          request.resource.data.showFullWorkflow is bool
+        );
+
+      allow update: if
+        (
+          isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            !("isActive" in resource.data) ||
+            (
+              "isActive" in request.resource.data &&
+              request.resource.data.isActive == resource.data.isActive
+            )
+          )
+          && request.resource.data.employeeNumber == resource.data.employeeNumber
+          && request.resource.data.phone == resource.data.phone
+          && bothMissingOrSame("canSubmitRequests")
+          && bothMissingOrSame("showFullWorkflow")
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "displayName",
+            "department",
+            "language",
+            "updatedAt"
+          ])
+        )
+        ||
+        (
+          isSuperAdmin()
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.createdAt == resource.data.createdAt
+          && validRole(request.resource.data.role)
+          && request.resource.data.employeeNumber is string
+          && request.resource.data.employeeNumber.size() > 0
+          && request.resource.data.phone is string
+          && request.resource.data.phone.size() > 0
+          && (
+            !("canSubmitRequests" in request.resource.data) ||
+            request.resource.data.canSubmitRequests is bool
+          )
+          && (
+            !("showFullWorkflow" in request.resource.data) ||
+            request.resource.data.showFullWorkflow is bool
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "displayName",
+            "department",
+            "phone",
+            "language",
+            "employeeNumber",
+            "updatedAt",
+            "isActive",
+            "role",
+            "canSubmitRequests",
+            "showFullWorkflow"
+          ])
+        );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /user_phone_index/{normalizedPhone} {
+      allow get: if false;
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.phone is string
+        && request.resource.data.phone == normalizedPhone
+        && !exists(/databases/$(database)/documents/user_phone_index/$(normalizedPhone))
+        && isSuperAdmin()
+        && request.resource.data.uid is string
+        && request.resource.data.uid.size() > 0;
+
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /user_employee_index/{employeeNumber} {
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.resource.data.employeeNumber is string
+        && request.resource.data.employeeNumber == employeeNumber
+        && !exists(/databases/$(database)/documents/user_employee_index/$(employeeNumber))
+        && isSuperAdmin()
+        && request.resource.data.uid is string
+        && request.resource.data.uid.size() > 0;
+
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /public_config/{docId} {
+      allow read: if docId == "app";
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /procurement_requests/{requestId} {
+      allow read: if signedIn() && (
+        isAdmin() ||
+        resource.data.createdByUid == request.auth.uid ||
+        (
+          "visibleToUids" in resource.data &&
+          request.auth.uid in resource.data.visibleToUids
+        )
+      );
+
+      allow create: if signedIn()
+        && canSubmitRequests()
+        && request.resource.data.createdByUid == request.auth.uid;
+
+      allow update: if isSuperAdmin();
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /supplier_links/{linkId} {
+      allow read: if signedIn()
+        && (
+          isAdmin() ||
+          (
+            "requestId" in resource.data &&
+            canReadProcurementRequest(resource.data.requestId)
+          )
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /supplier_responses/{responseId} {
+      allow read: if signedIn()
+        && (
+          isAdmin() ||
+          (
+            "requestId" in resource.data &&
+            canReadProcurementRequest(resource.data.requestId)
+          )
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /workflow_events/{eventId} {
+      allow read: if signedIn()
+        && (
+          isAdmin() ||
+          (
+            "requestId" in resource.data &&
+            canReadProcurementRequest(resource.data.requestId)
+          )
+        );
+
+      allow create: if signedIn()
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.requestId is string
+        && request.resource.data.eventType == "rfq_created"
+        && canSubmitRequests();
+
+      allow update, delete: if false;
+    }
+
+    match /approvals/{approvalId} {
+      allow read: if signedIn()
+        && (
+          isAdmin() ||
+          resource.data.approverUid == request.auth.uid ||
+          (
+            "requestId" in resource.data &&
+            canReadProcurementRequest(resource.data.requestId)
+          )
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /payment_records/{paymentId} {
+      allow read: if signedIn()
+        && (
+          isAdmin() ||
+          (
+            "requestId" in resource.data &&
+            canReadProcurementRequest(resource.data.requestId)
+          )
+        );
+
+      allow create, update, delete: if false;
+    }
+
+    match /profile_change_requests/{docId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && validProfileChangeField(request.resource.data.field)
+        && validProfileChangeStatus(request.resource.data.status)
+        && request.resource.data.status == "pending"
+        && request.resource.data.currentValue is string
+        && request.resource.data.currentValue.size() > 0
+        && request.resource.data.requestedValue is string
+        && request.resource.data.requestedValue.size() > 0
+        && request.resource.data.requestedValue != request.resource.data.currentValue;
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if isSuperAdmin()
+        && resource.data.userId == request.resource.data.userId
+        && resource.data.field == request.resource.data.field
+        && resource.data.currentValue == request.resource.data.currentValue
+        && resource.data.requestedValue == request.resource.data.requestedValue
+        && validProfileChangeStatus(request.resource.data.status);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /requests/{requestId} {
+      allow create: if signedIn()
+        && validOldRequestCategory(request.resource.data.category)
+        && validOldRequestStatus(request.resource.data.status)
+        && (
+          (
+            request.resource.data.userId == request.auth.uid
+            && (
+              !("createdByAdmin" in request.resource.data) ||
+              request.resource.data.createdByAdmin == false
+            )
+          )
+          ||
+          (
+            isAdmin()
+            && ("createdByAdmin" in request.resource.data)
+            && request.resource.data.createdByAdmin == true
+            && request.resource.data.createdByAdminUid == request.auth.uid
+            && ("targetEmployeeUid" in request.resource.data)
+            && ("targetEmployeeNumber" in request.resource.data)
+          )
+        );
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        (
+          "targetEmployeeUid" in resource.data &&
+          resource.data.targetEmployeeUid == request.auth.uid
+        ) ||
+        isAdmin()
+      );
+
+      allow update: if signedIn() && (
+        (
+          isOldRequestParticipantFromResource()
+          && !isAdmin()
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.statusChangedBy == resource.data.statusChangedBy
+          && request.resource.data.statusChangedAt == resource.data.statusChangedAt
+          && request.resource.data.closedBy == resource.data.closedBy
+          && request.resource.data.closedAt == resource.data.closedAt
+          && request.resource.data.category == resource.data.category
+          && bothMissingOrSame("createdByAdmin")
+          && bothMissingOrSame("createdByAdminUid")
+          && bothMissingOrSame("targetEmployeeUid")
+          && bothMissingOrSame("targetEmployeeNumber")
+        )
+        ||
+        (
+          isAdmin()
+          && validOldRequestCategory(request.resource.data.category)
+          && validOldRequestStatus(request.resource.data.status)
+          && request.resource.data.userId == resource.data.userId
+          && bothMissingOrSame("createdByAdmin")
+          && bothMissingOrSame("createdByAdminUid")
+          && bothMissingOrSame("targetEmployeeUid")
+          && bothMissingOrSame("targetEmployeeNumber")
+        )
+      );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    match /request_messages/{messageId} {
+      allow create: if signedIn()
+        && ("requestId" in request.resource.data)
+        && isOldRequestParticipantByRequestId(request.resource.data.requestId);
+
+      allow read: if signedIn()
+        && ("requestId" in resource.data)
+        && isOldRequestParticipantByRequestId(resource.data.requestId);
+
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    match /deletion_requests/{docId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if signedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

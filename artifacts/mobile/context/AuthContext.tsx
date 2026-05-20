@@ -379,7 +379,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin =
     isSuperAdmin ||
-    profile?.role === "assistant_admin"; // legacy backward compat — reassign via Admin → Users tab
+    profile?.role === "assistant_admin" || // legacy backward compat
+    profile?.role === "procurement" ||
+    profile?.role === "planning" ||
+    profile?.role === "finance" ||
+    profile?.role === "evp" ||
+    profile?.role === "ceo" ||
+    profile?.role === "operations";
 
   /**
    * Sign in with either an email address or an employee number.
