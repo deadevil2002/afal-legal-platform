@@ -51,6 +51,15 @@ import {
 const STATUS_OPTIONS = REQUEST_STATUSES;
 const STATUS_KEY_MAP: Record<RequestStatus, TranslationKey> = STATUS_TRANSLATION_KEYS;
 
+const NEXT_STATUS_MAP: Partial<Record<RequestStatus, RequestStatus>> = {
+  "Submitted":       "Under Review",
+  "Under Review":    "CEO Review",
+  "CEO Review":      "EVP Review",
+  "EVP Review":      "Planning Review",
+  "Planning Review": "Finance Review",
+  "Finance Review":  "Approved / PO Issued",
+};
+
 const STATUS_DOT_COLORS: Record<RequestStatus, string> = {
   "Submitted":            "#D97706",
   "Under Review":         "#1E40AF",
@@ -498,26 +507,43 @@ export default function RequestDetailScreen() {
       </View>
 
       {/* Admin Action Bar — visible only to admins */}
-      {isAdmin && (
-        <View
-          style={[
-            styles.adminBar,
-            { backgroundColor: "#112B4D", borderBottomColor: colors.border },
-          ]}
-        >
-          <View style={styles.adminBarLeft}>
-            <Icon name="shield-check" size={13} color={colors.accent} />
-            <Text style={styles.adminBarLabel}>{t("adminActions")}</Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.adminBarBtn, { backgroundColor: colors.accent }]}
-            onPress={() => setShowStatusModal(true)}
+      {isAdmin && (() => {
+        const nextStatus = request ? NEXT_STATUS_MAP[request.status as RequestStatus] : undefined;
+        return (
+          <View
+            style={[
+              styles.adminBar,
+              { backgroundColor: "#112B4D", borderBottomColor: colors.border },
+            ]}
           >
-            <Icon name="refresh" size={13} color="#fff" />
-            <Text style={styles.adminBarBtnText}>{t("changeStatus")}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            <View style={styles.adminBarLeft}>
+              <Icon name="shield-check" size={13} color={colors.accent} />
+              <Text style={styles.adminBarLabel}>{t("adminActions")}</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {isSuperAdmin && nextStatus && (
+                <TouchableOpacity
+                  style={[styles.adminBarBtn, { backgroundColor: colors.secondary }]}
+                  onPress={() => updateRequestStatus(nextStatus)}
+                  disabled={updatingStatus}
+                >
+                  <Icon name="trending-up" size={13} color="#fff" />
+                  <Text style={styles.adminBarBtnText} numberOfLines={1}>
+                    {t(STATUS_KEY_MAP[nextStatus])} →
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.adminBarBtn, { backgroundColor: colors.accent }]}
+                onPress={() => setShowStatusModal(true)}
+              >
+                <Icon name="refresh" size={13} color="#fff" />
+                <Text style={styles.adminBarBtnText}>{t("changeStatus")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* Messages */}
       <FlatList

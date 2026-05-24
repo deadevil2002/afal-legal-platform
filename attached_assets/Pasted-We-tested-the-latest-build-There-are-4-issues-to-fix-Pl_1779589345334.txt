@@ -1,0 +1,62 @@
+We tested the latest build. There are 4 issues to fix. Please audit first, then apply targeted fixes only.
+
+Issues:
+
+1. User role is not visible in Settings/Profile
+   When a user logs in, Settings must clearly show their role in a professional way.
+   Example:
+
+* CEO / الرئيس التنفيذي
+* Finance / المالية
+* Planning / التخطيط
+* Procurement / المشتريات
+* Super Admin / المسؤول الأعلى
+
+Use the existing role translation labels. If missing, add them.
+
+2. CEO can see quotation selection and gets an error when selecting
+   This is wrong.
+   Quotation selection must be requester-only.
+   CEO should see quotations read-only.
+   CEO can only act when the request reaches ceo_review.
+   Please confirm whether the error is from Firestore rules or client UI logic.
+   Expected:
+
+* requester can select quotation
+* super_admin does NOT see requester-only selection unless explicitly acting as requester
+* CEO cannot select quotation
+* finance/planning/evp cannot select quotation
+
+3. Admin Create User floating button is unprofessional
+   The “Create User” floating button overlaps user cards/data.
+   Fix it:
+
+* move it to a fixed top action button or header plus icon
+* or use a clean plus icon in the header
+* it must not cover user list content
+* keep it visible only to super_admin
+
+4. Super Admin has no clear “send/advance” action inside request detail
+   When super_admin opens a request, there must be clear workflow actions to move the request forward, based on current status.
+   Super Admin has full override and can act as any department.
+   But the UI should be explicit and professional:
+
+* show available next action based on status
+* do not mix requester-only controls by default
+* show “Super Admin Override” / “Act as” style section if needed
+
+Please audit the current request detail action logic and implement the minimum fix:
+
+* requester-only quotation selection remains requester-only
+* procurement actions remain procurement/super_admin
+* planning/finance/evp/ceo approval actions remain role-specific + super_admin override
+* super_admin should have an explicit visible action to advance the workflow when appropriate
+
+Also check Firestore rules:
+I will attach the current deployed firestore.rules.
+Do NOT replace the whole rules file.
+Only tell me if the current rules are blocking one of these actions.
+If rules need change, output the exact minimal change only and explain why.
+
+Do not add new features beyond these fixes.
+Do not change the whole workflow system.

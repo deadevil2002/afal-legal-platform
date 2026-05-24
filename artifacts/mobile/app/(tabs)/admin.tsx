@@ -301,17 +301,28 @@ export default function AdminScreen() {
           },
         ]}
       >
-        <View>
-          <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>
-            {t("adminDashboard")}
-          </Text>
-          {isSuperAdmin && (
-            <View style={styles.superAdminBadge}>
-              <Icon name="shield-check" size={11} color={colors.accent} />
-              <Text style={[styles.superAdminLabel, { color: colors.accent }]}>
-                {t("superAdmin")}
-              </Text>
-            </View>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flex: 1 }}>
+          <View>
+            <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>
+              {t("adminDashboard")}
+            </Text>
+            {isSuperAdmin && (
+              <View style={styles.superAdminBadge}>
+                <Icon name="shield-check" size={11} color={colors.accent} />
+                <Text style={[styles.superAdminLabel, { color: colors.accent }]}>
+                  {t("superAdmin")}
+                </Text>
+              </View>
+            )}
+          </View>
+          {activeTab === "users" && isSuperAdmin && (
+            <TouchableOpacity
+              style={styles.headerAddBtn}
+              onPress={() => router.push("/admin/create-user" as never)}
+              activeOpacity={0.75}
+            >
+              <Icon name="plus" size={22} color="#fff" />
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -590,23 +601,6 @@ export default function AdminScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Create User FAB — only in users tab, super admin only */}
-      {activeTab === "users" && isSuperAdmin && (
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            {
-              backgroundColor: colors.primary,
-              bottom: insets.bottom + (Platform.OS === "web" ? 100 : 90),
-            },
-          ]}
-          onPress={() => router.push("/admin/create-user" as never)}
-          activeOpacity={0.85}
-        >
-          <Icon name="person-add" size={20} color="#fff" />
-          <Text style={styles.fabText}>{t("createUser")}</Text>
-        </TouchableOpacity>
-      )}
 
       {/* User Detail Modal */}
       <Modal
@@ -1066,6 +1060,14 @@ const styles = StyleSheet.create({
   },
   statusCancelText: { fontSize: 14, fontFamily: "Inter_500Medium", color: "#555" },
   textRTL: { textAlign: "right" },
+  headerAddBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   fab: {
     position: "absolute",
     right: 20,

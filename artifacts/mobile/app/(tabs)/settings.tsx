@@ -811,13 +811,25 @@ export default function SettingsScreen() {
   };
 
   const roleBadgeLabel = () => {
-    if (profile?.role === "super_admin") return t("superAdmin");
+    if (profile?.role === "super_admin")  return t("roleSuperAdmin");
+    if (profile?.role === "ceo")          return t("roleCeo");
+    if (profile?.role === "evp")          return t("roleEvp");
+    if (profile?.role === "planning")     return t("rolePlanning");
+    if (profile?.role === "finance")      return t("roleFinance");
+    if (profile?.role === "procurement")  return t("roleProcurement");
+    if (profile?.role === "operations")   return t("roleOperations");
     if (profile?.role === "assistant_admin") return t("assistantAdmin");
     return null;
   };
 
   const roleBadgeColor = () => {
-    if (profile?.role === "super_admin") return colors.accent;
+    if (profile?.role === "super_admin")  return colors.accent;
+    if (profile?.role === "ceo")          return "#7C3AED";
+    if (profile?.role === "evp")          return "#5D1E5E";
+    if (profile?.role === "planning")     return "#006485";
+    if (profile?.role === "finance")      return colors.secondary;
+    if (profile?.role === "procurement")  return colors.primary;
+    if (profile?.role === "operations")   return "#B45309";
     if (profile?.role === "assistant_admin") return colors.secondary;
     return colors.primary;
   };

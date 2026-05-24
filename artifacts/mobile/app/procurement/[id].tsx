@@ -928,7 +928,7 @@ export default function ProcurementDetailScreen() {
   const isProcurementRole = profile?.role === "procurement" || isSuperAdmin;
   const canUploadQuotations = isProcurementRole;
   const canSelectQuotation =
-    isCreator && !request?.selectedQuotationAttachmentId;
+    isCreator && !isAdmin && !request?.selectedQuotationAttachmentId;
   const canManageSAP = isProcurementRole;
 
   const canView =
