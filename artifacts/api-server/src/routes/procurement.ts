@@ -22,6 +22,10 @@ const workflowAdvanceBodySchema = z.object({
     "evp_approve",      "evp_reject",
     "ceo_approve",      "ceo_reject",
     "procurement_advance",
+    "sa_advance_to_awaiting_quotations",
+    "sa_advance_to_quotations_received",
+    "sa_advance_to_pending_selection",
+    "sa_advance_to_quotation_selected",
   ]),
   comment: z.string().nullable().optional(),
 });
@@ -44,7 +48,11 @@ const WORKFLOW_ACTIONS: Record<
   evp_reject:          { requiredRoles: ["evp",      "super_admin"],    requiredStatus: "evp_review",          toStatus: "evp_rejected",    eventType: "evp_rejected" },
   ceo_approve:         { requiredRoles: ["ceo",      "super_admin"],    requiredStatus: "ceo_review",          toStatus: "approved",        eventType: "ceo_approved" },
   ceo_reject:          { requiredRoles: ["ceo",      "super_admin"],    requiredStatus: "ceo_review",          toStatus: "ceo_rejected",    eventType: "ceo_rejected" },
-  procurement_advance: { requiredRoles: ["procurement", "super_admin"], requiredStatus: "quotation_selected",  toStatus: "planning_review", eventType: "advanced_to_planning" },
+  procurement_advance:                  { requiredRoles: ["procurement", "super_admin"], requiredStatus: "quotation_selected",          toStatus: "planning_review",            eventType: "advanced_to_planning"    },
+  sa_advance_to_awaiting_quotations:    { requiredRoles: ["super_admin"],                requiredStatus: "pending_procurement",         toStatus: "awaiting_quotations",         eventType: "sa_override_advanced"    },
+  sa_advance_to_quotations_received:    { requiredRoles: ["super_admin"],                requiredStatus: "awaiting_quotations",          toStatus: "quotations_received",          eventType: "sa_override_advanced"    },
+  sa_advance_to_pending_selection:      { requiredRoles: ["super_admin"],                requiredStatus: "quotations_received",          toStatus: "pending_requester_selection",  eventType: "sa_override_advanced"    },
+  sa_advance_to_quotation_selected:     { requiredRoles: ["super_admin"],                requiredStatus: "pending_requester_selection",  toStatus: "quotation_selected",           eventType: "sa_override_advanced"    },
 };
 
 // ─── Router ───────────────────────────────────────────────────────────────────

@@ -836,6 +836,89 @@ function WorkflowActionBanner({
   );
 }
 
+// ─── Super Admin early-stage override ─────────────────────────────────────────
+// Shown only to super_admin at the 4 procurement phases before quotation_selected.
+// Each phase maps to one API action that advances to the next stage.
+
+const SA_EARLY_ADVANCE: Record<string, { action: string; toStatus: string; labelKey: string }> = {
+  pending_procurement:         { action: "sa_advance_to_awaiting_quotations", toStatus: "awaiting_quotations",        labelKey: "stageAwaitingQuotations" },
+  awaiting_quotations:         { action: "sa_advance_to_quotations_received", toStatus: "quotations_received",         labelKey: "stageQuotationsReceived" },
+  quotations_received:         { action: "sa_advance_to_pending_selection",   toStatus: "pending_requester_selection", labelKey: "stagePendingRequesterSelection" },
+  pending_requester_selection: { action: "sa_advance_to_quotation_selected",  toStatus: "quotation_selected",          labelKey: "stageQuotationSelected" },
+};
+
+function SuperAdminEarlyAdvance({
+  requestId,
+  status,
+  colors,
+  t,
+  isRTL,
+}: {
+  requestId: string;
+  status: string;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  const [acting, setActing] = useState(false);
+  const entry = SA_EARLY_ADVANCE[status];
+  if (!entry) return null;
+
+  const act = async () => {
+    Alert.alert(
+      t("superAdminOverride" as never),
+      `${t("advanceToStage" as never)}: ${t(entry.labelKey as never)}`,
+      [
+        { text: t("cancel" as never), style: "cancel" },
+        {
+          text: t("confirm" as never),
+          onPress: async () => {
+            setActing(true);
+            try {
+              await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
+                action: entry.action,
+                comment: "Super Admin override",
+              });
+            } catch (err) {
+              Alert.alert(t("error" as never), (err as Error).message);
+            } finally {
+              setActing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={[sl.actionBanner, { backgroundColor: "#BC9B5D12", borderColor: "#BC9B5D40" }]}>
+      <View style={[sl.bannerHeader, isRTL && { flexDirection: "row-reverse" }]}>
+        <Icon name="shield-check" size={16} color="#BC9B5D" />
+        <Text style={[sl.bannerTitle, { color: "#BC9B5D" }]}>
+          {t("superAdminOverride" as never)}
+        </Text>
+      </View>
+      <Text style={[sl.bannerDesc, { color: colors.mutedForeground }]}>
+        {t("superAdminOverrideDesc" as never)}
+      </Text>
+      <TouchableOpacity
+        style={[sl.bannerApproveBtn, { backgroundColor: "#BC9B5D" }, acting && { opacity: 0.6 }]}
+        onPress={act}
+        disabled={acting}
+        activeOpacity={0.8}
+      >
+        {acting ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={sl.bannerBtnText}>
+            {t("advanceToStage" as never)}: {t(entry.labelKey as never)} →
+          </Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProcurementDetailScreen() {
@@ -1401,6 +1484,19 @@ export default function ProcurementDetailScreen() {
                 />
               ))}
             </View>
+          </SectionCard>
+        )}
+
+        {/* ── Super Admin Override: early procurement stages ──────────────── */}
+        {isSuperAdmin && !request.isTerminated && SA_EARLY_ADVANCE[request.status] && (
+          <SectionCard icon="shield-check" label={t("superAdminOverride" as never)} colors={colors}>
+            <SuperAdminEarlyAdvance
+              requestId={id!}
+              status={request.status}
+              colors={colors}
+              t={t as never}
+              isRTL={isRTL}
+            />
           </SectionCard>
         )}
 
@@ -2186,6 +2282,11 @@ const sl = StyleSheet.create({
     paddingVertical: 11,
     alignItems: "center",
     borderWidth: 1.5,
+  },
+  bannerDesc: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 10,
   },
   bannerBtnText: {
     fontSize: 14,

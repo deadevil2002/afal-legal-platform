@@ -445,6 +445,7 @@ export const translations = {
     stageAwaitingQuotations: "Awaiting Quotations",
     stageQuotationsReceived: "Quotations Received",
     stagePendingRequesterSelection: "Awaiting Your Selection",
+    stageQuotationSelected: "Quotation Selected",
     stageQuotationRejected: "Quotation Rejected",
     stagePendingPREntry: "PR Entry Required",
     stagePendingBudgetApproval: "Budget Approval",
@@ -568,6 +569,9 @@ export const translations = {
     workflowActionRequired: "Your Action Required",
     workflowApproved: "Approved.",
     workflowRejected: "Rejected.",
+    superAdminOverride: "Super Admin Override",
+    superAdminOverrideDesc: "As Super Admin you can force-advance this request to the next stage.",
+    advanceToStage: "Advance to",
   },
 
   ar: {
@@ -1016,6 +1020,7 @@ export const translations = {
     stageAwaitingQuotations: "في انتظار عروض الأسعار",
     stageQuotationsReceived: "تم استلام العروض",
     stagePendingRequesterSelection: "في انتظار اختيارك",
+    stageQuotationSelected: "تم اختيار العرض",
     stageQuotationRejected: "تم رفض العرض",
     stagePendingPREntry: "مطلوب إدخال رقم الطلب",
     stagePendingBudgetApproval: "اعتماد الميزانية",
@@ -1139,6 +1144,9 @@ export const translations = {
     workflowActionRequired: "إجراؤك مطلوب",
     workflowApproved: "تم الاعتماد.",
     workflowRejected: "تم الرفض.",
+    superAdminOverride: "تجاوز المسؤول الأعلى",
+    superAdminOverrideDesc: "بصفتك المسؤول الأعلى، يمكنك تقديم هذا الطلب إلى المرحلة التالية.",
+    advanceToStage: "تقديم إلى",
   },
 };
 
