@@ -504,8 +504,13 @@ service cloud.firestore {
     // procurement_requests
     // Super Admin and all operational/admin roles can read all.
     // Users with canSubmitRequests=true can create.
-    // Creators may update only the quotation selection fields (selectedQuotationAttachmentId,
-    // approvedAttachment, updatedAt) — all other stage transitions use api-server + Admin SDK.
+    //
+    // Update rules are role-scoped (minimal safe surface):
+    //   super_admin      — unrestricted field update
+    //   procurement      — quotation/SAP/supplier fields + status + updatedAt
+    //   request creator  — quotation selection/approval/rejection fields + updatedAt
+    //   ceo/evp/planning/finance — NO direct client update; all their transitions
+    //                              go through api-server + Admin SDK
     // =========================
     match /procurement_requests/{requestId} {
       allow create: if signedIn() && (
@@ -518,23 +523,57 @@ service cloud.firestore {
         resource.data.createdByUid == request.auth.uid
       );
 
-      allow update: if
-        // ── Admin / procurement team — full update ─────────────────────────
-        isAdmin()
+      allow update: if signedIn() && (
+
+        // ── Super Admin — unrestricted ───────────────────────────────────────
+        isSuperAdmin()
+
         ||
-        // ── Request creator — quotation selection only ─────────────────────
-        // Allows the requester to pick a quotation without granting broad
-        // write access. Only the three listed fields may change.
+
+        // ── Procurement role — quotation + SAP + supplier fields ─────────────
+        // Covers: uploading quotations, attaching SAP numbers/files,
+        // managing supplier links, and procurement-owned status transitions.
+        // createdByUid must never change.
         (
-          signedIn()
-          && resource.data.createdByUid == request.auth.uid
+          currentUserRole() == "procurement"
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "quotationAttachments",
+            "supplierLinks",
+            "supplierLinkIds",
+            "sapPrNumber",
+            "sapPoNumber",
+            "sapFiles",
+            "status",
+            "updatedAt"
+          ])
+        )
+
+        ||
+
+        // ── Request creator — quotation selection + approval/rejection ───────
+        // Covers: selecting a quotation, approving/rejecting quotations,
+        // and requester-owned budget/PR fields.
+        // createdByUid must never change; no structural fields may be touched.
+        (
+          resource.data.createdByUid == request.auth.uid
+          && request.resource.data.createdByUid == resource.data.createdByUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             "selectedQuotationAttachmentId",
             "approvedAttachment",
+            "quotationRejectedAt",
+            "quotationRejectionReason",
+            "prNumber",
+            "budgetAmount",
             "updatedAt"
           ])
-          && request.resource.data.createdByUid == resource.data.createdByUid
-        );
+        )
+
+        // ── ceo / evp / planning / finance — no direct client update ─────────
+        // All approval/rejection transitions for these roles go through
+        // api-server + Admin SDK. Blocking here is intentional.
+
+      );
 
       allow delete: if isSuperAdmin();
     }
