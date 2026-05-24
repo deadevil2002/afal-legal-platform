@@ -14,6 +14,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { DialogProvider } from "@/context/DialogContext";
 import { RequestsProvider } from "@/context/RequestsContext";
 import { ProcurementRequestsProvider } from "@/context/ProcurementRequestsContext";
 
@@ -89,7 +90,9 @@ export default function RootLayout() {
               <ProcurementRequestsProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
                   <KeyboardProvider>
-                    <RootLayoutNav />
+                    <DialogProvider>
+                      <RootLayoutNav />
+                    </DialogProvider>
                   </KeyboardProvider>
                 </GestureHandlerRootView>
               </ProcurementRequestsProvider>

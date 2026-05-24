@@ -8,10 +8,10 @@ import {
   where,
 } from "firebase/firestore";
 import type { ProfileChangeRequest } from "@/context/AuthContext";
+import { useDialog } from "@/context/DialogContext";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -169,6 +169,7 @@ interface ChangePasswordModalProps {
 function ChangePasswordModal({ visible, onClose, onChangePassword }: ChangePasswordModalProps) {
   const colors = useColors();
   const { t } = useT();
+  const { showSuccess } = useDialog();
 
   const [currentPwd, setCurrentPwd] = React.useState("");
   const [newPwd, setNewPwd] = React.useState("");
@@ -213,7 +214,7 @@ function ChangePasswordModal({ visible, onClose, onChangePassword }: ChangePassw
       await onChangePassword(currentPwd, newPwd);
       reset();
       onClose();
-      Alert.alert(t("success"), t("passwordChanged"));
+      showSuccess(t("passwordChanged"), t("success"));
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
@@ -753,6 +754,8 @@ export default function SettingsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]);
 
+  const { showSuccess, showError } = useDialog();
+
   const openRequestModal = (field: "phone" | "employeeNumber") => {
     setRequestModal({ visible: true, field, value: "", loading: false, error: "" });
   };
@@ -763,7 +766,7 @@ export default function SettingsScreen() {
     try {
       await requestProfileChange(field, value);
       setRequestModal({ visible: false, field: "phone", value: "", loading: false, error: "" });
-      Alert.alert(t("success"), t("changeRequestSubmitted"));
+      showSuccess(t("changeRequestSubmitted"), t("success"));
     } catch (e: unknown) {
       const msg = (e as Error)?.message;
       let errorMsg = msg || t("error");
@@ -790,9 +793,9 @@ export default function SettingsScreen() {
     try {
       await updateUserProfile({ displayName, department });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(t("success"), t("profileUpdated"));
+      showSuccess(t("profileUpdated"), t("success"));
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as { message?: string }).message);
+      showError((e as { message?: string }).message ?? t("errGeneric"), t("error"));
     } finally {
       setSaving(false);
     }

@@ -15,8 +15,8 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   Share,
@@ -24,8 +24,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import { useDialog } from "@/context/DialogContext";
 import { apiGet, apiPost } from "@/lib/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
@@ -731,6 +733,108 @@ function SupplierLinkCard({
   );
 }
 
+// ── Quotation Source Picker Modal ────────────────────────────────────────────
+function QuotationPickerModal({
+  visible,
+  onClose,
+  onPickImage,
+  onPickDocument,
+  colors,
+  t,
+  isRTL,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPickImage: () => void;
+  onPickDocument: () => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={qp.overlay}>
+          <TouchableWithoutFeedback>
+            <View style={[qp.sheet, { backgroundColor: colors.card }]}>
+              <View style={[qp.titleRow, isRTL && { flexDirection: "row-reverse" }]}>
+                <Text style={[qp.title, { color: colors.text }]}>
+                  {t("addQuotation" as never)}
+                </Text>
+                <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Icon name="close" size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[qp.option, isRTL && { flexDirection: "row-reverse" }]}
+                onPress={onPickImage}
+                activeOpacity={0.7}
+              >
+                <Icon name="image" size={22} color={colors.primary} />
+                <Text style={[qp.optionText, { color: colors.text }]}>
+                  {t("imageFromGallery" as never)}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[qp.option, isRTL && { flexDirection: "row-reverse" }]}
+                onPress={onPickDocument}
+                activeOpacity={0.7}
+              >
+                <Icon name="file-doc" size={22} color={colors.primary} />
+                <Text style={[qp.optionText, { color: colors.text }]}>
+                  {t("documentPdfWord" as never)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+const qp = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+  },
+  optionText: {
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+});
+
+// ── WorkflowActionBanner ──────────────────────────────────────────────────────
 function WorkflowActionBanner({
   requestId,
   status,
@@ -748,6 +852,7 @@ function WorkflowActionBanner({
   t: (k: never) => string;
   isRTL: boolean;
 }) {
+  const { showError, showDialog } = useDialog();
   const [comment, setComment] = useState("");
   const [acting, setActing] = useState(false);
 
@@ -776,13 +881,14 @@ function WorkflowActionBanner({
         action,
         comment: comment.trim() || null,
       });
-      Alert.alert(
-        action.endsWith("_approve") ? t("workflowApproved" as never) : t("workflowRejected" as never),
-        ""
-      );
+      showDialog({
+        title: action.endsWith("_approve") ? t("workflowApproved" as never) : t("workflowRejected" as never),
+        message: "",
+        type: action.endsWith("_approve") ? "success" : "warning",
+      });
       setComment("");
     } catch (err) {
-      Alert.alert(t("error" as never), (err as Error).message);
+      showError((err as Error).message, t("error" as never));
     } finally {
       setActing(false);
     }
@@ -860,34 +966,30 @@ function SuperAdminEarlyAdvance({
   t: (k: never) => string;
   isRTL: boolean;
 }) {
+  const { showConfirm, showError } = useDialog();
   const [acting, setActing] = useState(false);
   const entry = SA_EARLY_ADVANCE[status];
   if (!entry) return null;
 
-  const act = async () => {
-    Alert.alert(
-      t("superAdminOverride" as never),
-      `${t("advanceToStage" as never)}: ${t(entry.labelKey as never)}`,
-      [
-        { text: t("cancel" as never), style: "cancel" },
-        {
-          text: t("confirm" as never),
-          onPress: async () => {
-            setActing(true);
-            try {
-              await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
-                action: entry.action,
-                comment: "Super Admin override",
-              });
-            } catch (err) {
-              Alert.alert(t("error" as never), (err as Error).message);
-            } finally {
-              setActing(false);
-            }
-          },
-        },
-      ]
-    );
+  const act = () => {
+    showConfirm({
+      title: t("superAdminOverride" as never),
+      message: `${t("advanceToStage" as never)}: ${t(entry.labelKey as never)}`,
+      confirmText: t("confirm" as never),
+      onConfirm: async () => {
+        setActing(true);
+        try {
+          await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
+            action: entry.action,
+            comment: "Super Admin override",
+          });
+        } catch (err) {
+          showError((err as Error).message, t("error" as never));
+        } finally {
+          setActing(false);
+        }
+      },
+    });
   };
 
   return (
@@ -926,6 +1028,7 @@ export default function ProcurementDetailScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
   const { profile, user, isAdmin, isSuperAdmin } = useAuth();
+  const { showError, showSuccess, showConfirm, showDialog } = useDialog();
   const { deleteRequest } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -937,6 +1040,13 @@ export default function ProcurementDetailScreen() {
   const [notFound, setNotFound] = useState(false);
 
   const [uploadingQuotation, setUploadingQuotation] = useState(false);
+  const [pendingQuotation, setPendingQuotation] = useState<{
+    uri: string;
+    name: string;
+    mimeType: string;
+    size?: number;
+  } | null>(null);
+  const [quotationPickerVisible, setQuotationPickerVisible] = useState(false);
   const [sapPrInput, setSapPrInput] = useState("");
   const [sapPoInput, setSapPoInput] = useState("");
   const [editingSap, setEditingSap] = useState(false);
@@ -1082,41 +1192,46 @@ export default function ProcurementDetailScreen() {
       } catch {
         // workflow event is non-critical
       }
-    } catch {
-      Alert.alert(t("error"), t("errUpload"));
+    } catch (err) {
+      showError((err as Error).message || t("errUpload"), t("error"));
     } finally {
       setUploadingQuotation(false);
     }
   };
 
+  const handleConfirmUpload = async () => {
+    if (!pendingQuotation) return;
+    const { uri, name, mimeType } = pendingQuotation;
+    setPendingQuotation(null);
+    await uploadQuotation(uri, name, mimeType);
+  };
+
   const handleAddQuotation = () => {
     if (!canUploadQuotations) return;
-    Alert.alert(t("addQuotation"), "", [
-      { text: t("imageFromGallery"), onPress: pickImageForQuotation },
-      { text: t("documentPdfWord"), onPress: pickDocumentForQuotation },
-      { text: t("cancel"), style: "cancel" },
-    ]);
+    setQuotationPickerVisible(true);
   };
 
   const pickImageForQuotation = async () => {
     if (pickingRef.current) return;
     pickingRef.current = true;
+    setQuotationPickerVisible(false);
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(t("error"), t("permissionDenied"));
+        showError(t("permissionDenied"), t("error"));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"] });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
-      await uploadQuotation(
-        asset.uri,
-        asset.fileName || `quotation_${Date.now()}.jpg`,
-        asset.mimeType || "image/jpeg"
-      );
+      setPendingQuotation({
+        uri: asset.uri,
+        name: asset.fileName || `quotation_${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+        size: asset.fileSize ?? undefined,
+      });
     } catch {
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       pickingRef.current = false;
     }
@@ -1125,6 +1240,7 @@ export default function ProcurementDetailScreen() {
   const pickDocumentForQuotation = async () => {
     if (pickingRef.current) return;
     pickingRef.current = true;
+    setQuotationPickerVisible(false);
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: "*/*",
@@ -1132,9 +1248,26 @@ export default function ProcurementDetailScreen() {
       });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
-      await uploadQuotation(asset.uri, asset.name, asset.mimeType || "application/octet-stream");
+      // Fix 2: guess MIME type from extension when picker returns octet-stream
+      let mimeType = asset.mimeType || "application/octet-stream";
+      if (mimeType === "application/octet-stream") {
+        const ext = asset.name.split(".").pop()?.toLowerCase();
+        if (ext === "pdf") mimeType = "application/pdf";
+        else if (ext === "doc") mimeType = "application/msword";
+        else if (ext === "docx") mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+        else if (ext === "png") mimeType = "image/png";
+        else if (ext === "xls") mimeType = "application/vnd.ms-excel";
+        else if (ext === "xlsx") mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      }
+      setPendingQuotation({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType,
+        size: asset.size ?? undefined,
+      });
     } catch {
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       pickingRef.current = false;
     }
@@ -1168,9 +1301,9 @@ export default function ProcurementDetailScreen() {
       } catch {
         // non-critical
       }
-      Alert.alert(t("success"), t("quotationSelectedSuccess"));
+      showSuccess(t("quotationSelectedSuccess"), t("success"));
     } catch {
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     }
   };
 
@@ -1186,9 +1319,9 @@ export default function ProcurementDetailScreen() {
         updatedAt: serverTimestamp(),
       });
       setEditingSap(false);
-      Alert.alert(t("success"), t("sapInfoSaved"));
+      showSuccess(t("sapInfoSaved"), t("success"));
     } catch {
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       setSavingSap(false);
     }
@@ -1206,9 +1339,9 @@ export default function ProcurementDetailScreen() {
       });
       setLinkHint("");
       refreshLinks();
-      Alert.alert(t("success"), t("linkGeneratedSuccess"));
+      showSuccess(t("linkGeneratedSuccess"), t("success"));
     } catch (err) {
-      Alert.alert(t("error"), (err as Error).message);
+      showError((err as Error).message, t("error"));
     } finally {
       setGeneratingLink(false);
     }
@@ -1218,45 +1351,43 @@ export default function ProcurementDetailScreen() {
     try {
       await Share.share({ message: url, title: hint ?? undefined });
     } catch {
-      Alert.alert(t("success"), url);
+      showDialog({ title: hint ?? t("supplierLinkSection"), message: url, type: "info" });
     }
   };
 
   const handleDeactivateLink = (linkId: string) => {
-    Alert.alert(t("deactivateLink"), "", [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("deactivateLink"),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await apiPost(`/api/procurement/supplier-links/${linkId}/deactivate`, {});
-            refreshLinks();
-          } catch (err) {
-            Alert.alert(t("error"), (err as Error).message);
-          }
-        },
+    showConfirm({
+      title: t("deactivateLink"),
+      message: "",
+      confirmText: t("deactivateLink"),
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await apiPost(`/api/procurement/supplier-links/${linkId}/deactivate`, {});
+          refreshLinks();
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        }
       },
-    ]);
+    });
   };
 
   const handleAdvanceToBudget = () => {
-    Alert.alert(t("sendToBudgetWorkflow"), t("sendToBudgetWorkflowConfirm"), [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("submitApproval"),
-        onPress: async () => {
-          try {
-            await apiPost(`/api/procurement/workflow/${id}/advance`, {
-              action: "procurement_advance",
-              comment: null,
-            });
-          } catch (err) {
-            Alert.alert(t("error"), (err as Error).message);
-          }
-        },
+    showConfirm({
+      title: t("sendToBudgetWorkflow"),
+      message: t("sendToBudgetWorkflowConfirm"),
+      confirmText: t("submitApproval"),
+      onConfirm: async () => {
+        try {
+          await apiPost(`/api/procurement/workflow/${id}/advance`, {
+            action: "procurement_advance",
+            comment: null,
+          });
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        }
       },
-    ]);
+    });
   };
 
   // ── Loading / not found ─────────────────────────────────────────────────────
@@ -1310,30 +1441,26 @@ export default function ProcurementDetailScreen() {
             style={sc.trashBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() =>
-              Alert.alert(
-                language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
-                language === "ar"
+              showConfirm({
+                title: language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
+                message: language === "ar"
                   ? "سيتم تحديد الطلب كمنهي."
                   : "The request will be marked as terminated.",
-                [
-                  { text: language === "ar" ? "إلغاء" : "Cancel", style: "cancel" },
-                  {
-                    text: language === "ar" ? "إنهاء" : "Terminate",
-                    style: "destructive",
-                    onPress: async () => {
-                      try {
-                        await deleteRequest(id!);
-                        router.back();
-                      } catch {
-                        Alert.alert(
-                          language === "ar" ? "خطأ" : "Error",
-                          language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate."
-                        );
-                      }
-                    },
-                  },
-                ]
-              )
+                confirmText: language === "ar" ? "إنهاء" : "Terminate",
+                cancelText: language === "ar" ? "إلغاء" : "Cancel",
+                destructive: true,
+                onConfirm: async () => {
+                  try {
+                    await deleteRequest(id!);
+                    router.back();
+                  } catch {
+                    showError(
+                      language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate.",
+                      language === "ar" ? "خطأ" : "Error"
+                    );
+                  }
+                },
+              })
             }
           >
             <Icon name="trash" size={20} color="rgba(255,255,255,0.85)" />
@@ -1432,23 +1559,75 @@ export default function ProcurementDetailScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[sc.addQuotationBtn, { borderColor: colors.primary }]}
-              onPress={handleAddQuotation}
-              disabled={uploadingQuotation}
-              activeOpacity={0.75}
-            >
-              {uploadingQuotation ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <>
-                  <Icon name="plus" size={18} color={colors.primary} />
-                  <Text style={[sc.addQuotationText, { color: colors.primary }]}>
-                    {t("addQuotation")}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* ── Pending file preview card ─────────────────────────────── */}
+            {pendingQuotation && (
+              <View style={[sc.pendingCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <View style={[sc.pendingRow, isRTL && { flexDirection: "row-reverse" }]}>
+                  <Icon
+                    name={pendingQuotation.mimeType.startsWith("image/") ? "image" : "file-doc"}
+                    size={22}
+                    color={colors.primary}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[sc.pendingName, { color: colors.text }]} numberOfLines={2}>
+                      {pendingQuotation.name}
+                    </Text>
+                    {pendingQuotation.size !== undefined && (
+                      <Text style={[sc.pendingSize, { color: colors.mutedForeground }]}>
+                        {formatFileSize(pendingQuotation.size)}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setPendingQuotation(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Icon name="close" size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+                <View style={[sc.pendingActions, isRTL && { flexDirection: "row-reverse" }]}>
+                  <TouchableOpacity
+                    style={[sc.pendingCancelBtn, { borderColor: colors.border }]}
+                    onPress={() => setPendingQuotation(null)}
+                  >
+                    <Text style={[sc.pendingCancelText, { color: colors.mutedForeground }]}>
+                      {t("cancel")}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[sc.pendingUploadBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleConfirmUpload}
+                    disabled={uploadingQuotation}
+                  >
+                    {uploadingQuotation ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={sc.pendingUploadText}>{t("uploadQuotation")}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {!pendingQuotation && (
+              <TouchableOpacity
+                style={[sc.addQuotationBtn, { borderColor: colors.primary }]}
+                onPress={handleAddQuotation}
+                disabled={uploadingQuotation}
+                activeOpacity={0.75}
+              >
+                {uploadingQuotation ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
+                  <>
+                    <Icon name="plus" size={18} color={colors.primary} />
+                    <Text style={[sc.addQuotationText, { color: colors.primary }]}>
+                      {t("addQuotation")}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </SectionCard>
         )}
 
@@ -1469,14 +1648,12 @@ export default function ProcurementDetailScreen() {
                   selected={request.selectedQuotationAttachmentId === q.id}
                   onSelect={() => {
                     if (!canSelectQuotation) return;
-                    Alert.alert(
-                      t("selectThis"),
-                      q.customLabel ?? q.name,
-                      [
-                        { text: t("cancel"), style: "cancel" },
-                        { text: t("selectThis"), onPress: () => handleSelectQuotation(q) },
-                      ]
-                    );
+                    showConfirm({
+                      title: t("selectThis"),
+                      message: q.customLabel ?? q.name,
+                      confirmText: t("selectThis"),
+                      onConfirm: () => handleSelectQuotation(q),
+                    });
                   }}
                   colors={colors}
                   t={t as never}
@@ -1737,6 +1914,16 @@ export default function ProcurementDetailScreen() {
           )}
         </SectionCard>
       </ScrollView>
+
+      <QuotationPickerModal
+        visible={quotationPickerVisible}
+        onClose={() => setQuotationPickerVisible(false)}
+        onPickImage={pickImageForQuotation}
+        onPickDocument={pickDocumentForQuotation}
+        colors={colors}
+        t={t as never}
+        isRTL={isRTL}
+      />
     </View>
   );
 }
@@ -2066,6 +2253,53 @@ const sc = StyleSheet.create({
   addQuotationText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  pendingCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    marginTop: 4,
+  },
+  pendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  pendingName: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  pendingSize: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  pendingActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  pendingCancelBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  pendingCancelText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  pendingUploadBtn: {
+    flex: 2,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  pendingUploadText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
   },
   sapFields: { gap: 10 },
   sapFieldRow: {

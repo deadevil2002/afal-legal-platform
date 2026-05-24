@@ -7,10 +7,10 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { useDialog } from "@/context/DialogContext";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -51,6 +51,7 @@ export default function DeletionRequestsScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { isSuperAdmin, profile } = useAuth();
+  const { showError, showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -99,7 +100,7 @@ export default function DeletionRequestsScreen() {
         reviewedBy: profile?.uid ?? null,
       });
     } catch (e: unknown) {
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       setActionId(null);
     }
@@ -112,18 +113,13 @@ export default function DeletionRequestsScreen() {
         : status === "rejected"
         ? "confirmRejectDelete"
         : "confirmCloseDelete";
-    Alert.alert(
-      t(status === "approved" ? "approve" : status === "rejected" ? "reject" : "close"),
-      t(messageKey),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("confirm"),
-          style: status === "approved" ? "destructive" : "default",
-          onPress: () => updateStatus(id, status),
-        },
-      ]
-    );
+    showConfirm({
+      title: t(status === "approved" ? "approve" : status === "rejected" ? "reject" : "close"),
+      message: t(messageKey),
+      confirmText: t("confirm"),
+      destructive: status === "approved",
+      onConfirm: () => updateStatus(id, status),
+    });
   };
 
   const statusLabel = (s: DeletionStatus): string =>

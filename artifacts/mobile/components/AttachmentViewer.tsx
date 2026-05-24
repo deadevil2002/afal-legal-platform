@@ -1,9 +1,9 @@
 import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
+import { useDialog } from "@/context/DialogContext";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Modal,
@@ -143,6 +143,7 @@ export function AttachmentViewer({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { t } = useT();
+  const { showError } = useDialog();
 
   const [imageOpen, setImageOpen] = useState(false);
   const [imgLoading, setImgLoading] = useState(true);
@@ -157,7 +158,7 @@ export function AttachmentViewer({
   // ── Image handlers ─────────────────────────────────────────────────────
   const handleImagePress = () => {
     if (!url) {
-      Alert.alert(t("error"), t("errNotFound"));
+      showError(t("errNotFound"), t("error"));
       return;
     }
     setImgLoading(true);
@@ -167,14 +168,14 @@ export function AttachmentViewer({
 
   const handleImageDownload = () => {
     openUrl(toDownloadUrl(url)).catch(() =>
-      openUrl(url).catch(() => Alert.alert(t("error"), t("errGeneric")))
+      openUrl(url).catch(() => showError(t("errGeneric"), t("error")))
     );
   };
 
   // ── Non-image handlers ─────────────────────────────────────────────────
   const handleOpenFile = async () => {
     if (!url) {
-      Alert.alert(t("error"), t("errNotFound"));
+      showError(t("errNotFound"), t("error"));
       return;
     }
     setOpenFailed(false);
@@ -188,7 +189,7 @@ export function AttachmentViewer({
   const handleDownloadFile = () => {
     const dlUrl = toDownloadUrl(url);
     openUrl(dlUrl).catch(() =>
-      openUrl(url).catch(() => Alert.alert(t("error"), t("errGeneric")))
+      openUrl(url).catch(() => showError(t("errGeneric"), t("error")))
     );
   };
 

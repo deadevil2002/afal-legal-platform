@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
+import { useDialog } from "@/context/DialogContext";
 import { auth } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
@@ -25,6 +25,7 @@ export default function ForgotPasswordScreen() {
   const { t, isRTL, language } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showError } = useDialog();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,11 +34,11 @@ export default function ForgotPasswordScreen() {
   const handleReset = async () => {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) {
-      Alert.alert(t("error"), t("required"));
+      showError(t("required"), t("error"));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      Alert.alert(t("error"), t("invalidEmail"));
+      showError(t("invalidEmail"), t("error"));
       return;
     }
     setLoading(true);
@@ -47,7 +48,7 @@ export default function ForgotPasswordScreen() {
     } catch (e: unknown) {
       const { mapFirebaseAuthError } = await import("@/lib/firebaseErrorMapper");
       const mapped = mapFirebaseAuthError(e, language);
-      Alert.alert(t("error"), mapped);
+      showError(mapped, t("error"));
     } finally {
       setLoading(false);
     }

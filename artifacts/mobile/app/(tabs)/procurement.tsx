@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
+import { useDialog } from "@/context/DialogContext";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   RefreshControl,
   ScrollView,
@@ -101,6 +101,7 @@ export default function ProcurementScreen() {
   const colors = useColors();
   const { t, language, isRTL } = useT();
   const { profile, isAdmin, isSuperAdmin } = useAuth();
+  const { showConfirm, showError } = useDialog();
   const { procurementRequests, loading, error, refresh, deleteRequest } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -127,29 +128,25 @@ export default function ProcurementScreen() {
   }, [procurementRequests, search, showTerminated]);
 
   const handleDelete = (item: ProcurementRequest) => {
-    Alert.alert(
-      language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
-      language === "ar"
+    showConfirm({
+      title: language === "ar" ? "إنهاء هذا الطلب؟" : "Terminate This Request?",
+      message: language === "ar"
         ? "سيتم تحديد الطلب كمنهي وإخفاؤه من القائمة الرئيسية. يمكنك الاطلاع عليه لاحقاً عبر خيار عرض المنهية."
         : "The request will be marked as terminated and hidden from the main list. You can view it later via Show Terminated.",
-      [
-        { text: language === "ar" ? "إلغاء" : "Cancel", style: "cancel" },
-        {
-          text: language === "ar" ? "إنهاء" : "Terminate",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteRequest(item.id);
-            } catch (err) {
-              Alert.alert(
-                language === "ar" ? "خطأ" : "Error",
-                language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate request."
-              );
-            }
-          },
-        },
-      ]
-    );
+      confirmText: language === "ar" ? "إنهاء" : "Terminate",
+      cancelText: language === "ar" ? "إلغاء" : "Cancel",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteRequest(item.id);
+        } catch (err) {
+          showError(
+            language === "ar" ? "تعذّر إنهاء الطلب." : "Failed to terminate request.",
+            language === "ar" ? "خطأ" : "Error"
+          );
+        }
+      },
+    });
   };
 
   const handleRefresh = async () => {

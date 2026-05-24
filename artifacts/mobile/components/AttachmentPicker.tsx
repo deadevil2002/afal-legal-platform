@@ -16,9 +16,9 @@
 
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { useDialog } from "@/context/DialogContext";
 import React, { useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Linking,
   Modal,
@@ -84,6 +84,7 @@ export function AttachmentPicker({
 }: AttachmentPickerProps) {
   const colors = useColors();
   const { t, isRTL } = useT();
+  const { showError, showDialog } = useDialog();
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   // Prevents concurrent picker calls ("Different document picking in progress" on iOS)
@@ -98,7 +99,7 @@ export function AttachmentPicker({
     const normalizedMime = mimeType.split(";")[0].trim().toLowerCase();
 
     if (!isMimeTypeAllowed(normalizedMime)) {
-      Alert.alert(t("error"), t("unsupportedFileType"));
+      showError(t("unsupportedFileType"), t("error"));
       return;
     }
 
@@ -125,7 +126,7 @@ export function AttachmentPicker({
     } catch (e: unknown) {
       const msg = t("errUpload");
       console.error("[AttachmentPicker] Upload error:", (e as Error).message);
-      Alert.alert(t("uploadFailed"), msg);
+      showError(msg, t("uploadFailed"));
       setUploading((prev) =>
         prev.map((f) => (f.name === uploadKey ? { ...f, error: msg } : f))
       );
@@ -168,24 +169,22 @@ export function AttachmentPicker({
           console.log("[DIAG] pickImage: permission status =", permStatus);
         } catch (permErr: unknown) {
           console.error("[AttachmentPicker] requestMediaLibraryPermissionsAsync failed:", permErr);
-          Alert.alert(t("error"), t("errGeneric"));
+          showError(t("errGeneric"), t("error"));
           return;
         }
 
         // "granted" = full access, "limited" = iOS 14+ selected photos — both are fine.
         if (permStatus !== "granted" && permStatus !== "limited") {
           console.log("[DIAG] pickImage: permission denied, showing settings alert");
-          Alert.alert(
-            t("permissionDenied"),
-            t("iosPhotoPermissionDenied"),
-            [
-              { text: t("cancel"), style: "cancel" },
-              {
-                text: t("openSettings"),
-                onPress: () => Linking.openSettings(),
-              },
-            ]
-          );
+          showDialog({
+            title: t("permissionDenied"),
+            message: t("iosPhotoPermissionDenied"),
+            type: "warning",
+            buttons: [
+              { text: t("cancel") },
+              { text: t("openSettings"), onPress: () => Linking.openSettings() },
+            ],
+          });
           return;
         }
       }
@@ -214,7 +213,7 @@ export function AttachmentPicker({
         console.log("[DIAG] pickImage: launchImageLibraryAsync returned, canceled =", result.canceled);
       } catch (pickerErr: unknown) {
         console.error("[AttachmentPicker] launchImageLibraryAsync failed:", pickerErr);
-        Alert.alert(t("error"), t("errGeneric"));
+        showError(t("errGeneric"), t("error"));
         return;
       }
 
@@ -227,7 +226,7 @@ export function AttachmentPicker({
       );
     } catch (e: unknown) {
       console.error("[AttachmentPicker] pickImage unexpected error:", e);
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       console.log("[DIAG] pickImage: finally — resetting ref to false");
       pickingRef.current = false;
@@ -314,7 +313,7 @@ export function AttachmentPicker({
       await doUpload(asset.uri, asset.name, asset.mimeType || "application/octet-stream");
     } catch (e: unknown) {
       console.error("[AttachmentPicker] pickDocument failed:", e);
-      Alert.alert(t("error"), t("errGeneric"));
+      showError(t("errGeneric"), t("error"));
     } finally {
       console.log("[DIAG] pickDocument: finally — resetting ref to false");
       pickingRef.current = false;

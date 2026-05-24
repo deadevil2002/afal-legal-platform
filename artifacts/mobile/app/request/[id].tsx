@@ -15,10 +15,10 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
+import { useDialog } from "@/context/DialogContext";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -98,6 +98,7 @@ export default function RequestDetailScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { user, profile, isAdmin, isSuperAdmin } = useAuth();
+  const { showError, showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -132,7 +133,7 @@ export default function RequestDetailScreen() {
       setShowStatusModal(false);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+      showError((e as Error).message ?? t("errGeneric"), t("error"));
     } finally {
       setUpdatingStatus(false);
     }
@@ -150,36 +151,28 @@ export default function RequestDetailScreen() {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+      showError((e as Error).message ?? t("errGeneric"), t("error"));
     }
   };
 
   // SUPER ADMIN ONLY — permanently delete a request + all its messages.
-  // Two-step Alert confirmation before any data is touched.
+  // Two-step confirmation before any data is touched.
   const handleDeleteRequest = () => {
     if (!isSuperAdmin || !id) return;
-    Alert.alert(
-      t("deleteRequestConfirmTitle"),
-      t("deleteRequestConfirmMsg"),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("deleteRequest"),
-          style: "destructive",
-          onPress: () => {
-            // Second confirmation — adds friction for an irreversible action
-            Alert.alert(
-              t("deleteRequestConfirmTitle"),
-              "Are you absolutely sure? All messages will be permanently lost.",
-              [
-                { text: t("cancel"), style: "cancel" },
-                { text: t("delete"), style: "destructive", onPress: performDelete },
-              ]
-            );
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: t("deleteRequestConfirmTitle"),
+      message: t("deleteRequestConfirmMsg"),
+      confirmText: t("deleteRequest"),
+      destructive: true,
+      onConfirm: () =>
+        showConfirm({
+          title: t("deleteRequestConfirmTitle"),
+          message: "Are you absolutely sure? All messages will be permanently lost.",
+          confirmText: t("delete"),
+          destructive: true,
+          onConfirm: performDelete,
+        }),
+    });
   };
 
   const performDelete = async () => {
@@ -199,7 +192,7 @@ export default function RequestDetailScreen() {
       // Navigate back — the request no longer exists
       router.back();
     } catch (e: unknown) {
-      Alert.alert(t("error"), (e as Error).message ?? t("errGeneric"));
+      showError((e as Error).message ?? t("errGeneric"), t("error"));
       setDeleting(false);
     }
   };

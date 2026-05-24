@@ -7,10 +7,10 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { useDialog } from "@/context/DialogContext";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -55,6 +55,7 @@ export default function AdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, updateUserRole, getAllUsers, deleteUserByAdmin } = useAuth();
+  const { showSuccess, showError, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -159,64 +160,62 @@ export default function AdminScreen() {
       }
       await updateDoc(doc(db, "requests", selectedRequest.id), updatePayload);
       setSelectedRequest(null);
-      Alert.alert(t("success"), t("requestUpdated"));
+      showSuccess(t("requestUpdated"), t("success"));
     } catch (e: unknown) {
       console.error("[Admin] Status update error:", (e as Error).message);
-      Alert.alert(t("error"), t("errStatusUpdate"));
+      showError(t("errStatusUpdate"), t("error"));
     } finally {
       setUpdatingStatus(false);
     }
   };
 
   const handlePromote = (target: UserProfile) => {
-    Alert.alert(t("promoteToAdmin"), t("confirmPromote"), [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("confirm"),
-        onPress: async () => {
-          setActionLoading(true);
-          try {
-            await promoteToAssistantAdmin(target.uid);
-            setUsers((prev) =>
-              prev.map((u) => (u.uid === target.uid ? { ...u, role: "assistant_admin" } : u))
-            );
-            Alert.alert(t("success"), `${target.displayName} ${t("promotedSuccess")}`);
-          } catch (e: unknown) {
-            console.error("[Admin] Promote error:", (e as Error).message);
-            Alert.alert(t("error"), t("errPermission"));
-          } finally {
-            setActionLoading(false);
-            setActionUser(null);
-          }
-        },
+    showConfirm({
+      title: t("promoteToAdmin"),
+      message: t("confirmPromote"),
+      confirmText: t("confirm"),
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          await promoteToAssistantAdmin(target.uid);
+          setUsers((prev) =>
+            prev.map((u) => (u.uid === target.uid ? { ...u, role: "assistant_admin" } : u))
+          );
+          showSuccess(`${target.displayName} ${t("promotedSuccess")}`, t("success"));
+        } catch (e: unknown) {
+          console.error("[Admin] Promote error:", (e as Error).message);
+          showError(t("errPermission"), t("error"));
+        } finally {
+          setActionLoading(false);
+          setActionUser(null);
+        }
       },
-    ]);
+    });
   };
 
   const handleDemote = (target: UserProfile) => {
-    Alert.alert(t("demoteFromAdmin"), t("confirmDemote"), [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("confirm"),
-        style: "destructive",
-        onPress: async () => {
-          setActionLoading(true);
-          try {
-            await demoteFromAdmin(target.uid);
-            setUsers((prev) =>
-              prev.map((u) => (u.uid === target.uid ? { ...u, role: "user" } : u))
-            );
-            Alert.alert(t("success"), `${target.displayName} ${t("demotedSuccess")}`);
-          } catch (e: unknown) {
-            console.error("[Admin] Demote error:", (e as Error).message);
-            Alert.alert(t("error"), t("errPermission"));
-          } finally {
-            setActionLoading(false);
-            setActionUser(null);
-          }
-        },
+    showConfirm({
+      title: t("demoteFromAdmin"),
+      message: t("confirmDemote"),
+      confirmText: t("confirm"),
+      destructive: true,
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          await demoteFromAdmin(target.uid);
+          setUsers((prev) =>
+            prev.map((u) => (u.uid === target.uid ? { ...u, role: "user" } : u))
+          );
+          showSuccess(`${target.displayName} ${t("demotedSuccess")}`, t("success"));
+        } catch (e: unknown) {
+          console.error("[Admin] Demote error:", (e as Error).message);
+          showError(t("errPermission"), t("error"));
+        } finally {
+          setActionLoading(false);
+          setActionUser(null);
+        }
       },
-    ]);
+    });
   };
 
   const openDeleteUserModal = (target: UserProfile) => {
@@ -235,7 +234,7 @@ export default function AdminScreen() {
       await deleteUserByAdmin(deleteUserModal.target.uid, deleteUserModal.password);
       setUsers((prev) => prev.filter((u) => u.uid !== deleteUserModal.target!.uid));
       setDeleteUserModal({ visible: false, target: null, password: "", loading: false, error: "" });
-      Alert.alert(t("success"), t("deleteUserSuccess"));
+      showSuccess(t("deleteUserSuccess"), t("success"));
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       const msg = err.code === "auth/wrong-password" || err.code === "auth/invalid-credential"
@@ -282,9 +281,9 @@ export default function AdminScreen() {
         )
       );
       setSelectedUser(null);
-      Alert.alert(t("success"), t("roleAssigned"));
+      showSuccess(t("roleAssigned"), t("success"));
     } catch (e: unknown) {
-      Alert.alert(t("error"), t("errPermission"));
+      showError(t("errPermission"), t("error"));
     } finally {
       setRoleUpdateLoading(false);
     }

@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
+import { useDialog } from "@/context/DialogContext";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -32,6 +32,7 @@ export default function CreateUserScreen() {
   const colors = useColors();
   const { t, isRTL, language } = useT();
   const { isSuperAdmin, adminCreateUser } = useAuth();
+  const { showDialog } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -108,16 +109,12 @@ export default function CreateUserScreen() {
         canSubmitRequests,
       };
       await adminCreateUser(params);
-      Alert.alert(
-        t("success"),
-        t("userCreatedSuccess"),
-        [
-          {
-            text: t("ok"),
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      showDialog({
+        title: t("success"),
+        message: t("userCreatedSuccess"),
+        type: "success",
+        buttons: [{ text: t("ok"), onPress: () => router.back() }],
+      });
     } catch (e: unknown) {
       const err = e as { message?: string };
       const msg = err?.message ?? "";

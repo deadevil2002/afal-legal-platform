@@ -1,9 +1,9 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useDialog } from "@/context/DialogContext";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -73,6 +73,7 @@ export default function NewProcurementRequestScreen() {
   const { createRFQ } = useProcurementRequests();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showError, showDialog } = useDialog();
 
   const canCreate = profile?.canSubmitRequests === true || isAdmin;
 
@@ -84,11 +85,11 @@ export default function NewProcurementRequestScreen() {
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert(t("error"), t("rfqTitleRequired"));
+      showError(t("rfqTitleRequired"), t("error"));
       return;
     }
     if (!productDescription.trim()) {
-      Alert.alert(t("error"), t("rfqDescriptionRequired"));
+      showError(t("rfqDescriptionRequired"), t("error"));
       return;
     }
     if (!profile) return;
@@ -109,15 +110,15 @@ export default function NewProcurementRequestScreen() {
         })),
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(t("success"), t("rfqCreatedSuccess"), [
-        {
-          text: t("ok"),
-          onPress: () => router.replace(`/procurement/${id}` as never),
-        },
-      ]);
+      showDialog({
+        title: t("success"),
+        message: t("rfqCreatedSuccess"),
+        type: "success",
+        buttons: [{ text: t("ok"), onPress: () => router.replace(`/procurement/${id}` as never) }],
+      });
     } catch (e: unknown) {
       console.error("[NewProcurement] submit error:", (e as Error).message);
-      Alert.alert(t("error"), t("errSubmit"));
+      showError(t("errSubmit"), t("error"));
     } finally {
       setSubmitting(false);
     }

@@ -1,0 +1,83 @@
+Good catch. Please do a focused audit and implement these 3 fixes only — do NOT refactor unrelated code and do NOT break current procurement workflow.
+
+FIX 1 — Enterprise Dialog System (Global)
+
+The current Android default Alert dialogs are not acceptable for an enterprise procurement app.
+
+Audit all dialogs/alerts/modals used in the app and replace default Alert popups with a unified enterprise dialog component.
+
+Requirements:
+
+* Professional enterprise appearance
+* Rounded corners
+* Proper padding and spacing
+* RTL + EN support
+* Optional icon per type (error / success / warning / confirm)
+* Consistent button styling
+* Reusable global component
+* Used for:
+
+  * upload errors
+  * delete confirmations
+  * workflow confirmations
+  * generic errors
+  * success messages
+
+Do not change workflow logic — UI only.
+
+FIX 2 — Procurement account cannot upload quotation files
+
+Super Admin can upload quotation files.
+Procurement role currently cannot.
+
+Audit full upload flow:
+
+* quotation upload button visibility
+* role guards
+* picker logic
+* upload handler
+* Cloudinary/API route
+* Firestore write path
+* server logs if needed
+
+Find the exact failure point causing:
+
+"File could not be uploaded"
+
+Do not guess.
+
+Fix the real cause so procurement role can upload quotations successfully exactly like Super Admin.
+
+Confirm whether the problem was:
+
+* UI guard
+* upload API
+* Cloudinary
+* permissions
+* role logic
+* or other code path.
+
+FIX 3 — Remove / delete file before upload
+
+Currently users cannot remove a mistakenly selected file before upload.
+
+Add pending-file management:
+
+Before upload completes:
+
+* preview selected file
+* remove/delete icon (X or trash)
+* replace selected file
+* cancel upload
+
+Apply this to quotation uploads and any reusable upload picker.
+
+No floating overlapping controls.
+
+After implementation:
+
+1. explain root cause of upload failure
+2. list all changed files
+3. run verification
+4. confirm procurement upload works
+5. confirm enterprise dialogs replaced default alerts

@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
+import { useDialog } from "@/context/DialogContext";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,6 +21,7 @@ export default function TransferSuperAdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { isSuperAdmin, transferSuperAdmin } = useAuth();
+  const { showError, showConfirm } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -42,40 +43,35 @@ export default function TransferSuperAdminScreen() {
   const handleTransfer = () => {
     const emailTrimmed = targetEmail.trim().toLowerCase();
     if (!emailTrimmed) {
-      Alert.alert(t("error"), t("required"));
+      showError(t("required"), t("error"));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
-      Alert.alert(t("error"), t("invalidEmail"));
+      showError(t("invalidEmail"), t("error"));
       return;
     }
     if (!password) {
-      Alert.alert(t("error"), t("required"));
+      showError(t("required"), t("error"));
       return;
     }
 
-    Alert.alert(
-      t("transferConfirmTitle"),
-      t("transferConfirmMessage"),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("confirm"),
-          style: "destructive",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await transferSuperAdmin(emailTrimmed, password);
-              setDone(true);
-            } catch (e: unknown) {
-              Alert.alert(t("error"), (e as { message?: string }).message);
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    showConfirm({
+      title: t("transferConfirmTitle"),
+      message: t("transferConfirmMessage"),
+      confirmText: t("confirm"),
+      destructive: true,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await transferSuperAdmin(emailTrimmed, password);
+          setDone(true);
+        } catch (e: unknown) {
+          showError((e as { message?: string }).message ?? t("errGeneric"), t("error"));
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   if (done) {

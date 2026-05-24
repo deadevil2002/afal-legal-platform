@@ -1,10 +1,10 @@
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useDialog } from "@/context/DialogContext";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -40,6 +40,7 @@ export default function SendToEmployeeScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
   const { user, profile, isAdmin, getAllUsers } = useAuth();
+  const { showError, showDialog } = useDialog();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -69,7 +70,7 @@ export default function SendToEmployeeScreen() {
           )
         )
       )
-      .catch(() => Alert.alert(t("error"), t("failedToLoadEmployees")))
+      .catch(() => showError(t("failedToLoadEmployees"), t("error")))
       .finally(() => setLoadingUsers(false));
   }, []);
 
@@ -96,11 +97,11 @@ export default function SendToEmployeeScreen() {
 
   const handleSubmit = async () => {
     if (!selectedEmployee) {
-      Alert.alert(t("error"), t("selectEmployeeFirst"));
+      showError(t("selectEmployeeFirst"), t("error"));
       return;
     }
     if (!title.trim() || !description.trim()) {
-      Alert.alert(t("error"), t("titleDescRequired"));
+      showError(t("titleDescRequired"), t("error"));
       return;
     }
     if (!user || !profile) return;
@@ -144,12 +145,15 @@ export default function SendToEmployeeScreen() {
         messageCount: 0,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(t("success"), `${t("requestSentTo")} ${selectedEmployee.displayName}.`, [
-        { text: t("ok"), onPress: () => router.back() },
-      ]);
+      showDialog({
+        title: t("success"),
+        message: `${t("requestSentTo")} ${selectedEmployee.displayName}.`,
+        type: "success",
+        buttons: [{ text: t("ok"), onPress: () => router.back() }],
+      });
     } catch (e: unknown) {
       console.error("[SendToEmployee] Submit error:", (e as Error).message);
-      Alert.alert(t("error"), t("errSubmit"));
+      showError(t("errSubmit"), t("error"));
     } finally {
       setSubmitting(false);
     }
