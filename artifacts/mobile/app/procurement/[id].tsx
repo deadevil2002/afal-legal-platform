@@ -324,6 +324,7 @@ function SelectableQuotationCard({
   index,
   selected,
   onSelect,
+  canSelect,
   colors,
   t,
   isRTL,
@@ -332,6 +333,7 @@ function SelectableQuotationCard({
   index: number;
   selected: boolean;
   onSelect: () => void;
+  canSelect: boolean;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   t: (k: never) => string;
   isRTL: boolean;
@@ -342,22 +344,13 @@ function SelectableQuotationCard({
   const showFilename = quotation.name && quotation.name !== shortLabel;
   const accent = selected ? colors.primary : fileColor;
 
-  return (
-    <TouchableOpacity
-      style={[
-        sub.quotationCard,
-        {
-          borderColor: selected ? colors.primary : colors.border,
-          backgroundColor: selected ? colors.primary + "0A" : colors.background,
-          borderWidth: selected ? 2 : 1,
-        },
-      ]}
-      onPress={onSelect}
-      activeOpacity={0.75}
-    >
-      <View style={[sub.qcCircle, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-        {selected ? <Icon name="check" size={11} color="#fff" /> : null}
-      </View>
+  const cardContent = (
+    <>
+      {canSelect ? (
+        <View style={[sub.qcCircle, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+          {selected ? <Icon name="check" size={11} color="#fff" /> : null}
+        </View>
+      ) : null}
       <View style={[sub.qcIconWrap, { backgroundColor: accent + "18" }]}>
         <Icon name={fileIcon} size={20} color={accent} />
       </View>
@@ -383,6 +376,40 @@ function SelectableQuotationCard({
       >
         <Icon name="external-link" size={17} color={selected ? colors.primary : colors.secondary} />
       </TouchableOpacity>
+    </>
+  );
+
+  if (!canSelect) {
+    return (
+      <View
+        style={[
+          sub.quotationCard,
+          {
+            borderColor: selected ? colors.primary : colors.border,
+            backgroundColor: selected ? colors.primary + "0A" : colors.background,
+            borderWidth: selected ? 2 : 1,
+          },
+        ]}
+      >
+        {cardContent}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[
+        sub.quotationCard,
+        {
+          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? colors.primary + "0A" : colors.background,
+          borderWidth: selected ? 2 : 1,
+        },
+      ]}
+      onPress={onSelect}
+      activeOpacity={0.75}
+    >
+      {cardContent}
     </TouchableOpacity>
   );
 }
@@ -1120,9 +1147,38 @@ export default function ProcurementDetailScreen() {
   const isCreator = profile?.uid === request?.createdByUid;
   const isProcurementRole = profile?.role === "procurement" || isSuperAdmin;
   const canUploadQuotations = isProcurementRole;
-  const canSelectQuotation =
-    isCreator && !isAdmin && !request?.selectedQuotationAttachmentId;
+
+  // Quotation selection is only valid at this workflow stage
+  const isAtSelectionStage = request?.status === "pending_requester_selection";
+  const selectionNotYetMade = !request?.selectedQuotationAttachmentId;
+
+  // Creator (including CEO or any admin who happens to be the original requester)
+  // can select their own quotation when the request is at the selection stage.
+  // The old `!isAdmin` guard was wrong — it blocked CEO-as-creator and Super Admin.
+  const canSelectQuotation = isCreator && isAtSelectionStage && selectionNotYetMade;
+
+  // Super Admin explicit override: SA who is NOT the creator can still force-select
+  // a quotation on behalf of the requester, but only with a clear confirmation.
+  const canSAOverrideSelect = isSuperAdmin && !isCreator && isAtSelectionStage && selectionNotYetMade;
+
   const canManageSAP = isProcurementRole;
+
+  // Debug log — remove after confirming selection works
+  if (__DEV__ && request) {
+    console.log(
+      "[QuotSel] uid:", user?.uid,
+      "| createdByUid:", request.createdByUid,
+      "| role:", profile?.role,
+      "| isSuperAdmin:", isSuperAdmin,
+      "| isAdmin:", isAdmin,
+      "| isCreator:", isCreator,
+      "| status:", request.status,
+      "| isAtSelectionStage:", isAtSelectionStage,
+      "| canSelectQuotation:", canSelectQuotation,
+      "| canSAOverrideSelect:", canSAOverrideSelect,
+      "| selectedQuotationAttachmentId exists:", !!request.selectedQuotationAttachmentId,
+    );
+  }
 
   const canView =
     isAdmin || isCreator;
@@ -1635,31 +1691,50 @@ export default function ProcurementDetailScreen() {
         {quotations.length > 0 && (isCreator || isSuperAdmin) && (
           <SectionCard icon="check-circle" label={t("selectQuotationPrompt")} colors={colors}>
             <Text style={[sc.sectionDesc, { color: colors.mutedForeground }]}>
-              {canSelectQuotation
+              {canSelectQuotation || canSAOverrideSelect
                 ? t("quotationSectionDesc")
                 : t("quotationSelectedLabel")}
             </Text>
+            {canSAOverrideSelect && (
+              <Text style={[sc.sectionDesc, { color: colors.accent, marginBottom: 4 }]}>
+                {"⚠ Super Admin override — selecting on behalf of the requester"}
+              </Text>
+            )}
             <View style={{ gap: 8, marginTop: 8 }}>
-              {quotations.map((q, i) => (
-                <SelectableQuotationCard
-                  key={q.id}
-                  quotation={q}
-                  index={i}
-                  selected={request.selectedQuotationAttachmentId === q.id}
-                  onSelect={() => {
-                    if (!canSelectQuotation) return;
-                    showConfirm({
-                      title: t("selectThis"),
-                      message: q.customLabel ?? q.name,
-                      confirmText: t("selectThis"),
-                      onConfirm: () => handleSelectQuotation(q),
-                    });
-                  }}
-                  colors={colors}
-                  t={t as never}
-                  isRTL={isRTL}
-                />
-              ))}
+              {quotations.map((q, i) => {
+                const thisCanSelect = canSelectQuotation || canSAOverrideSelect;
+                return (
+                  <SelectableQuotationCard
+                    key={q.id}
+                    quotation={q}
+                    index={i}
+                    selected={request.selectedQuotationAttachmentId === q.id}
+                    canSelect={thisCanSelect}
+                    onSelect={() => {
+                      if (!thisCanSelect) return;
+                      if (canSAOverrideSelect) {
+                        showConfirm({
+                          title: "Super Admin Override",
+                          message: `Select "${q.customLabel ?? q.name}" on behalf of the requester?`,
+                          confirmText: t("selectThis"),
+                          destructive: true,
+                          onConfirm: () => handleSelectQuotation(q),
+                        });
+                      } else {
+                        showConfirm({
+                          title: t("selectThis"),
+                          message: q.customLabel ?? q.name,
+                          confirmText: t("selectThis"),
+                          onConfirm: () => handleSelectQuotation(q),
+                        });
+                      }
+                    }}
+                    colors={colors}
+                    t={t as never}
+                    isRTL={isRTL}
+                  />
+                );
+              })}
             </View>
           </SectionCard>
         )}
