@@ -615,6 +615,10 @@ importers:
         version: 3.25.76
 
   scripts:
+    dependencies:
+      firebase-admin:
+        specifier: ^13.9.0
+        version: 13.10.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -4815,6 +4819,10 @@ packages:
   firebase-admin@12.7.0:
     resolution: {integrity: sha512-raFIrOyTqREbyXsNkSHyciQLfv8AUZazehPaQS1lZBSCDYW74FYXU0nQZa3qHI4K+hawohlDbywZ4+qce9YNxA==}
     engines: {node: '>=14'}
+
+  firebase-admin@13.10.0:
+    resolution: {integrity: sha512-rbuCrJvYRwqBqvbccMS8fj/x2zsaMisdf5RQbRzQzr14Rbq9r2UlpuBHqWAwrO6c9dIRF56xF/xoepXsD5yDuQ==}
+    engines: {node: '>=18'}
 
   firebase-tools@14.27.0:
     resolution: {integrity: sha512-HrucHJ69mLM9pQhZFO1rb0N/QMpZD4iznoOtKd2lctEELPtbSMN5JHgdgzLlf+EXn5aQy87u5zlPd/0xwwyYTQ==}
@@ -13275,6 +13283,23 @@ snapshots:
       jwks-rsa: 3.2.2
       node-forge: 1.4.0
       uuid: 10.0.0
+    optionalDependencies:
+      '@google-cloud/firestore': 7.11.6
+      '@google-cloud/storage': 7.19.0
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
+  firebase-admin@13.10.0:
+    dependencies:
+      '@fastify/busboy': 3.2.0
+      '@firebase/database-compat': 2.1.2
+      '@firebase/database-types': 1.0.18
+      farmhash-modern: 1.1.0
+      fast-deep-equal: 3.1.3
+      google-auth-library: 10.6.2
+      jsonwebtoken: 9.0.3
+      jwks-rsa: 3.2.2
     optionalDependencies:
       '@google-cloud/firestore': 7.11.6
       '@google-cloud/storage': 7.19.0

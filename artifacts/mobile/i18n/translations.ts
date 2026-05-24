@@ -86,12 +86,6 @@ export const translations = {
     typeBudgetRequest: "Budget Request",
     typeSupplierOnboarding: "Supplier Onboarding",
     typeViolationReport: "Violation Report",
-    // ── Legacy legal categories (display-only for old Firestore records) ──
-    typeAmicable: "Amicable Settlement",
-    typeComplaint: "Complaint",
-    typeLegalConsultation: "Legal Consultation",
-    typeInvestigation: "Investigation Request",
-    typeContractIssue: "Contract Issue",
 
     // ── Conversation ──────────────────────────────────────────────────────
     conversation: "Conversation",
@@ -663,12 +657,6 @@ export const translations = {
     typeBudgetRequest: "طلب ميزانية",
     typeSupplierOnboarding: "إلحاق مورد",
     typeViolationReport: "تقرير مخالفة",
-    // ── Legacy legal categories (display-only for old Firestore records) ──
-    typeAmicable: "تسوية ودية",
-    typeComplaint: "شكوى",
-    typeLegalConsultation: "استشارة قانونية",
-    typeInvestigation: "طلب تحقيق",
-    typeContractIssue: "مسألة عقد",
 
     // ── Conversation ──────────────────────────────────────────────────────
     conversation: "المحادثة",

@@ -7,31 +7,13 @@ import { useT } from "@/hooks/useT";
 import { TranslationKey } from "@/i18n/translations";
 import { StatusBadge } from "./StatusBadge";
 
-// Handles both current procurement types and legacy legal category strings
-// (title-case canonical + snake_case variants) so that existing Firestore records
-// continue to render correctly until a data migration script is run.
 export const CATEGORY_KEY_MAP: Record<string, TranslationKey> = {
-  // ── Procurement types (canonical) ──────────────────────────────────────
   "Purchase Request":    "typePurchaseRequest",
   "Vendor Approval":     "typeVendorApproval",
   "Contract Review":     "typeContractReview",
   "Budget Request":      "typeBudgetRequest",
   "Supplier Onboarding": "typeSupplierOnboarding",
   "Violation Report":    "typeViolationReport",
-  // ── Legacy legal categories (title-case) — keep until data migration ───
-  "Amicable Settlement":   "typeAmicable",
-  "Complaint":             "typeComplaint",
-  "Legal Consultation":    "typeLegalConsultation",
-  "Investigation Request": "typeInvestigation",
-  "Contract Issue":        "typeContractIssue",
-  // ── Legacy snake_case variants ─────────────────────────────────────────
-  "amicable_settlement":   "typeAmicable",
-  "amicaable_settlement":  "typeAmicable",
-  "complaint":             "typeComplaint",
-  "legal_consultation":    "typeLegalConsultation",
-  "investigation_request": "typeInvestigation",
-  "contract_issue":        "typeContractIssue",
-  "violation_report":      "typeViolationReport",
 };
 
 export interface Request {
