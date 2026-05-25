@@ -28,4 +28,4 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_API_BASE_URL = "https://7f3ed0ad-1183-431c-835e-227f70ed05e0-00-1f0d7e2f8ohnr.kirk.replit.dev"
+EXPO_PUBLIC_API_BASE_URL = "https://suppliers.isaudi.ai"
