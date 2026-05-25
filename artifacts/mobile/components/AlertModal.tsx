@@ -84,7 +84,7 @@ export function AlertModal({
                             : isCancel
                             ? colors.muted
                             : colors.primary,
-                          flex: resolvedButtons.length > 1 ? 1 : undefined,
+                          flex: 1,
                         },
                       ]}
                       onPress={() => {

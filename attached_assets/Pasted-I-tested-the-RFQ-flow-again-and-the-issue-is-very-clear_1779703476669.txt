@@ -1,0 +1,93 @@
+I tested the RFQ flow again and the issue is very clear now.
+
+Correct flow we need:
+
+1. Requester creates RFQ and submits it.
+
+2. Procurement opens the RFQ.
+
+3. Procurement uploads quotation files.
+
+4. After at least one quotation is uploaded, Procurement must see a clear button:
+   "Send Quotations to Requester"
+   Arabic: "إرسال التسعيرات لمقدم الطلب"
+
+5. Only after Procurement clicks this button:
+
+   * status changes to pending_requester_selection
+   * workflow event is added
+   * requester can see quotation selection
+   * requester can select one quotation and approve it
+
+Current behavior:
+
+* Requester creates RFQ successfully.
+* Procurement can see the RFQ and upload quotations successfully.
+* But after uploading quotations, there is NO "Send Quotations to Requester" button anywhere.
+* Requester correctly does NOT see quotations yet. That part is good.
+* The missing problem is ONLY the Procurement/Super Admin send button.
+
+Please fix this specifically.
+
+Audit app/procurement/[id].tsx and confirm:
+
+* canSendToRequester condition
+* current request.status after requester submits
+* quotationAttachments length after upload
+* isProcurementRole for procurement account
+* isSuperAdmin for super admin
+* where the button is rendered
+* whether the button is hidden behind wrong status checks
+
+Required button visibility:
+Show "Send Quotations to Requester" when:
+
+* current user role is procurement OR super_admin
+* quotationAttachments.length > 0
+* request.status is one of:
+  pending_procurement
+  awaiting_quotations
+  quotations_received
+  draft if the app still creates RFQ as draft
+* request.status is NOT pending_requester_selection
+* request.status is NOT quotation_selected
+
+Important:
+If the app creates RFQs with status "draft", then either:
+A) fix createRFQ so submitted RFQs start as pending_procurement, not draft
+OR
+B) allow the send button to appear for draft as a temporary compatibility condition.
+
+Best fix:
+A submitted RFQ should not remain "draft". After requester taps Submit, status should be pending_procurement.
+
+Implement the clean fix:
+
+* New RFQs submitted from the app should be created as pending_procurement
+* Existing draft RFQs with quotations should still show the Send Quotations to Requester button for compatibility
+* The button should be visible and professional inside the Quotations card directly under the uploaded quotation list
+* Add loading state while sending
+* After successful send, show enterprise success dialog
+* Refresh request/status automatically
+
+Also fix the enterprise dialog layout:
+The OK button is currently aligned to one side and looks unprofessional.
+Make all enterprise dialogs consistent:
+
+* centered content
+* centered icon
+* centered title/message
+* buttons aligned professionally
+* single OK button centered or full-width centered
+* RTL and LTR both look correct
+* no default Android Alert styling
+
+Do not change Firestore rules.
+Do not change unrelated workflow stages.
+Report:
+
+* root cause of missing send button
+* files changed
+* status used when RFQ is created
+* button visibility matrix
+* dialog fix summary

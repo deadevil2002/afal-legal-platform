@@ -59,7 +59,7 @@ const WORKFLOW_ACTIONS: Record<
   // Valid from any of the three pre-selection procurement stages.
   send_quotations_to_requester: {
     requiredRoles:   ["procurement", "super_admin"],
-    requiredStatus:  ["pending_procurement", "awaiting_quotations", "quotations_received"],
+    requiredStatus:  ["draft", "pending_procurement", "awaiting_quotations", "quotations_received"],
     toStatus:        "pending_requester_selection",
     eventType:       "sent_to_requester",
   },

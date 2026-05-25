@@ -1192,8 +1192,15 @@ export default function ProcurementDetailScreen() {
   const quotations = (request?.quotationAttachments ?? []) as QuotationAttachment[];
   const requesterAtts = (request?.attachments ?? []) as StoredAttachment[];
 
-  // Procurement can "Send to Requester" from any of the three pre-selection stages.
-  const PRE_SELECTION_STATUSES = ["pending_procurement", "awaiting_quotations", "quotations_received"] as const;
+  // Procurement can "Send to Requester" from any of these stages.
+  // "draft" included for backward-compat with records created before the
+  // pending_procurement default was introduced.
+  const PRE_SELECTION_STATUSES = [
+    "draft",
+    "pending_procurement",
+    "awaiting_quotations",
+    "quotations_received",
+  ] as const;
   const canSendToRequester =
     canUploadQuotations &&
     quotations.length > 0 &&
