@@ -34,13 +34,29 @@ export async function apiFetch(
   return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
+// All server routes use safeJsonResponse which wraps payloads as:
+//   { ok: true, data: T }
+// This helper unwraps that envelope so callers always receive T directly.
+function unwrapEnvelope<T>(json: unknown): T {
+  if (
+    json !== null &&
+    typeof json === "object" &&
+    "ok" in (json as object) &&
+    "data" in (json as object)
+  ) {
+    return (json as { ok: boolean; data: T }).data;
+  }
+  return json as T;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await apiFetch(path, { method: "GET" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  const json = await res.json();
+  return unwrapEnvelope<T>(json);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -52,5 +68,6 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     const body2 = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(body2.error ?? `HTTP ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  const json = await res.json();
+  return unwrapEnvelope<T>(json);
 }

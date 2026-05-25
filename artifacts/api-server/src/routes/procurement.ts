@@ -191,11 +191,16 @@ router.get("/supplier-links/:requestId", requireInternalAuth, async (req, res) =
     const linksSnap = await db
       .collection("supplier_links")
       .where("requestId", "==", requestId)
-      .orderBy("createdAt", "desc")
       .get();
 
+    const sortedDocs = linksSnap.docs.slice().sort((a, b) => {
+      const aTs = (a.data()["createdAt"] as { seconds: number } | null)?.seconds ?? 0;
+      const bTs = (b.data()["createdAt"] as { seconds: number } | null)?.seconds ?? 0;
+      return bTs - aTs;
+    });
+
     const links = await Promise.all(
-      linksSnap.docs.map(async (linkDoc) => {
+      sortedDocs.map(async (linkDoc) => {
         const link = { id: linkDoc.id, ...linkDoc.data() } as Record<string, unknown>;
 
         const expiresAtTs = link.expiresAt as { seconds: number; nanoseconds: number } | null;
@@ -233,8 +238,15 @@ router.get("/supplier-links/:requestId", requireInternalAuth, async (req, res) =
 
     safeJsonResponse(res, { links });
   } catch (err) {
-    req.log.error({ err }, "supplier-links list failed");
-    errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
+    const e = err as { message?: string; code?: string | number };
+    req.log.error({ errCode: e?.code, errMessage: e?.message }, "supplier-links list failed");
+    const isDev = process.env.NODE_ENV !== "production";
+    errorJsonResponse(
+      res,
+      isDev ? `supplier-links list failed: ${e?.message ?? String(err)}` : "An internal error occurred.",
+      500,
+      "server_error"
+    );
   }
 });
 
