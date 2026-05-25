@@ -561,6 +561,13 @@ export const translations = {
     paymentAfterSupply: "After Supply",
     sendToBudgetWorkflow: "Send to Budget Approval",
     sendToBudgetWorkflowConfirm: "Forward this request to Planning for budget approval?",
+    sendQuotationsToRequester: "Send Quotations to Requester",
+    sendQuotationsToRequesterConfirm: "Send all uploaded quotations to the requester for review and selection?",
+    sendQuotationsSuccess: "Quotations sent to requester.",
+    approveSelectedQuotation: "Approve Selected Quotation",
+    approveSelectedQuotationConfirm: "Confirm and approve this quotation as your final selection?",
+    selectQuotationFirst: "Please select a quotation first.",
+    quotationApprovedSuccess: "Quotation approved.",
 
     // ── Workflow approval actions ──────────────────────────────────────────
     approveAction: "Approve",
@@ -1137,6 +1144,13 @@ export const translations = {
     paymentAfterSupply: "بعد التوريد",
     sendToBudgetWorkflow: "إرسال للاعتماد المالي",
     sendToBudgetWorkflowConfirm: "هل تريد تحويل هذا الطلب إلى قسم التخطيط للاعتماد المالي؟",
+    sendQuotationsToRequester: "إرسال التسعيرات لمقدم الطلب",
+    sendQuotationsToRequesterConfirm: "إرسال جميع التسعيرات المرفوعة لمقدم الطلب للمراجعة والاختيار؟",
+    sendQuotationsSuccess: "تم إرسال التسعيرات لمقدم الطلب.",
+    approveSelectedQuotation: "اعتماد التسعيرة المختارة",
+    approveSelectedQuotationConfirm: "تأكيد واعتماد هذه التسعيرة كاختيارك النهائي؟",
+    selectQuotationFirst: "يرجى اختيار تسعيرة أولاً.",
+    quotationApprovedSuccess: "تم اعتماد التسعيرة.",
 
     // ── Workflow approval actions ──────────────────────────────────────────
     approveAction: "اعتماد",

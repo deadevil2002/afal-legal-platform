@@ -1,0 +1,74 @@
+We tested the new RFQ flow again. There is a workflow logic issue.
+
+Current wrong behavior:
+1. Procurement can upload quotation files.
+2. As soon as quotations are uploaded, the requester can see them automatically.
+3. There is no clear “Send to Requester” button for Procurement.
+4. Requester cannot clearly select/approve a quotation.
+5. Super Admin cannot select/approve quotation through a clear override.
+6. The workflow is not moving through explicit user actions.
+
+This is wrong.
+
+Required correct workflow:
+
+Stage 1:
+Requester creates RFQ.
+Status should be pending_procurement or equivalent.
+
+Stage 2:
+Procurement opens the request and uploads quotation files.
+After uploading quotations, the request must NOT automatically move forward silently.
+Procurement must see a clear button:
+“Send Quotations to Requester”
+Arabic: “إرسال التسعيرات لمقدم الطلب”
+
+Only when Procurement clicks this button:
+- status becomes pending_requester_selection
+- workflow event is added
+- requester can now see/select quotations
+
+Stage 3:
+Requester opens the request.
+Requester must see a clear quotation selection section with radio/check selection.
+Requester can select one quotation and click:
+“Approve Selected Quotation”
+Arabic: “اعتماد التسعيرة المختارة”
+
+After requester approves:
+- selectedQuotationAttachmentId is saved
+- approvedAttachment is saved
+- status becomes quotation_selected
+- workflow event is added
+
+Stage 4:
+Procurement / Super Admin sees quotation_selected and gets next action:
+“Send to Budget Workflow”
+Arabic: “إرسال للميزانية”
+Then status becomes planning_review.
+
+Important permissions:
+- Procurement can upload quotations and send quotations to requester.
+- Requester/creator can select and approve quotation only after status is pending_requester_selection.
+- Super Admin can override, but it must be explicit and visible, not hidden.
+- CEO/Finance/Planning/EVP cannot select quotations unless they are the original requester/creator.
+- Read-only users should see quotations without radio buttons.
+
+Please audit app/procurement/[id].tsx and the workflow API/actions.
+
+Fix:
+1. Add explicit Procurement button: Send Quotations to Requester.
+2. Do not expose selectable quotation UI before pending_requester_selection.
+3. Restore selectable quotation UI for requester/creator when status is pending_requester_selection.
+4. Add explicit Approve Selected Quotation button after choosing a quotation.
+5. Add explicit Super Admin override if needed.
+6. Add workflow_events entries for send_to_requester and quotation_selected.
+7. Make sure UI labels are bilingual EN/AR.
+8. Do not change Firestore rules unless absolutely required. If rules are required, explain first.
+
+After implementation, report:
+- files changed
+- exact status transitions
+- which role can see each button
+- test result for procurement upload + send
+- test result for requester selection + approval

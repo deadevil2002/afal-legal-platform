@@ -22,12 +22,18 @@ const workflowAdvanceBodySchema = z.object({
     "evp_approve",      "evp_reject",
     "ceo_approve",      "ceo_reject",
     "procurement_advance",
+    "send_quotations_to_requester",
     "sa_advance_to_awaiting_quotations",
     "sa_advance_to_quotations_received",
     "sa_advance_to_pending_selection",
     "sa_advance_to_quotation_selected",
   ]),
   comment: z.string().nullable().optional(),
+});
+
+const approveQuotationBodySchema = z.object({
+  quotationId: z.string().min(1),
+  quotation: z.record(z.unknown()),
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -38,7 +44,7 @@ const ADMIN_ROLES = ["super_admin", "ceo", "evp", "planning", "finance", "procur
 
 const WORKFLOW_ACTIONS: Record<
   string,
-  { requiredRoles: readonly string[]; requiredStatus: string; toStatus: string; eventType: string }
+  { requiredRoles: readonly string[]; requiredStatus: string | string[]; toStatus: string; eventType: string }
 > = {
   planning_approve:    { requiredRoles: ["planning", "super_admin"],    requiredStatus: "planning_review",     toStatus: "finance_review",  eventType: "planning_approved" },
   planning_reject:     { requiredRoles: ["planning", "super_admin"],    requiredStatus: "planning_review",     toStatus: "planning_rejected", eventType: "planning_rejected" },
@@ -48,11 +54,19 @@ const WORKFLOW_ACTIONS: Record<
   evp_reject:          { requiredRoles: ["evp",      "super_admin"],    requiredStatus: "evp_review",          toStatus: "evp_rejected",    eventType: "evp_rejected" },
   ceo_approve:         { requiredRoles: ["ceo",      "super_admin"],    requiredStatus: "ceo_review",          toStatus: "approved",        eventType: "ceo_approved" },
   ceo_reject:          { requiredRoles: ["ceo",      "super_admin"],    requiredStatus: "ceo_review",          toStatus: "ceo_rejected",    eventType: "ceo_rejected" },
-  procurement_advance:                  { requiredRoles: ["procurement", "super_admin"], requiredStatus: "quotation_selected",          toStatus: "planning_review",            eventType: "advanced_to_planning"    },
-  sa_advance_to_awaiting_quotations:    { requiredRoles: ["super_admin"],                requiredStatus: "pending_procurement",         toStatus: "awaiting_quotations",         eventType: "sa_override_advanced"    },
-  sa_advance_to_quotations_received:    { requiredRoles: ["super_admin"],                requiredStatus: "awaiting_quotations",          toStatus: "quotations_received",          eventType: "sa_override_advanced"    },
-  sa_advance_to_pending_selection:      { requiredRoles: ["super_admin"],                requiredStatus: "quotations_received",          toStatus: "pending_requester_selection",  eventType: "sa_override_advanced"    },
-  sa_advance_to_quotation_selected:     { requiredRoles: ["super_admin"],                requiredStatus: "pending_requester_selection",  toStatus: "quotation_selected",           eventType: "sa_override_advanced"    },
+  procurement_advance:       { requiredRoles: ["procurement", "super_admin"], requiredStatus: "quotation_selected", toStatus: "planning_review", eventType: "advanced_to_planning" },
+  // Procurement sends uploaded quotations to the requester for selection.
+  // Valid from any of the three pre-selection procurement stages.
+  send_quotations_to_requester: {
+    requiredRoles:   ["procurement", "super_admin"],
+    requiredStatus:  ["pending_procurement", "awaiting_quotations", "quotations_received"],
+    toStatus:        "pending_requester_selection",
+    eventType:       "sent_to_requester",
+  },
+  sa_advance_to_awaiting_quotations:    { requiredRoles: ["super_admin"], requiredStatus: "pending_procurement",        toStatus: "awaiting_quotations",        eventType: "sa_override_advanced" },
+  sa_advance_to_quotations_received:    { requiredRoles: ["super_admin"], requiredStatus: "awaiting_quotations",         toStatus: "quotations_received",         eventType: "sa_override_advanced" },
+  sa_advance_to_pending_selection:      { requiredRoles: ["super_admin"], requiredStatus: "quotations_received",         toStatus: "pending_requester_selection", eventType: "sa_override_advanced" },
+  sa_advance_to_quotation_selected:     { requiredRoles: ["super_admin"], requiredStatus: "pending_requester_selection", toStatus: "quotation_selected",          eventType: "sa_override_advanced" },
 };
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -262,10 +276,11 @@ router.post("/workflow/:requestId/advance", requireInternalAuth, async (req, res
     const requestData   = requestSnap.data()!;
     const currentStatus = requestData["status"] as string | undefined;
 
-    if (currentStatus !== cfg.requiredStatus) {
+    const validStatuses = Array.isArray(cfg.requiredStatus) ? cfg.requiredStatus : [cfg.requiredStatus];
+    if (!validStatuses.includes(currentStatus ?? "")) {
       errorJsonResponse(
         res,
-        `Action '${action}' requires status '${cfg.requiredStatus}' but current status is '${currentStatus ?? "unknown"}'.`,
+        `Action '${action}' requires status in [${validStatuses.join(", ")}] but current status is '${currentStatus ?? "unknown"}'.`,
         409,
         "invalid_status"
       );
@@ -303,6 +318,95 @@ router.post("/workflow/:requestId/advance", requireInternalAuth, async (req, res
     safeJsonResponse(res, { requestId, fromStatus: currentStatus, toStatus: cfg.toStatus });
   } catch (err) {
     req.log.error({ err }, "workflow advance failed");
+    errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
+  }
+});
+
+// ── POST /api/procurement/workflow/:requestId/approve-quotation ───────────────
+// Called by the original request creator (or super_admin) to confirm their
+// quotation selection and atomically advance status to quotation_selected.
+// The client passes the chosen quotation object; the server writes everything
+// via Admin SDK so Firestore rules don't block the status transition.
+
+router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async (req, res) => {
+  try {
+    const user      = req.internalUser!;
+    const requestId = String(req.params.requestId);
+
+    const parsed = approveQuotationBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      errorJsonResponse(res, parsed.error.message, 400, "invalid_payload");
+      return;
+    }
+
+    const { quotationId, quotation } = parsed.data;
+
+    const db          = getAdminDb();
+    const requestSnap = await db.collection("procurement_requests").doc(requestId).get();
+    if (!requestSnap.exists) {
+      errorJsonResponse(res, "Request not found.", 404, "not_found");
+      return;
+    }
+
+    const requestData   = requestSnap.data()!;
+    const currentStatus = requestData["status"] as string | undefined;
+
+    if (currentStatus !== "pending_requester_selection") {
+      errorJsonResponse(
+        res,
+        `Quotation approval requires status 'pending_requester_selection' but current status is '${currentStatus ?? "unknown"}'.`,
+        409,
+        "invalid_status"
+      );
+      return;
+    }
+
+    const isCreator    = requestData["createdByUid"] === user.uid;
+    const isSuperAdmin = user.role === "super_admin";
+
+    if (!isCreator && !isSuperAdmin) {
+      errorJsonResponse(
+        res,
+        "Only the original requester or a super_admin may approve a quotation.",
+        403,
+        "forbidden"
+      );
+      return;
+    }
+
+    const batch      = db.batch();
+    const requestRef = db.collection("procurement_requests").doc(requestId);
+    const eventRef   = db.collection("workflow_events").doc();
+
+    batch.update(requestRef, {
+      selectedQuotationAttachmentId: quotationId,
+      approvedAttachment:            quotation,
+      status:                        "quotation_selected",
+      updatedAt:                     FieldValue.serverTimestamp(),
+    });
+
+    batch.set(eventRef, {
+      id:                eventRef.id,
+      requestId,
+      requestCreatorUid: requestData["createdByUid"] ?? null,
+      actorUid:          user.uid,
+      actorName:         user.displayName,
+      actorRole:         user.role,
+      eventType:         "quotation_selected",
+      fromStatus:        currentStatus,
+      toStatus:          "quotation_selected",
+      comment:           isSuperAdmin && !isCreator ? "Super Admin override selection" : null,
+      attachments:       [],
+      createdAt:         FieldValue.serverTimestamp(),
+      metadata:          null,
+    });
+
+    await batch.commit();
+
+    req.log.info({ requestId, quotationId, actorUid: user.uid }, "quotation approved");
+    safeJsonResponse(res, { requestId, quotationId, toStatus: "quotation_selected" });
+  } catch (err) {
+    req.log.error({ err }, "approve-quotation failed");
     errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
   }
 });

@@ -1067,6 +1067,9 @@ export default function ProcurementDetailScreen() {
   const [notFound, setNotFound] = useState(false);
 
   const [uploadingQuotation, setUploadingQuotation] = useState(false);
+  const [sendingToRequester, setSendingToRequester] = useState(false);
+  const [approvingQuotation, setApprovingQuotation] = useState(false);
+  const [localSelectedQuotationId, setLocalSelectedQuotationId] = useState<string | null>(null);
   const [pendingQuotation, setPendingQuotation] = useState<{
     uri: string;
     name: string;
@@ -1154,11 +1157,9 @@ export default function ProcurementDetailScreen() {
 
   // Creator (including CEO or any admin who happens to be the original requester)
   // can select their own quotation when the request is at the selection stage.
-  // The old `!isAdmin` guard was wrong — it blocked CEO-as-creator and Super Admin.
   const canSelectQuotation = isCreator && isAtSelectionStage && selectionNotYetMade;
 
-  // Super Admin explicit override: SA who is NOT the creator can still force-select
-  // a quotation on behalf of the requester, but only with a clear confirmation.
+  // Super Admin explicit override: SA who is NOT the creator can still force-select.
   const canSAOverrideSelect = isSuperAdmin && !isCreator && isAtSelectionStage && selectionNotYetMade;
 
   const canManageSAP = isProcurementRole;
@@ -1190,6 +1191,14 @@ export default function ProcurementDetailScreen() {
 
   const quotations = (request?.quotationAttachments ?? []) as QuotationAttachment[];
   const requesterAtts = (request?.attachments ?? []) as StoredAttachment[];
+
+  // Procurement can "Send to Requester" from any of the three pre-selection stages.
+  const PRE_SELECTION_STATUSES = ["pending_procurement", "awaiting_quotations", "quotations_received"] as const;
+  const canSendToRequester =
+    canUploadQuotations &&
+    quotations.length > 0 &&
+    !!request &&
+    PRE_SELECTION_STATUSES.includes(request.status as typeof PRE_SELECTION_STATUSES[number]);
 
   // ── Supplier links fetch ────────────────────────────────────────────────────
 
@@ -1329,38 +1338,67 @@ export default function ProcurementDetailScreen() {
     }
   };
 
-  // ── Quotation selection ─────────────────────────────────────────────────────
+  // ── Send quotations to requester (procurement action) ──────────────────────
 
-  const handleSelectQuotation = async (quotation: QuotationAttachment) => {
-    if (!id || !user || !profile) return;
-    try {
-      await updateDoc(doc(db, "procurement_requests", id), {
-        selectedQuotationAttachmentId: quotation.id,
-        approvedAttachment: quotation,
-        updatedAt: serverTimestamp(),
-      });
-      try {
-        await addDoc(collection(db, "workflow_events"), {
-          requestId: id,
-          requestCreatorUid: user.uid,
-          actorUid: user.uid,
-          actorName: profile.displayName,
-          actorRole: profile.role,
-          eventType: "quotation_selected",
-          fromStage: null,
-          toStage: "quotation_selected",
-          comment: `Selected: ${quotation.customLabel ?? quotation.name}`,
-          attachments: [],
-          createdAt: serverTimestamp(),
-          metadata: null,
-        });
-      } catch {
-        // non-critical
-      }
-      showSuccess(t("quotationSelectedSuccess"), t("success"));
-    } catch {
-      showError(t("errGeneric"), t("error"));
+  const handleSendToRequester = () => {
+    if (!quotations.length) {
+      showError(t("selectQuotationFirst"), t("error"));
+      return;
     }
+    showConfirm({
+      title: t("sendQuotationsToRequester"),
+      message: t("sendQuotationsToRequesterConfirm"),
+      confirmText: t("submitApproval"),
+      onConfirm: async () => {
+        setSendingToRequester(true);
+        try {
+          await apiPost(`/api/procurement/workflow/${id}/advance`, {
+            action: "send_quotations_to_requester",
+            comment: null,
+          });
+          showSuccess(t("sendQuotationsSuccess"), t("success"));
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        } finally {
+          setSendingToRequester(false);
+        }
+      },
+    });
+  };
+
+  // ── Approve selected quotation (requester / SA action) ──────────────────────
+  // Two-step: user taps radio (sets localSelectedQuotationId), then taps Approve.
+  // The API call writes selectedQuotationAttachmentId + approvedAttachment + status
+  // via Admin SDK so the status transition isn't blocked by Firestore rules.
+
+  const handleApproveQuotation = () => {
+    if (!id || !localSelectedQuotationId) return;
+    const quotation = quotations.find((q) => q.id === localSelectedQuotationId);
+    if (!quotation) return;
+    const isSAOverride = canSAOverrideSelect;
+    showConfirm({
+      title: isSAOverride ? t("superAdminOverride") : t("approveSelectedQuotation"),
+      message: isSAOverride
+        ? `Override: select "${quotation.customLabel ?? quotation.name}" on behalf of the requester?`
+        : t("approveSelectedQuotationConfirm"),
+      confirmText: t("submitApproval"),
+      destructive: isSAOverride,
+      onConfirm: async () => {
+        setApprovingQuotation(true);
+        try {
+          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
+            quotationId: quotation.id,
+            quotation,
+          });
+          setLocalSelectedQuotationId(null);
+          showSuccess(t("quotationApprovedSuccess"), t("success"));
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        } finally {
+          setApprovingQuotation(false);
+        }
+      },
+    });
   };
 
   // ── SAP save ───────────────────────────────────────────────────────────────
@@ -1684,50 +1722,58 @@ export default function ProcurementDetailScreen() {
                 )}
               </TouchableOpacity>
             )}
+
+            {/* ── Send Quotations to Requester ──────────────────────────── */}
+            {canSendToRequester && !pendingQuotation && (
+              <TouchableOpacity
+                style={[sc.sendToRequesterBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSendToRequester}
+                disabled={sendingToRequester}
+                activeOpacity={0.85}
+              >
+                {sendingToRequester ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name="send" size={15} color="#fff" />
+                    <Text style={sc.sendToRequesterText}>
+                      {t("sendQuotationsToRequester")}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </SectionCard>
         )}
 
         {/* ── Section C: Requester Quotation Selection ────────────────────── */}
-        {quotations.length > 0 && (isCreator || isSuperAdmin) && (
+        {/* Only shown at pending_requester_selection stage (or if already selected) */}
+        {quotations.length > 0 && (isCreator || isSuperAdmin) && isAtSelectionStage && (
           <SectionCard icon="check-circle" label={t("selectQuotationPrompt")} colors={colors}>
-            <Text style={[sc.sectionDesc, { color: colors.mutedForeground }]}>
+            {canSAOverrideSelect && (
+              <Text style={[sc.sectionDesc, { color: colors.accent, marginBottom: 6 }]}>
+                {"⚠ Super Admin — selecting on behalf of the requester"}
+              </Text>
+            )}
+            <Text style={[sc.sectionDesc, { color: colors.mutedForeground, marginBottom: 8 }]}>
               {canSelectQuotation || canSAOverrideSelect
                 ? t("quotationSectionDesc")
                 : t("quotationSelectedLabel")}
             </Text>
-            {canSAOverrideSelect && (
-              <Text style={[sc.sectionDesc, { color: colors.accent, marginBottom: 4 }]}>
-                {"⚠ Super Admin override — selecting on behalf of the requester"}
-              </Text>
-            )}
-            <View style={{ gap: 8, marginTop: 8 }}>
+            <View style={{ gap: 8 }}>
               {quotations.map((q, i) => {
                 const thisCanSelect = canSelectQuotation || canSAOverrideSelect;
+                const effectiveSelectedId = request.selectedQuotationAttachmentId ?? localSelectedQuotationId;
                 return (
                   <SelectableQuotationCard
                     key={q.id}
                     quotation={q}
                     index={i}
-                    selected={request.selectedQuotationAttachmentId === q.id}
+                    selected={effectiveSelectedId === q.id}
                     canSelect={thisCanSelect}
                     onSelect={() => {
                       if (!thisCanSelect) return;
-                      if (canSAOverrideSelect) {
-                        showConfirm({
-                          title: "Super Admin Override",
-                          message: `Select "${q.customLabel ?? q.name}" on behalf of the requester?`,
-                          confirmText: t("selectThis"),
-                          destructive: true,
-                          onConfirm: () => handleSelectQuotation(q),
-                        });
-                      } else {
-                        showConfirm({
-                          title: t("selectThis"),
-                          message: q.customLabel ?? q.name,
-                          confirmText: t("selectThis"),
-                          onConfirm: () => handleSelectQuotation(q),
-                        });
-                      }
+                      setLocalSelectedQuotationId(q.id);
                     }}
                     colors={colors}
                     t={t as never}
@@ -1735,6 +1781,55 @@ export default function ProcurementDetailScreen() {
                   />
                 );
               })}
+            </View>
+
+            {/* ── Approve button: shown once user has tapped a radio ─────────── */}
+            {(canSelectQuotation || canSAOverrideSelect) && localSelectedQuotationId && (
+              <TouchableOpacity
+                style={[
+                  sc.approveQuotationBtn,
+                  { backgroundColor: canSAOverrideSelect ? colors.accent : colors.primary },
+                  approvingQuotation && { opacity: 0.7 },
+                ]}
+                onPress={handleApproveQuotation}
+                disabled={approvingQuotation}
+                activeOpacity={0.85}
+              >
+                {approvingQuotation ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name="check-circle" size={16} color="#fff" />
+                    <Text style={sc.approveQuotationBtnText}>
+                      {t("approveSelectedQuotation")}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </SectionCard>
+        )}
+
+        {/* Read-only quotation view: shown after selection is confirmed */}
+        {quotations.length > 0 && (isCreator || isSuperAdmin) && !isAtSelectionStage && request.selectedQuotationAttachmentId && (
+          <SectionCard icon="check-circle" label={t("selectQuotationPrompt")} colors={colors}>
+            <Text style={[sc.sectionDesc, { color: colors.mutedForeground, marginBottom: 8 }]}>
+              {t("quotationSelectedLabel")}
+            </Text>
+            <View style={{ gap: 8 }}>
+              {quotations.map((q, i) => (
+                <SelectableQuotationCard
+                  key={q.id}
+                  quotation={q}
+                  index={i}
+                  selected={request.selectedQuotationAttachmentId === q.id}
+                  canSelect={false}
+                  onSelect={() => {}}
+                  colors={colors}
+                  t={t as never}
+                  isRTL={isRTL}
+                />
+              ))}
             </View>
           </SectionCard>
         )}
@@ -2328,6 +2423,34 @@ const sc = StyleSheet.create({
   addQuotationText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  sendToRequesterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 10,
+  },
+  sendToRequesterText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    color: "#fff",
+  },
+  approveQuotationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  approveQuotationBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
   },
   pendingCard: {
     borderWidth: 1,
