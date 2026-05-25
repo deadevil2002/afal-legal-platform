@@ -110,7 +110,7 @@ export default function HomeScreen() {
     refresh();
   };
 
-  const TERMINAL_STATUSES = ["closed", "terminated"];
+  const TERMINAL_STATUSES = ["closed", "terminated", "approved"];
   const visible = procurementRequests.filter((r) => !r.isTerminated);
   const recentRequests = visible.slice(0, 5);
 

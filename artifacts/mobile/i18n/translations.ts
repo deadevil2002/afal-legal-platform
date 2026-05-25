@@ -455,6 +455,15 @@ export const translations = {
     stagePendingPayment: "Pending Payment",
     stageClosed: "Closed",
     stageTerminated: "Terminated",
+    stagePlanningReview: "Planning Review",
+    stageFinanceReview: "Finance Review",
+    stageEVPReview: "EVP Review",
+    stageCEOReview: "CEO Review",
+    stageApproved: "Approved",
+    stagePlanningRejected: "Rejected by Planning",
+    stageFinanceRejected: "Rejected by Finance",
+    stageEVPRejected: "Rejected by EVP",
+    stageCEORejected: "Rejected by CEO",
 
     // ── Phase 2 workflow sections ──────────────────────────────────────────
     rfqHeaderLabel: "Request Title",
@@ -1038,6 +1047,15 @@ export const translations = {
     stagePendingPayment: "في انتظار الدفع",
     stageClosed: "مغلق",
     stageTerminated: "موقف",
+    stagePlanningReview: "مراجعة التخطيط",
+    stageFinanceReview: "مراجعة المالية",
+    stageEVPReview: "مراجعة نائب الرئيس التنفيذي",
+    stageCEOReview: "مراجعة المدير العام",
+    stageApproved: "معتمد",
+    stagePlanningRejected: "مرفوض من التخطيط",
+    stageFinanceRejected: "مرفوض من المالية",
+    stageEVPRejected: "مرفوض من نائب الرئيس التنفيذي",
+    stageCEORejected: "مرفوض من المدير العام",
 
     // ── Phase 2 workflow sections ──────────────────────────────────────────
     rfqHeaderLabel: "عنوان الطلب",

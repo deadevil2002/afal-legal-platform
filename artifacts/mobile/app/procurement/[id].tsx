@@ -1212,14 +1212,24 @@ export default function ProcurementDetailScreen() {
   useEffect(() => {
     if (!id || (!isProcurementRole && !isCreator)) return;
     let cancelled = false;
+    console.log("[refreshLinks] requestId:", id, "key:", linksRefreshKey);
     setLoadingLinks(true);
     apiGet<{ links: SupplierLink[] }>(`/api/procurement/supplier-links/${id}`)
-      .then(({ links }) => { if (!cancelled) setSupplierLinks(links); })
-      .catch(() => {})
+      .then(({ links }) => {
+        console.log("[refreshLinks] returned links:", links.length);
+        if (!cancelled) setSupplierLinks(links);
+      })
+      .catch((err: Error) => {
+        console.error("[refreshLinks] GET failed:", err.message);
+      })
       .finally(() => { if (!cancelled) setLoadingLinks(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, linksRefreshKey, isProcurementRole, isCreator]);
+
+  useEffect(() => {
+    console.log("[SupplierLinks] rendered count:", supplierLinks.length);
+  }, [supplierLinks]);
 
   // ── Quotation upload ────────────────────────────────────────────────────────
 
@@ -1434,11 +1444,36 @@ export default function ProcurementDetailScreen() {
     if (!id) return;
     setGeneratingLink(true);
     try {
-      await apiPost("/api/procurement/supplier-links", {
+      const result = await apiPost<{
+        id: string;
+        token: string;
+        requestId: string;
+        supplierNameHint: string | null;
+        expiresAt: { seconds: number; nanoseconds: number } | null;
+      }>("/api/procurement/supplier-links", {
         requestId: id,
         supplierNameHint: linkHint.trim() || null,
       });
+      console.log("[handleGenerateLink] POST response:", JSON.stringify(result));
+      if (!result.id || !result.token) {
+        showError("Server returned an invalid link response.", t("error"));
+        return;
+      }
       setLinkHint("");
+      const newLink: SupplierLink = {
+        id: result.id,
+        token: result.token,
+        requestId: result.requestId,
+        supplierNameHint: result.supplierNameHint,
+        createdByUid: user?.uid ?? "",
+        isActive: true,
+        createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+        expiresAt: result.expiresAt ?? null,
+        submittedAt: null,
+        responseId: null,
+        response: null,
+      };
+      setSupplierLinks((prev) => [newLink, ...prev]);
       refreshLinks();
       showSuccess(t("linkGeneratedSuccess"), t("success"));
     } catch (err) {

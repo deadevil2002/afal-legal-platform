@@ -106,6 +106,60 @@ export const PROCUREMENT_STAGE_CONFIG: Record<string, ProcurementStageConfig> = 
     fg: "#991B1B",
     step: 0,
   },
+  planning_review: {
+    labelKey: "stagePlanningReview",
+    bg: "#FEF3C7",
+    fg: "#92400E",
+    step: 7,
+  },
+  finance_review: {
+    labelKey: "stageFinanceReview",
+    bg: "#FEF3C7",
+    fg: "#92400E",
+    step: 7,
+  },
+  evp_review: {
+    labelKey: "stageEVPReview",
+    bg: "#FEF3C7",
+    fg: "#92400E",
+    step: 7,
+  },
+  ceo_review: {
+    labelKey: "stageCEOReview",
+    bg: "#FEF3C7",
+    fg: "#92400E",
+    step: 7,
+  },
+  approved: {
+    labelKey: "stageApproved",
+    bg: "#DCFCE7",
+    fg: "#166534",
+    step: 12,
+  },
+  planning_rejected: {
+    labelKey: "stagePlanningRejected",
+    bg: "#FEE2E2",
+    fg: "#991B1B",
+    step: 7,
+  },
+  finance_rejected: {
+    labelKey: "stageFinanceRejected",
+    bg: "#FEE2E2",
+    fg: "#991B1B",
+    step: 7,
+  },
+  evp_rejected: {
+    labelKey: "stageEVPRejected",
+    bg: "#FEE2E2",
+    fg: "#991B1B",
+    step: 7,
+  },
+  ceo_rejected: {
+    labelKey: "stageCEORejected",
+    bg: "#FEE2E2",
+    fg: "#991B1B",
+    step: 7,
+  },
 };
 
 const DEFAULT_STAGE_CONFIG: ProcurementStageConfig = {
@@ -119,7 +173,7 @@ export function getStageBadgeConfig(stage: string): ProcurementStageConfig {
   return PROCUREMENT_STAGE_CONFIG[stage] ?? DEFAULT_STAGE_CONFIG;
 }
 
-export const TERMINAL_PROCUREMENT_STAGES: readonly string[] = ["closed", "terminated"];
+export const TERMINAL_PROCUREMENT_STAGES: readonly string[] = ["closed", "terminated", "approved"];
 
 export function isProcurementTerminal(stage: string): boolean {
   return TERMINAL_PROCUREMENT_STAGES.includes(stage);
