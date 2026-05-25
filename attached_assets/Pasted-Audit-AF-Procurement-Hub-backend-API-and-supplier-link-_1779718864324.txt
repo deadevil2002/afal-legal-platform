@@ -1,0 +1,64 @@
+Audit AF Procurement Hub backend/API and supplier link flow only.
+
+Do not modify any code yet.
+Do not change Firestore rules.
+Do not refactor.
+
+I need a full technical report so we can decide the safest fix.
+
+Please inspect the project and answer these points clearly:
+
+1. Is there currently any API server/backend in this project?
+   - What framework is used?
+   - Where are the backend files located?
+   - How is it started in Replit?
+   - What port/routes are available?
+
+2. Is Firebase Admin SDK currently configured and working?
+   - Which file initializes it?
+   - Which environment variables/secrets are required?
+   - Is it being used successfully by any existing route, for example approve quotation?
+
+3. Supplier link generation:
+   - Which file contains the Generate Supplier Link button?
+   - Which function runs when pressing it?
+   - Does it call an API route or write directly to Firestore?
+   - What exact route does it call?
+   - What payload does it send?
+   - What response does it expect?
+   - What response is actually returned?
+
+4. Firestore writes:
+   - Does supplier link creation create a document in supplier_links?
+   - Does it update procurement_requests with supplierLinks or supplierLinkIds?
+   - Are workflow_events created for supplier link generation?
+   - Are these writes done by client SDK or Admin SDK?
+
+5. Current bug:
+   The app shows “Success: Supplier link created” but no final URL appears.
+   Find the exact root cause:
+   - API did not create the link?
+   - API created it but did not return URL?
+   - API returned URL but app did not render it?
+   - supplier link saved in supplier_links but not linked to procurement_request?
+   - UI reads the wrong field?
+   - local state not refreshed?
+
+6. Cloudflare Worker readiness:
+   - Is there already any Cloudflare Worker/API integration in this AF project?
+   - Is there an API base URL config file?
+   - Can the existing backend be moved or mirrored to Cloudflare Worker later?
+   - What would be the safest architecture for supplier link generation without Firebase Functions or Blaze plan?
+
+7. Security:
+   - Confirm no Firebase service account/private key is committed in code.
+   - Confirm Admin SDK credentials are only read from environment variables/secrets.
+   - Confirm supplier public form URL does not expose admin secrets.
+
+8. Return:
+   - Root cause
+   - Relevant files and functions
+   - Current routes
+   - Recommended minimal fix
+   - Whether Firestore rules need any change or not
+   - Whether Cloudflare Worker is recommended now or later
