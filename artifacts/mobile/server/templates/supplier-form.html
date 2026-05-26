@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supplier Form — AF Procurement Hub</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #2D6491;
+      --secondary: #16A8BA;
+      --accent: #BC9B5D;
+      --bg: #F5F7FA;
+      --card: #ffffff;
+      --border: #DDE3EC;
+      --muted: #6B7280;
+      --error: #DC2626;
+      --success: #16A34A;
+      --radius: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: #111827;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--primary);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header .brand {
+      display: flex;
+      flex-direction: column;
+    }
+    header .brand-name {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    header .brand-sub {
+      color: rgba(255,255,255,0.7);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    header .accent-bar {
+      width: 4px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .container {
+      max-width: 680px;
+      margin: 32px auto;
+      padding: 0 16px 48px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px;
+    }
+    @media (max-width: 540px) {
+      .card { padding: 20px 16px; }
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .card-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--secondary);
+      margin: 24px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 5px;
+    }
+    .field label .req { color: var(--error); margin-left: 2px; }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      color: #111827;
+      background: #FAFBFC;
+      transition: border-color 0.15s;
+      outline: none;
+      font-family: inherit;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--primary);
+      background: #fff;
+    }
+    .field input.err, .field select.err, .field textarea.err {
+      border-color: var(--error);
+    }
+    .field .err-msg {
+      font-size: 12px;
+      color: var(--error);
+      margin-top: 4px;
+    }
+    .field textarea { resize: vertical; min-height: 72px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 480px) { .row-2 { grid-template-columns: 1fr; } }
+    .vat-box {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      display: none;
+    }
+    .vat-box table { width: 100%; border-collapse: collapse; }
+    .vat-box td { padding: 3px 0; font-size: 13px; color: #1E40AF; }
+    .vat-box td:last-child { text-align: right; font-weight: 600; }
+    .vat-box .total-row td { font-weight: 700; font-size: 14px; padding-top: 6px; border-top: 1px solid #93C5FD; }
+    .submit-btn {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      font-family: inherit;
+    }
+    .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-screen {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .status-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .status-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    .status-msg {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+    .loading-screen {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    .alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .alert-error { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 20px;
+    }
+    #screen-loading, #screen-form, #screen-status { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="accent-bar"></div>
+    <div class="brand">
+      <span class="brand-name">AF Procurement Hub</span>
+      <span class="brand-sub">Supplier Quotation Portal</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Loading -->
+    <div id="screen-loading" class="card loading-screen">
+      <div class="loading-spinner"></div>
+      <p style="color:var(--muted);font-size:14px;">Loading supplier form…</p>
+    </div>
+
+    <!-- Status (expired / used / deactivated / error) -->
+    <div id="screen-status" class="card status-screen">
+      <div class="status-icon" id="status-icon">⚠️</div>
+      <div class="status-title" id="status-title">Link Unavailable</div>
+      <div class="status-msg" id="status-msg">This supplier link is no longer active.</div>
+    </div>
+
+    <!-- Supplier Form -->
+    <div id="screen-form" class="card">
+      <div class="card-title">Supplier Quotation</div>
+      <div class="card-sub" id="form-hint">Please complete all required fields and submit your quotation.</div>
+
+      <div class="alert alert-error" id="submit-error"></div>
+
+      <form id="supplier-form" novalidate>
+        <div class="section-label">Company Information</div>
+        <div class="field">
+          <label>Company Name <span class="req">*</span></label>
+          <input type="text" name="companyName" placeholder="Full legal company name" />
+          <div class="err-msg" data-for="companyName"></div>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Commercial Registration No. <span class="req">*</span></label>
+            <input type="text" name="commercialRegistrationNumber" placeholder="CR number" />
+            <div class="err-msg" data-for="commercialRegistrationNumber"></div>
+          </div>
+          <div class="field">
+            <label>Accreditation No. <span class="req">*</span></label>
+            <input type="text" name="accreditationNumber" placeholder="Accreditation number" />
+            <div class="err-msg" data-for="accreditationNumber"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>ZATCA No. <span class="req">*</span></label>
+          <input type="text" name="zatcaNumber" placeholder="Tax registration number" />
+          <div class="err-msg" data-for="zatcaNumber"></div>
+        </div>
+
+        <div class="section-label">Contact Details</div>
+        <div class="row-2">
+          <div class="field">
+            <label>Contact Person <span class="req">*</span></label>
+            <input type="text" name="contactPersonName" placeholder="Full name" />
+            <div class="err-msg" data-for="contactPersonName"></div>
+          </div>
+          <div class="field">
+            <label>Phone <span class="req">*</span></label>
+            <input type="tel" name="phone" placeholder="+966 5X XXX XXXX" />
+            <div class="err-msg" data-for="phone"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <input type="email" name="email" placeholder="contact@company.com" />
+          <div class="err-msg" data-for="email"></div>
+        </div>
+        <div class="field">
+          <label>National Address <span class="req">*</span></label>
+          <textarea name="nationalAddressText" placeholder="Building No, Street, District, City, Postal Code"></textarea>
+          <div class="err-msg" data-for="nationalAddressText"></div>
+        </div>
+
+        <div class="section-label">Banking &amp; Pricing</div>
+        <div class="field">
+          <label>IBAN <span class="req">*</span></label>
+          <input type="text" name="ibanText" placeholder="SA00 0000 0000 0000 0000 0000" />
+          <div class="err-msg" data-for="ibanText"></div>
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label>Price (Excl. VAT) SAR <span class="req">*</span></label>
+            <input type="number" name="priceExcludingVatSar" placeholder="0.00" min="0" step="0.01" id="price-input" />
+            <div class="err-msg" data-for="priceExcludingVatSar"></div>
+          </div>
+          <div class="field">
+            <label>Payment Terms <span class="req">*</span></label>
+            <select name="paymentTerms">
+              <option value="">Select…</option>
+              <option value="advance">Full Advance</option>
+              <option value="50_50">50% Advance / 50% on Delivery</option>
+              <option value="after_supply">After Supply</option>
+            </select>
+            <div class="err-msg" data-for="paymentTerms"></div>
+          </div>
+        </div>
+        <div class="vat-box" id="vat-box">
+          <table>
+            <tr><td>Price (excl. VAT)</td><td id="vb-excl">–</td></tr>
+            <tr><td>VAT (15%)</td><td id="vb-vat">–</td></tr>
+            <tr class="total-row"><td>Total (incl. VAT)</td><td id="vb-total">–</td></tr>
+          </table>
+        </div>
+
+        <div class="section-label">Additional Notes</div>
+        <div class="field">
+          <label>Notes <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <textarea name="notes" placeholder="Delivery timeline, special conditions, remarks…"></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">Submit Quotation</button>
+      </form>
+    </div>
+
+    <footer>Powered by AF Procurement Hub &mdash; Arabian Fal</footer>
+  </div>
+
+  <script>
+    (function () {
+      var token = location.pathname.split('/').filter(Boolean).pop();
+      var API = '';  // same origin
+
+      function fmt(n) {
+        return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function show(id) {
+        ['screen-loading', 'screen-form', 'screen-status'].forEach(function (s) {
+          document.getElementById(s).style.display = s === id ? 'block' : 'none';
+        });
+      }
+
+      function showStatus(icon, title, msg) {
+        document.getElementById('status-icon').textContent = icon;
+        document.getElementById('status-title').textContent = title;
+        document.getElementById('status-msg').textContent = msg;
+        show('screen-status');
+      }
+
+      // Load link info
+      show('screen-loading');
+      fetch(API + '/api/public/supplier-link/' + encodeURIComponent(token))
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          var data = json.data || json;
+          if (!data.isActive) {
+            var msgs = {
+              expired:     ['⏰', 'Link Expired', 'This supplier link has expired and is no longer accepting submissions.'],
+              used:        ['✅', 'Already Submitted', 'A quotation has already been submitted for this link.'],
+              deactivated: ['🔒', 'Link Deactivated', 'This link has been deactivated by the procurement team.'],
+            };
+            var s = msgs[data.status] || ['⚠️', 'Link Unavailable', 'This supplier link is no longer active.'];
+            showStatus(s[0], s[1], s[2]);
+            return;
+          }
+          // Active — show form
+          if (data.supplierNameHint) {
+            document.getElementById('form-hint').textContent =
+              'Quotation requested for: ' + data.supplierNameHint + '. Please complete all required fields.';
+          }
+          show('screen-form');
+        })
+        .catch(function () {
+          showStatus('⚠️', 'Unable to Load', 'Could not verify this supplier link. Please try again or contact the procurement team.');
+        });
+
+      // VAT preview
+      document.getElementById('price-input').addEventListener('input', function () {
+        var v = parseFloat(this.value);
+        var box = document.getElementById('vat-box');
+        if (isNaN(v) || v <= 0) { box.style.display = 'none'; return; }
+        var vat = Math.round(v * 0.15 * 100) / 100;
+        var total = Math.round(v * 1.15 * 100) / 100;
+        document.getElementById('vb-excl').textContent = 'SAR ' + fmt(v);
+        document.getElementById('vb-vat').textContent = 'SAR ' + fmt(vat);
+        document.getElementById('vb-total').textContent = 'SAR ' + fmt(total);
+        box.style.display = 'block';
+      });
+
+      // Validation
+      function validate(form) {
+        var errors = {};
+        var required = [
+          'companyName', 'commercialRegistrationNumber', 'accreditationNumber', 'zatcaNumber',
+          'phone', 'email', 'contactPersonName', 'nationalAddressText', 'ibanText',
+          'priceExcludingVatSar', 'paymentTerms'
+        ];
+        required.forEach(function (name) {
+          var el = form.elements[name];
+          var v = el ? el.value.trim() : '';
+          if (!v) errors[name] = 'This field is required.';
+        });
+        var emailEl = form.elements['email'];
+        if (emailEl && emailEl.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) {
+          errors['email'] = 'Please enter a valid email address.';
+        }
+        var priceEl = form.elements['priceExcludingVatSar'];
+        if (priceEl && priceEl.value) {
+          var pv = parseFloat(priceEl.value);
+          if (isNaN(pv) || pv <= 0) errors['priceExcludingVatSar'] = 'Enter a valid price greater than 0.';
+        }
+        return errors;
+      }
+
+      function setErrors(errors) {
+        document.querySelectorAll('.err-msg').forEach(function (el) {
+          var name = el.getAttribute('data-for');
+          el.textContent = errors[name] || '';
+        });
+        document.querySelectorAll('input, select, textarea').forEach(function (el) {
+          if (errors[el.name]) el.classList.add('err');
+          else el.classList.remove('err');
+        });
+      }
+
+      // Submit
+      document.getElementById('supplier-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var form = this;
+        var errors = validate(form);
+        setErrors(errors);
+        if (Object.keys(errors).length > 0) return;
+
+        var btn = document.getElementById('submit-btn');
+        var errBox = document.getElementById('submit-error');
+        errBox.style.display = 'none';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Submitting…';
+
+        var body = {
+          companyName: form.elements['companyName'].value.trim(),
+          commercialRegistrationNumber: form.elements['commercialRegistrationNumber'].value.trim(),
+          accreditationNumber: form.elements['accreditationNumber'].value.trim(),
+          zatcaNumber: form.elements['zatcaNumber'].value.trim(),
+          phone: form.elements['phone'].value.trim(),
+          email: form.elements['email'].value.trim(),
+          contactPersonName: form.elements['contactPersonName'].value.trim(),
+          nationalAddressText: form.elements['nationalAddressText'].value.trim(),
+          ibanText: form.elements['ibanText'].value.trim(),
+          priceExcludingVatSar: parseFloat(form.elements['priceExcludingVatSar'].value),
+          paymentTerms: form.elements['paymentTerms'].value,
+          notes: form.elements['notes'].value.trim() || undefined,
+        };
+
+        fetch(API + '/api/public/supplier-response/' + encodeURIComponent(token), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (result) {
+            if (!result.ok) {
+              var msg = (result.data && (result.data.error || result.data.message)) || 'Submission failed. Please try again.';
+              errBox.textContent = msg;
+              errBox.style.display = 'block';
+              btn.disabled = false;
+              btn.textContent = 'Submit Quotation';
+              return;
+            }
+            showStatus('🎉', 'Quotation Submitted', 'Thank you! Your quotation has been received by the procurement team. You will be contacted if further information is needed.');
+          })
+          .catch(function () {
+            errBox.textContent = 'A network error occurred. Please check your connection and try again.';
+            errBox.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Submit Quotation';
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

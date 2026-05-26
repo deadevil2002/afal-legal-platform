@@ -15,6 +15,7 @@ const path = require("path");
 
 const STATIC_ROOT = path.resolve(__dirname, "..", "static-build");
 const TEMPLATE_PATH = path.resolve(__dirname, "templates", "landing-page.html");
+const SUPPLIER_FORM_PATH = path.resolve(__dirname, "templates", "supplier-form.html");
 const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
 
 const MIME_TYPES = {
@@ -105,6 +106,7 @@ function serveStaticFile(urlPath, res) {
 }
 
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, "utf-8");
+const supplierFormHtml = fs.readFileSync(SUPPLIER_FORM_PATH, "utf-8");
 const appName = getAppName();
 
 const server = http.createServer((req, res) => {
@@ -124,6 +126,15 @@ const server = http.createServer((req, res) => {
     if (pathname === "/") {
       return serveLandingPage(req, res, landingPageTemplate, appName);
     }
+  }
+
+  // Public supplier form — no auth required
+  // Matches /supplier/<token> (exactly two path segments)
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length === 2 && parts[0] === "supplier") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(supplierFormHtml);
+    return;
   }
 
   serveStaticFile(pathname, res);

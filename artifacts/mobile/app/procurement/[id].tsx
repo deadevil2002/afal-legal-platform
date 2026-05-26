@@ -1220,7 +1220,7 @@ export default function ProcurementDetailScreen() {
         if (!cancelled) setSupplierLinks(links);
       })
       .catch((err: Error) => {
-        console.error("[refreshLinks] GET failed:", err.message);
+        console.warn("[refreshLinks] GET failed:", err.message);
       })
       .finally(() => { if (!cancelled) setLoadingLinks(false); });
     return () => { cancelled = true; };
