@@ -460,7 +460,7 @@
           ibanText: form.elements['ibanText'].value.trim(),
           priceExcludingVatSar: parseFloat(form.elements['priceExcludingVatSar'].value),
           paymentTerms: form.elements['paymentTerms'].value,
-          notes: form.elements['notes'].value.trim() || undefined,
+          notes: form.elements['notes'].value.trim() || null,
         };
 
         fetch(API + '/api/public/supplier-response/' + encodeURIComponent(token), {

@@ -31,6 +31,8 @@ const phaseCPublicSubmissionSchema = supplierFormInputSchema
     nationalAddressAttachment: attachmentRefSchema.optional(),
     ibanAttachment: attachmentRefSchema.optional(),
     extraAttachments: z.array(attachmentRefSchema).optional(),
+    // notes is optional on the public form — omitting or sending null/empty is valid
+    notes: z.string().nullable().optional(),
   });
 
 // ─── Router ───────────────────────────────────────────────────────────────────
