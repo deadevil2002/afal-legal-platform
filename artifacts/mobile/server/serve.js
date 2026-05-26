@@ -128,6 +128,13 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // Health / readiness probe — must return 200 for autoscale startup check
+  if (pathname === "/status") {
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+
   // Public supplier form — no auth required
   // Matches /supplier/<token> (exactly two path segments)
   const parts = pathname.split("/").filter(Boolean);
