@@ -423,6 +423,102 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
   }
 });
 
+// ── POST /api/procurement/supplier-responses/:requestId/forward ──────────────
+// Marks selected supplier_response docs as reviewStatus = "forwarded",
+// advances request status to pending_requester_selection, and records
+// a workflow event. Separate from the legacy manual-quotation flow.
+
+const forwardResponsesBodySchema = z.object({
+  responseIds: z.array(z.string().min(1)).min(1, "At least one response must be selected."),
+});
+
+router.post("/supplier-responses/:requestId/forward", requireInternalAuth, async (req, res) => {
+  try {
+    const user = req.internalUser!;
+
+    if (user.role !== "super_admin" && user.role !== "procurement") {
+      errorJsonResponse(res, "Only procurement or super_admin may forward supplier responses.", 403, "forbidden");
+      return;
+    }
+
+    const requestId = String(req.params.requestId);
+
+    const parsed = forwardResponsesBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      errorJsonResponse(res, parsed.error.message, 400, "invalid_payload");
+      return;
+    }
+
+    const { responseIds } = parsed.data;
+    const db = getAdminDb();
+
+    const requestSnap = await db.collection("procurement_requests").doc(requestId).get();
+    if (!requestSnap.exists) {
+      errorJsonResponse(res, "Request not found.", 404, "not_found");
+      return;
+    }
+
+    const requestData = requestSnap.data()!;
+    const currentStatus = requestData["status"] as string | undefined;
+
+    const VALID_STATUSES = ["draft", "pending_procurement", "awaiting_quotations", "quotations_received"];
+    if (!VALID_STATUSES.includes(currentStatus ?? "")) {
+      errorJsonResponse(
+        res,
+        `Cannot forward responses from status '${currentStatus ?? "unknown"}'. Expected one of: ${VALID_STATUSES.join(", ")}.`,
+        409,
+        "invalid_status"
+      );
+      return;
+    }
+
+    const batch = db.batch();
+
+    for (const responseId of responseIds) {
+      batch.update(db.collection("supplier_responses").doc(responseId), {
+        reviewStatus: "forwarded",
+        reviewedBy: user.uid,
+        reviewedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    batch.update(db.collection("procurement_requests").doc(requestId), {
+      status: "pending_requester_selection",
+      forwardedResponseIds: responseIds,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const eventRef = db.collection("workflow_events").doc();
+    batch.set(eventRef, {
+      id: eventRef.id,
+      requestId,
+      requestCreatorUid: requestData["createdByUid"] ?? null,
+      actorUid:   user.uid,
+      actorName:  user.displayName,
+      actorRole:  user.role,
+      eventType:  "quotations_forwarded",
+      fromStatus: currentStatus,
+      toStatus:   "pending_requester_selection",
+      comment:    `${responseIds.length} supplier response(s) forwarded to requester.`,
+      attachments: [],
+      createdAt:  FieldValue.serverTimestamp(),
+      metadata:   { forwardedResponseIds: responseIds },
+    });
+
+    await batch.commit();
+
+    req.log.info({ requestId, responseIds, actorUid: user.uid }, "supplier_responses forwarded");
+    safeJsonResponse(res, {
+      requestId,
+      forwardedCount: responseIds.length,
+      toStatus: "pending_requester_selection",
+    });
+  } catch (err) {
+    req.log.error({ err }, "supplier-responses forward failed");
+    errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
+  }
+});
+
 // ── POST /api/procurement/supplier-links/:linkId/deactivate ───────────────────
 
 router.post("/supplier-links/:linkId/deactivate", requireInternalAuth, async (req, res) => {

@@ -1,0 +1,84 @@
+Implement the next supplier response review phase only.
+
+Do not refactor.
+Do not change Firestore rules unless a proven error requires it.
+Do not break current supplier link generation or public supplier form.
+
+Current working state:
+- Requester creates RFQ.
+- Procurement generates supplier links.
+- Suppliers submit responses.
+- Supplier responses appear under Supplier Links.
+- But Procurement cannot open full response details, cannot view/download attachments, cannot select responses, and must leave/re-enter screen to see new responses.
+
+Required features:
+
+1. Supplier response detail viewer
+When Procurement taps the green Supplier Response card:
+- Open a professional in-app modal/sheet using the existing enterprise dialog style.
+- Show all supplier submitted data:
+  - Company / establishment name
+  - CR number
+  - Accreditation number
+  - ZATCA number
+  - Phone
+  - Email
+  - Contact person name
+  - National address text
+  - IBAN text
+  - Currency
+  - Price excluding VAT
+  - VAT amount
+  - Total including VAT
+  - Payment terms
+  - Notes
+- Show all uploaded attachments in the same app attachment-card style:
+  - Commercial Registration attachment
+  - Saudi Accreditation attachment
+  - National Address attachment
+  - IBAN attachment
+  - Quotation document attachment
+  - Extra attachments if any
+- Each attachment must support open/view and download where possible, same existing attachment behavior.
+
+2. Procurement selection
+Inside each supplier response card, add a clear checkbox or Select button:
+- Procurement can select one or more supplier responses to send to requester.
+- Selected state must be visually clear.
+- Do not auto-send on select.
+
+3. Send selected supplier responses to requester
+Add a button under Supplier Links:
+Send Selected Quotations to Requester
+
+When pressed:
+- Validate at least one supplier response is selected.
+- Call an API route using Admin SDK.
+- Mark selected supplier_responses as reviewStatus = "forwarded".
+- Add workflow event.
+- Move request status to pending_requester_selection.
+- Do not use manual quotationAttachments for this new flow.
+
+4. Requester side preparation
+Do not fully implement requester approval yet unless already easy.
+But make sure forwarded supplier responses are persisted in a way the requester screen can read in the next phase.
+
+5. Live refresh
+While viewing a request, supplier links/responses should refresh automatically:
+- Use a safe polling interval every 10–15 seconds OR a Firestore onSnapshot listener if already consistent with the app architecture.
+- Do not create duplicate cards.
+- Stop polling/listener on screen unmount.
+- No red LogBox for non-blocking refresh errors.
+
+6. Keep current manual quotation upload flow untouched.
+
+7. Return:
+- files changed
+- new/updated API route
+- Firestore fields updated
+- how to test:
+  a) supplier submits response
+  b) procurement sees it without leaving page
+  c) procurement opens details and downloads attachments
+  d) procurement selects response
+  e) procurement sends selected quotations to requester

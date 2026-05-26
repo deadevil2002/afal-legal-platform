@@ -88,6 +88,12 @@ interface StoredAttachment {
   uploadedAt?: string;
 }
 
+interface AttachmentRef {
+  url: string;
+  name: string;
+  storagePath?: string;
+}
+
 interface WorkflowEvent {
   id: string;
   requestId: string;
@@ -107,14 +113,26 @@ interface SupplierResponse {
   linkId: string;
   requestId: string;
   companyName?: string;
+  commercialRegistrationNumber?: string;
+  commercialRegistrationAttachment?: AttachmentRef;
+  accreditationNumber?: string;
+  accreditationAttachment?: AttachmentRef;
+  zatcaNumber?: string;
   contactPersonName?: string;
   phone?: string;
   email?: string;
+  nationalAddressText?: string;
+  nationalAddressAttachment?: AttachmentRef;
+  ibanText?: string;
+  ibanAttachment?: AttachmentRef;
+  currency?: "SAR" | "USD";
   priceExcludingVatSar?: number;
   vatAmountSar?: number;
   priceIncludingVatSar?: number;
   paymentTerms?: "advance" | "50_50" | "after_supply";
   notes?: string | null;
+  quotationAttachment?: AttachmentRef | null;
+  extraAttachments?: AttachmentRef[];
   reviewStatus?: string;
   submittedAt?: { seconds: number; nanoseconds: number } | null;
 }
@@ -643,6 +661,212 @@ function TimelineEvent({ event, isLast, colors, isRTL }: {
   );
 }
 
+// ─── Supplier Response Detail Modal ──────────────────────────────────────────
+
+function AttachmentRow({
+  label,
+  attachment,
+  colors,
+}: {
+  label: string;
+  attachment: AttachmentRef;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  if (!attachment?.url) return null;
+  const ext = (attachment.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+  const fakeMime = ext === "pdf" ? "application/pdf"
+    : ext === "doc" || ext === "docx" ? "application/msword"
+    : ext === "jpg" || ext === "jpeg" || ext === "png" ? `image/${ext}`
+    : "application/octet-stream";
+  const fileColor = fileColorForType(fakeMime);
+  const fileIcon = fileIconForType(fakeMime);
+  return (
+    <View style={[rd.attachRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <View style={[rd.attachIconWrap, { backgroundColor: fileColor + "18" }]}>
+        <Icon name={fileIcon} size={16} color={fileColor} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[rd.attachLabel, { color: colors.mutedForeground }]}>{label}</Text>
+        <Text style={[rd.attachName, { color: colors.foreground }]} numberOfLines={1}>
+          {attachment.name}
+        </Text>
+      </View>
+      <View style={rd.attachActions}>
+        <TouchableOpacity
+          style={rd.attachActionBtn}
+          onPress={() => { openQuotationFile(attachment.url).catch(() => {}); }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="external-link" size={15} color={colors.secondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={rd.attachActionBtn}
+          onPress={() => downloadQuotationFile(attachment.url)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="download" size={15} color={colors.secondary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function SupplierResponseDetailModal({
+  response,
+  onClose,
+  colors,
+  t,
+  isRTL,
+}: {
+  response: SupplierResponse | null;
+  onClose: () => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  if (!response) return null;
+
+  const paymentLabel =
+    response.paymentTerms === "advance" ? t("paymentAdvance" as never)
+    : response.paymentTerms === "50_50" ? t("payment50_50" as never)
+    : response.paymentTerms === "after_supply" ? t("paymentAfterSupply" as never)
+    : response.paymentTerms ?? "—";
+
+  const namedAttachments = [
+    { label: t("crAttachment" as never),                att: response.commercialRegistrationAttachment },
+    { label: t("accreditationAttachment" as never),     att: response.accreditationAttachment },
+    { label: t("nationalAddressAttachment" as never),   att: response.nationalAddressAttachment },
+    { label: t("ibanAttachment" as never),              att: response.ibanAttachment },
+    { label: t("quotationAttachmentLabel" as never),    att: response.quotationAttachment },
+  ].filter((a): a is { label: string; att: AttachmentRef } => !!(a.att?.url));
+
+  const extras = (response.extraAttachments ?? []).filter((e) => e?.url);
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={rd.overlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={rd.backdrop} />
+        </TouchableWithoutFeedback>
+        <View style={[rd.sheet, { backgroundColor: colors.card }]}>
+          <View style={[rd.header, { borderBottomColor: colors.border }]}>
+            <View style={[rd.headerIconWrap, { backgroundColor: colors.primary + "18" }]}>
+              <Icon name="file-doc" size={18} color={colors.primary} />
+            </View>
+            <Text style={[rd.headerTitle, { color: colors.foreground }]}>
+              {t("responseDetailTitle" as never)}
+            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={rd.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            {/* Company Identity */}
+            <Text style={[rd.groupTitle, { color: colors.primary }]}>
+              {t("companyNameLabel" as never)}
+            </Text>
+            <View style={[rd.group, { borderColor: colors.border }]}>
+              <InfoRow label={t("companyNameLabel" as never)} value={response.companyName ?? "—"} colors={colors} />
+              {response.commercialRegistrationNumber ? (
+                <InfoRow label={t("crNumberLabel" as never)} value={response.commercialRegistrationNumber} colors={colors} />
+              ) : null}
+              {response.accreditationNumber ? (
+                <InfoRow label={t("accreditationNumberLabel" as never)} value={response.accreditationNumber} colors={colors} />
+              ) : null}
+              {response.zatcaNumber ? (
+                <InfoRow label={t("zatcaNumberLabel" as never)} value={response.zatcaNumber} colors={colors} />
+              ) : null}
+            </View>
+
+            {/* Contact */}
+            <Text style={[rd.groupTitle, { color: colors.primary }]}>
+              {t("contactPersonLabel" as never)}
+            </Text>
+            <View style={[rd.group, { borderColor: colors.border }]}>
+              {response.contactPersonName ? (
+                <InfoRow label={t("contactPersonLabel" as never)} value={response.contactPersonName} colors={colors} />
+              ) : null}
+              {response.phone ? (
+                <InfoRow label={t("phoneLabel" as never)} value={response.phone} colors={colors} />
+              ) : null}
+              {response.email ? (
+                <InfoRow label={t("emailLabel" as never)} value={response.email} colors={colors} />
+              ) : null}
+            </View>
+
+            {/* Address & Banking */}
+            <Text style={[rd.groupTitle, { color: colors.primary }]}>
+              {t("nationalAddressLabel" as never)}
+            </Text>
+            <View style={[rd.group, { borderColor: colors.border }]}>
+              {response.nationalAddressText ? (
+                <InfoRow label={t("nationalAddressLabel" as never)} value={response.nationalAddressText} colors={colors} />
+              ) : null}
+              {response.ibanText ? (
+                <InfoRow label={t("ibanLabel" as never)} value={response.ibanText} colors={colors} />
+              ) : null}
+            </View>
+
+            {/* Pricing */}
+            <Text style={[rd.groupTitle, { color: colors.primary }]}>
+              {t("priceExclVatLabel" as never)}
+            </Text>
+            <View style={[rd.group, { borderColor: colors.border }]}>
+              {response.currency ? (
+                <InfoRow label={t("currencyLabel" as never)} value={response.currency} colors={colors} />
+              ) : null}
+              {response.priceExcludingVatSar != null ? (
+                <InfoRow
+                  label={t("priceExclVatLabel" as never)}
+                  value={`${response.currency ?? "SAR"} ${response.priceExcludingVatSar.toLocaleString()}`}
+                  colors={colors}
+                />
+              ) : null}
+              {response.vatAmountSar != null ? (
+                <InfoRow label={t("vatLabel" as never)} value={`SAR ${response.vatAmountSar.toLocaleString()}`} colors={colors} />
+              ) : null}
+              {response.priceIncludingVatSar != null ? (
+                <InfoRow
+                  label={t("priceInclVatLabel" as never)}
+                  value={`SAR ${response.priceIncludingVatSar.toLocaleString()}`}
+                  colors={colors}
+                />
+              ) : null}
+              <InfoRow label={t("paymentTermsLabel" as never)} value={paymentLabel} colors={colors} />
+              {response.notes ? (
+                <InfoRow label="Notes" value={response.notes} colors={colors} />
+              ) : null}
+            </View>
+
+            {/* Attachments */}
+            {(namedAttachments.length > 0 || extras.length > 0) ? (
+              <>
+                <Text style={[rd.groupTitle, { color: colors.primary }]}>
+                  {t("attachmentsSection" as never)}
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {namedAttachments.map((a, i) => (
+                    <AttachmentRow key={i} label={a.label} attachment={a.att} colors={colors} />
+                  ))}
+                  {extras.map((ex, i) => (
+                    <AttachmentRow
+                      key={`extra-${i}`}
+                      label={`${t("extraAttachmentsLabel" as never)} ${i + 1}`}
+                      attachment={ex}
+                      colors={colors}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Supplier Link sub-components ────────────────────────────────────────────
 
 function SupplierLinkCard({
@@ -650,6 +874,9 @@ function SupplierLinkCard({
   onShare,
   onDeactivate,
   canDeactivate,
+  onViewResponse,
+  isSelected,
+  onToggleSelect,
   colors,
   t,
   isRTL,
@@ -658,6 +885,9 @@ function SupplierLinkCard({
   onShare: (url: string, hint: string | null) => void;
   onDeactivate: (id: string) => void;
   canDeactivate: boolean;
+  onViewResponse: (response: SupplierResponse) => void;
+  isSelected: boolean;
+  onToggleSelect: (responseId: string) => void;
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   t: (k: never) => string;
   isRTL: boolean;
@@ -711,7 +941,7 @@ function SupplierLinkCard({
             ) : null}
             {resp.priceExcludingVatSar != null ? (
               <Text style={[sl.responseDetail, { color: "#166534" }]}>
-                {t("priceExclVatLabel" as never)}: SAR {resp.priceExcludingVatSar.toLocaleString()}
+                {t("priceExclVatLabel" as never)}: {resp.currency ?? "SAR"} {resp.priceExcludingVatSar.toLocaleString()}
               </Text>
             ) : null}
             {resp.priceIncludingVatSar != null ? (
@@ -729,6 +959,28 @@ function SupplierLinkCard({
                   : t("paymentAfterSupply" as never)}
               </Text>
             ) : null}
+          </View>
+          <View style={[sl.responseSelectRow, isRTL && { flexDirection: "row-reverse" }]}>
+            <TouchableOpacity
+              style={[sl.selectCheckbox, isSelected && { backgroundColor: "#16A34A", borderColor: "#16A34A" }]}
+              onPress={() => onToggleSelect(resp.id)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              {isSelected ? <Icon name="check" size={10} color="#fff" /> : null}
+            </TouchableOpacity>
+            <Text style={[sl.selectLabel, { color: "#166534" }]}>
+              {isSelected ? t("deselectResponse" as never) : t("selectResponse" as never)}
+            </Text>
+            <TouchableOpacity
+              style={[sl.viewDetailsBtn, { backgroundColor: "#16663415" }]}
+              onPress={() => onViewResponse(resp)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Icon name="external-link" size={13} color="#166634" />
+              <Text style={[sl.viewDetailsBtnText, { color: "#166634" }]}>
+                {t("viewResponseDetails" as never)}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -1089,6 +1341,10 @@ export default function ProcurementDetailScreen() {
   const [linksRefreshKey, setLinksRefreshKey] = useState(0);
   const refreshLinks = useCallback(() => setLinksRefreshKey((k) => k + 1), []);
 
+  const [selectedResponseIds, setSelectedResponseIds] = useState<Set<string>>(new Set());
+  const [viewingResponse, setViewingResponse] = useState<SupplierResponse | null>(null);
+  const [forwardingResponses, setForwardingResponses] = useState(false);
+
   const pickingRef = useRef(false);
 
   // ── Real-time request subscription ─────────────────────────────────────────
@@ -1230,6 +1486,14 @@ export default function ProcurementDetailScreen() {
   useEffect(() => {
     console.log("[SupplierLinks] rendered count:", supplierLinks.length);
   }, [supplierLinks]);
+
+  // ── Auto-refresh supplier links every 12 seconds ────────────────────────────
+
+  useEffect(() => {
+    if (!id || (!isProcurementRole && !isCreator)) return;
+    const interval = setInterval(() => setLinksRefreshKey((k) => k + 1), 12000);
+    return () => clearInterval(interval);
+  }, [id, isProcurementRole, isCreator]);
 
   // ── Quotation upload ────────────────────────────────────────────────────────
 
@@ -1503,6 +1767,33 @@ export default function ProcurementDetailScreen() {
           refreshLinks();
         } catch (err) {
           showError((err as Error).message, t("error"));
+        }
+      },
+    });
+  };
+
+  const handleForwardSelectedResponses = () => {
+    const ids = Array.from(selectedResponseIds);
+    if (ids.length === 0) {
+      showError(t("noResponsesSelected"), t("error"));
+      return;
+    }
+    showConfirm({
+      title: t("sendSelectedToRequester"),
+      message: t("sendSelectedToRequesterConfirm"),
+      confirmText: t("submitApproval"),
+      onConfirm: async () => {
+        setForwardingResponses(true);
+        try {
+          await apiPost(`/api/procurement/supplier-responses/${id}/forward`, {
+            responseIds: ids,
+          });
+          setSelectedResponseIds(new Set());
+          showSuccess(t("sendSelectedSuccess"), t("success"));
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        } finally {
+          setForwardingResponses(false);
         }
       },
     });
@@ -1971,11 +2262,42 @@ export default function ProcurementDetailScreen() {
                   onShare={handleShareLink}
                   onDeactivate={handleDeactivateLink}
                   canDeactivate={isProcurementRole}
+                  onViewResponse={setViewingResponse}
+                  isSelected={link.response ? selectedResponseIds.has(link.response.id) : false}
+                  onToggleSelect={(responseId) => {
+                    setSelectedResponseIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(responseId)) next.delete(responseId);
+                      else next.add(responseId);
+                      return next;
+                    });
+                  }}
                   colors={colors}
                   t={t as never}
                   isRTL={isRTL}
                 />
               ))
+            )}
+
+            {/* Send Selected Responses to Requester */}
+            {isProcurementRole && selectedResponseIds.size > 0 && (
+              <TouchableOpacity
+                style={[sc.sendToRequesterBtn, { backgroundColor: "#16A34A" }, forwardingResponses && { opacity: 0.6 }]}
+                onPress={handleForwardSelectedResponses}
+                disabled={forwardingResponses}
+                activeOpacity={0.85}
+              >
+                {forwardingResponses ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name="send" size={15} color="#fff" />
+                    <Text style={sc.sendToRequesterText}>
+                      {t("sendSelectedToRequester")} ({selectedResponseIds.size})
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
           </SectionCard>
         )}
@@ -2133,6 +2455,14 @@ export default function ProcurementDetailScreen() {
         onClose={() => setQuotationPickerVisible(false)}
         onPickImage={pickImageForQuotation}
         onPickDocument={pickDocumentForQuotation}
+        colors={colors}
+        t={t as never}
+        isRTL={isRTL}
+      />
+
+      <SupplierResponseDetailModal
+        response={viewingResponse}
+        onClose={() => setViewingResponse(null)}
         colors={colors}
         t={t as never}
         isRTL={isRTL}
@@ -2767,5 +3097,129 @@ const sl = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_700Bold",
     color: "#fff",
+  },
+  responseSelectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    flexWrap: "wrap",
+  },
+  selectCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#16A34A",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  selectLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  viewDetailsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  viewDetailsBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+});
+
+const rd = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "92%",
+    overflow: "hidden",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  scroll: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  groupTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  group: {
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  attachRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+  },
+  attachIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.3,
+  },
+  attachName: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
+  attachActions: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+  },
+  attachActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
