@@ -1,0 +1,146 @@
+We found the remaining workflow gap. Do NOT refactor unrelated code. Surgical fixes only.
+
+Current status:
+
+Supplier responses are successfully created, displayed, selectable, and forwarded from Procurement. Timeline already records "Quotations Forwarded". However two critical workflow gaps remain.
+
+Root cause confirmed:
+
+Requester UI (Section C in procurement/[id].tsx) still renders legacy request.quotationAttachments[] instead of forwarded supplier_responses. This is why requester sees nothing after Procurement forwards.
+
+Existing audit already confirmed this mismatch.
+
+Required fixes:
+
+PHASE 1 — Requester must see forwarded supplier quotations
+
+Files:
+
+artifacts/mobile/app/procurement/[id].tsx
+artifacts/api-server/src/routes/procurement.ts
+lib/procurement/src/models/procurementRequest.ts
+
+Implement:
+
+Section C (requester quotation selection) must support supplier responses.
+
+When request.status == pending_requester_selection:
+
+Load forwarded supplier responses from supplierLinks state already being fetched.
+
+Filter:
+
+link.response exists
+AND link.response.reviewStatus == "forwarded"
+
+Render them as quotation cards for requester.
+
+Card must show:
+
+Company name
+Currency
+Price excl VAT
+VAT
+Total
+Payment terms
+Quotation attachment preview/download
+Status badge
+
+This replaces the empty requester state.
+
+Requester approval must support supplier responses.
+
+approve-quotation flow currently only handles:
+
+selectedQuotationAttachmentId
+
+Extend it to also support:
+
+selectedSupplierResponseId
+
+Field already exists in schema.
+
+When requester selects supplier quotation:
+
+Store:
+
+selectedSupplierResponseId
+approvedAttachment (quotation document if exists)
+approvedSupplierResponse snapshot
+
+Status:
+
+quotation_selected
+
+No breaking of legacy quotationAttachments flow.
+
+Legacy manual uploads must continue working.
+
+PHASE 2 — Procurement UI must clearly show sent status
+
+After Procurement forwards:
+
+Supplier response card must visibly change.
+
+Add clear forwarded state:
+
+Green badge:
+
+Forwarded to Requester
+
+Disable checkbox and forward action.
+
+Card must visually indicate already sent.
+
+Currently it looks identical before and after sending.
+
+Fix UX.
+
+PHASE 3 — Workflow Timeline completeness
+
+Timeline must update for every procurement action.
+
+Add missing events:
+
+supplier_response_forwarded
+requester_selected_supplier_quotation
+requester_rejected_supplier_quotation
+
+Use same event schema already used by workflow_events.
+
+Display readable labels in timeline.
+
+Examples:
+
+Quotation forwarded to requester
+Requester selected quotation from Near Future
+Requester rejected all quotations
+
+Timeline must stay chronological.
+
+No duplicate events.
+
+PHASE 4 — Auto refresh requester side
+
+Procurement auto-poll already exists (12 sec).
+
+Add same lightweight auto-refresh for requester when:
+
+status == pending_requester_selection
+
+So requester sees newly forwarded quotations automatically without leaving/re-entering screen.
+
+Constraints:
+
+No refactor
+No unrelated UI changes
+Do not break legacy quotationAttachments flow
+Zero new TypeScript errors
+Keep existing supplier response modal and attachment viewer intact
+
+End with:
+
+List exact files changed
+Show requester flow before/after
+Run typecheck
+Restart workflows

@@ -432,6 +432,131 @@ function SelectableQuotationCard({
   );
 }
 
+function SelectableSupplierResponseCard({
+  response,
+  index,
+  selected,
+  onSelect,
+  canSelect,
+  onViewDetails,
+  colors,
+  t,
+  isRTL,
+}: {
+  response: SupplierResponse;
+  index: number;
+  selected: boolean;
+  onSelect: () => void;
+  canSelect: boolean;
+  onViewDetails: (r: SupplierResponse) => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  t: (k: never) => string;
+  isRTL: boolean;
+}) {
+  const accent = selected ? colors.primary : "#16A34A";
+  const paymentLabel =
+    response.paymentTerms === "advance"   ? t("paymentAdvance" as never)
+    : response.paymentTerms === "50_50"   ? t("payment50_50" as never)
+    : response.paymentTerms === "after_supply" ? t("paymentAfterSupply" as never)
+    : response.paymentTerms ?? "—";
+
+  const cardInner = (
+    <View style={{ flex: 1, gap: 8 }}>
+      <View style={[{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10 }]}>
+        {canSelect ? (
+          <View style={[sub.qcCircle, selected && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+            {selected ? <Icon name="check" size={11} color="#fff" /> : null}
+          </View>
+        ) : null}
+        <View style={[sub.qcIconWrap, { backgroundColor: accent + "18", flexShrink: 0 }]}>
+          <Icon name="briefcase" size={20} color={accent} />
+        </View>
+        <View style={sub.qcContent}>
+          <Text style={[sub.qcLabel, { color: selected ? colors.primary : colors.foreground }]} numberOfLines={1}>
+            {response.companyName ?? `${t("quotationLabel" as never)} ${index + 1}`}
+          </Text>
+          {response.contactPersonName ? (
+            <Text style={[sub.qcFilename, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {response.contactPersonName}
+            </Text>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={sub.qcActionBtn}
+          onPress={() => onViewDetails(response)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name="external-link" size={17} color={selected ? colors.primary : colors.secondary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={[sqr.pricingGrid, { borderColor: colors.border }]}>
+        {response.priceExcludingVatSar != null ? (
+          <View style={sqr.priceCell}>
+            <Text style={[sqr.priceLabel, { color: colors.mutedForeground }]}>{t("priceExclVatLabel" as never)}</Text>
+            <Text style={[sqr.priceValue, { color: colors.foreground }]}>
+              {response.currency ?? "SAR"} {response.priceExcludingVatSar.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+        {response.vatAmountSar != null ? (
+          <View style={sqr.priceCell}>
+            <Text style={[sqr.priceLabel, { color: colors.mutedForeground }]}>{t("vatLabel" as never)}</Text>
+            <Text style={[sqr.priceValue, { color: colors.foreground }]}>
+              SAR {response.vatAmountSar.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+        {response.priceIncludingVatSar != null ? (
+          <View style={sqr.priceCell}>
+            <Text style={[sqr.priceLabel, { color: colors.mutedForeground }]}>{t("priceInclVatLabel" as never)}</Text>
+            <Text style={[sqr.priceValue, { color: selected ? colors.primary : "#16A34A", fontFamily: "Inter_700Bold" }]}>
+              SAR {response.priceIncludingVatSar.toLocaleString()}
+            </Text>
+          </View>
+        ) : null}
+        {response.paymentTerms ? (
+          <View style={sqr.priceCell}>
+            <Text style={[sqr.priceLabel, { color: colors.mutedForeground }]}>{t("paymentTermsLabel" as never)}</Text>
+            <Text style={[sqr.priceValue, { color: colors.foreground }]}>{paymentLabel}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {response.quotationAttachment?.url ? (
+        <TouchableOpacity
+          style={[sqr.attachBtn, { backgroundColor: colors.secondary + "15", borderColor: colors.secondary + "40" }]}
+          onPress={() => { openQuotationFile(response.quotationAttachment!.url).catch(() => {}); }}
+        >
+          <Icon name="file-doc" size={13} color={colors.secondary} />
+          <Text style={[sqr.attachBtnText, { color: colors.secondary }]} numberOfLines={1}>
+            {response.quotationAttachment.name}
+          </Text>
+          <Icon name="external-link" size={12} color={colors.secondary} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+
+  if (!canSelect) {
+    return (
+      <View style={[sub.quotationCard, { alignItems: "flex-start", borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary + "0A" : colors.background, borderWidth: selected ? 2 : 1 }]}>
+        {cardInner}
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={[sub.quotationCard, { alignItems: "flex-start", borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary + "0A" : colors.background, borderWidth: selected ? 2 : 1 }]}
+      onPress={onSelect}
+      activeOpacity={0.85}
+    >
+      {cardInner}
+    </TouchableOpacity>
+  );
+}
+
 function ApprovedCard({
   quotation,
   colors,
@@ -624,6 +749,22 @@ function SapSteps({
   );
 }
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  quotation_uploaded:                    "Quotation uploaded",
+  quotations_forwarded:                  "Quotations forwarded to requester",
+  quotation_selected:                    "Requester approved quotation",
+  requester_selected_supplier_quotation: "Requester selected supplier quotation",
+  requester_rejected_supplier_quotation: "Requester rejected all quotations",
+  planning_approved:                     "Planning approved",
+  planning_rejected:                     "Planning rejected",
+  finance_approved:                      "Finance approved",
+  finance_rejected:                      "Finance rejected",
+  evp_approved:                          "EVP approved",
+  evp_rejected:                          "EVP rejected",
+  ceo_approved:                          "CEO approved",
+  ceo_rejected:                          "CEO rejected",
+};
+
 function TimelineEvent({ event, isLast, colors, isRTL }: {
   event: WorkflowEvent;
   isLast: boolean;
@@ -638,7 +779,7 @@ function TimelineEvent({ event, isLast, colors, isRTL }: {
       </View>
       <View style={[tl.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
         <Text style={[tl.eventType, { color: colors.primary }]}>
-          {event.eventType.replace(/_/g, " ")}
+          {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType.replace(/_/g, " ")}
         </Text>
         {event.actorName ? (
           <Text style={[tl.actor, { color: colors.mutedForeground }]}>
@@ -960,28 +1101,47 @@ function SupplierLinkCard({
               </Text>
             ) : null}
           </View>
-          <View style={[sl.responseSelectRow, isRTL && { flexDirection: "row-reverse" }]}>
-            <TouchableOpacity
-              style={[sl.selectCheckbox, isSelected && { backgroundColor: "#16A34A", borderColor: "#16A34A" }]}
-              onPress={() => onToggleSelect(resp.id)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              {isSelected ? <Icon name="check" size={10} color="#fff" /> : null}
-            </TouchableOpacity>
-            <Text style={[sl.selectLabel, { color: "#166534" }]}>
-              {isSelected ? t("deselectResponse" as never) : t("selectResponse" as never)}
-            </Text>
-            <TouchableOpacity
-              style={[sl.viewDetailsBtn, { backgroundColor: "#16663415" }]}
-              onPress={() => onViewResponse(resp)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Icon name="external-link" size={13} color="#166634" />
-              <Text style={[sl.viewDetailsBtnText, { color: "#166634" }]}>
-                {t("viewResponseDetails" as never)}
+          {resp.reviewStatus === "forwarded" ? (
+            <View style={[sl.forwardedBadge, isRTL && { flexDirection: "row-reverse" }]}>
+              <Icon name="check-circle" size={13} color="#16A34A" />
+              <Text style={[sl.forwardedBadgeText, { color: "#16A34A" }]}>
+                {t("forwardedToRequesterBadge" as never)}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[sl.viewDetailsBtn, { backgroundColor: "#16663415", marginLeft: "auto" as unknown as number }]}
+                onPress={() => onViewResponse(resp)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Icon name="external-link" size={13} color="#166634" />
+                <Text style={[sl.viewDetailsBtnText, { color: "#166634" }]}>
+                  {t("viewResponseDetails" as never)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[sl.responseSelectRow, isRTL && { flexDirection: "row-reverse" }]}>
+              <TouchableOpacity
+                style={[sl.selectCheckbox, isSelected && { backgroundColor: "#16A34A", borderColor: "#16A34A" }]}
+                onPress={() => onToggleSelect(resp.id)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                {isSelected ? <Icon name="check" size={10} color="#fff" /> : null}
+              </TouchableOpacity>
+              <Text style={[sl.selectLabel, { color: "#166534" }]}>
+                {isSelected ? t("deselectResponse" as never) : t("selectResponse" as never)}
+              </Text>
+              <TouchableOpacity
+                style={[sl.viewDetailsBtn, { backgroundColor: "#16663415" }]}
+                onPress={() => onViewResponse(resp)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Icon name="external-link" size={13} color="#166634" />
+                <Text style={[sl.viewDetailsBtnText, { color: "#166634" }]}>
+                  {t("viewResponseDetails" as never)}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
@@ -1322,6 +1482,8 @@ export default function ProcurementDetailScreen() {
   const [sendingToRequester, setSendingToRequester] = useState(false);
   const [approvingQuotation, setApprovingQuotation] = useState(false);
   const [localSelectedQuotationId, setLocalSelectedQuotationId] = useState<string | null>(null);
+  const [localSelectedSupplierResponseId, setLocalSelectedSupplierResponseId] = useState<string | null>(null);
+  const [approvingSupplierQuotation, setApprovingSupplierQuotation] = useState(false);
   const [pendingQuotation, setPendingQuotation] = useState<{
     uri: string;
     name: string;
@@ -1409,7 +1571,7 @@ export default function ProcurementDetailScreen() {
 
   // Quotation selection is only valid at this workflow stage
   const isAtSelectionStage = request?.status === "pending_requester_selection";
-  const selectionNotYetMade = !request?.selectedQuotationAttachmentId;
+  const selectionNotYetMade = !request?.selectedQuotationAttachmentId && !request?.selectedSupplierResponseId;
 
   // Creator (including CEO or any admin who happens to be the original requester)
   // can select their own quotation when the request is at the selection stage.
@@ -1447,6 +1609,10 @@ export default function ProcurementDetailScreen() {
 
   const quotations = (request?.quotationAttachments ?? []) as QuotationAttachment[];
   const requesterAtts = (request?.attachments ?? []) as StoredAttachment[];
+
+  const forwardedResponses = supplierLinks
+    .filter((link) => link.response?.reviewStatus === "forwarded")
+    .map((link) => link.response!);
 
   // Procurement can "Send to Requester" from any of these stages.
   // "draft" included for backward-compat with records created before the
@@ -1677,6 +1843,38 @@ export default function ProcurementDetailScreen() {
           showError((err as Error).message, t("error"));
         } finally {
           setApprovingQuotation(false);
+        }
+      },
+    });
+  };
+
+  // ── Approve selected supplier quotation (requester / SA action) ─────────────
+
+  const handleApproveSupplierQuotation = () => {
+    if (!id || !localSelectedSupplierResponseId) return;
+    const resp = forwardedResponses.find((r) => r.id === localSelectedSupplierResponseId);
+    if (!resp) return;
+    const isSAOverride = canSAOverrideSelect;
+    showConfirm({
+      title: isSAOverride ? t("superAdminOverride") : t("approveSupplierQuotation"),
+      message: isSAOverride
+        ? `Override: select quotation from "${resp.companyName ?? resp.id}" on behalf of the requester?`
+        : t("approveSupplierQuotationConfirm"),
+      confirmText: t("submitApproval"),
+      destructive: isSAOverride,
+      onConfirm: async () => {
+        setApprovingSupplierQuotation(true);
+        try {
+          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
+            supplierResponseId: resp.id,
+            supplierResponse: { ...resp },
+          });
+          setLocalSelectedSupplierResponseId(null);
+          showSuccess(t("supplierQuotationApprovedSuccess"), t("success"));
+        } catch (err) {
+          showError((err as Error).message, t("error"));
+        } finally {
+          setApprovingSupplierQuotation(false);
         }
       },
     });
@@ -2080,8 +2278,8 @@ export default function ProcurementDetailScreen() {
         )}
 
         {/* ── Section C: Requester Quotation Selection ────────────────────── */}
-        {/* Only shown at pending_requester_selection stage (or if already selected) */}
-        {quotations.length > 0 && (isCreator || isSuperAdmin) && isAtSelectionStage && (
+        {/* Shown at pending_requester_selection — covers both legacy quotations and forwarded supplier responses */}
+        {(quotations.length > 0 || forwardedResponses.length > 0) && (isCreator || isSuperAdmin) && isAtSelectionStage && (
           <SectionCard icon="check-circle" label={t("selectQuotationPrompt")} colors={colors}>
             {canSAOverrideSelect && (
               <Text style={[sc.sectionDesc, { color: colors.accent, marginBottom: 6 }]}>
@@ -2093,31 +2291,69 @@ export default function ProcurementDetailScreen() {
                 ? t("quotationSectionDesc")
                 : t("quotationSelectedLabel")}
             </Text>
-            <View style={{ gap: 8 }}>
-              {quotations.map((q, i) => {
-                const thisCanSelect = canSelectQuotation || canSAOverrideSelect;
-                const effectiveSelectedId = request.selectedQuotationAttachmentId ?? localSelectedQuotationId;
-                return (
-                  <SelectableQuotationCard
-                    key={q.id}
-                    quotation={q}
-                    index={i}
-                    selected={effectiveSelectedId === q.id}
-                    canSelect={thisCanSelect}
-                    onSelect={() => {
-                      if (!thisCanSelect) return;
-                      setLocalSelectedQuotationId(q.id);
-                    }}
-                    colors={colors}
-                    t={t as never}
-                    isRTL={isRTL}
-                  />
-                );
-              })}
-            </View>
 
-            {/* ── Approve button: shown once user has tapped a radio ─────────── */}
-            {(canSelectQuotation || canSAOverrideSelect) && localSelectedQuotationId && (
+            {/* Legacy manually-uploaded quotations */}
+            {quotations.length > 0 && (
+              <View style={{ gap: 8 }}>
+                {quotations.map((q, i) => {
+                  const thisCanSelect = canSelectQuotation || canSAOverrideSelect;
+                  const effectiveSelectedId = request.selectedQuotationAttachmentId ?? localSelectedQuotationId;
+                  return (
+                    <SelectableQuotationCard
+                      key={q.id}
+                      quotation={q}
+                      index={i}
+                      selected={effectiveSelectedId === q.id}
+                      canSelect={thisCanSelect}
+                      onSelect={() => {
+                        if (!thisCanSelect) return;
+                        setLocalSelectedQuotationId(q.id);
+                        setLocalSelectedSupplierResponseId(null);
+                      }}
+                      colors={colors}
+                      t={t as never}
+                      isRTL={isRTL}
+                    />
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Forwarded supplier quotations */}
+            {forwardedResponses.length > 0 && (
+              <View style={{ gap: 8, marginTop: quotations.length > 0 ? 12 : 0 }}>
+                {quotations.length > 0 && (
+                  <Text style={[sc.sectionDesc, { color: colors.primary, fontFamily: "Inter_700Bold", marginBottom: 4 }]}>
+                    {t("supplierQuotationSection")}
+                  </Text>
+                )}
+                {forwardedResponses.map((resp, i) => {
+                  const thisCanSelect = canSelectQuotation || canSAOverrideSelect;
+                  const effectiveSelectedSRId = request.selectedSupplierResponseId ?? localSelectedSupplierResponseId;
+                  return (
+                    <SelectableSupplierResponseCard
+                      key={resp.id}
+                      response={resp}
+                      index={i}
+                      selected={effectiveSelectedSRId === resp.id}
+                      canSelect={thisCanSelect}
+                      onSelect={() => {
+                        if (!thisCanSelect) return;
+                        setLocalSelectedSupplierResponseId(resp.id);
+                        setLocalSelectedQuotationId(null);
+                      }}
+                      onViewDetails={setViewingResponse}
+                      colors={colors}
+                      t={t as never}
+                      isRTL={isRTL}
+                    />
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Approve legacy quotation */}
+            {(canSelectQuotation || canSAOverrideSelect) && localSelectedQuotationId && !localSelectedSupplierResponseId && (
               <TouchableOpacity
                 style={[
                   sc.approveQuotationBtn,
@@ -2135,6 +2371,31 @@ export default function ProcurementDetailScreen() {
                     <Icon name="check-circle" size={16} color="#fff" />
                     <Text style={sc.approveQuotationBtnText}>
                       {t("approveSelectedQuotation")}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Approve supplier quotation */}
+            {(canSelectQuotation || canSAOverrideSelect) && localSelectedSupplierResponseId && (
+              <TouchableOpacity
+                style={[
+                  sc.approveQuotationBtn,
+                  { backgroundColor: canSAOverrideSelect ? colors.accent : "#16A34A" },
+                  approvingSupplierQuotation && { opacity: 0.7 },
+                ]}
+                onPress={handleApproveSupplierQuotation}
+                disabled={approvingSupplierQuotation}
+                activeOpacity={0.85}
+              >
+                {approvingSupplierQuotation ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Icon name="check-circle" size={16} color="#fff" />
+                    <Text style={sc.approveQuotationBtnText}>
+                      {t("approveSupplierQuotation")}
                     </Text>
                   </>
                 )}
@@ -3129,6 +3390,55 @@ const sl = StyleSheet.create({
     paddingVertical: 4,
   },
   viewDetailsBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  forwardedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  forwardedBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+});
+
+const sqr = StyleSheet.create({
+  pricingGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 10,
+  },
+  priceCell: {
+    flex: 1,
+    minWidth: 120,
+    gap: 2,
+  },
+  priceLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    letterSpacing: 0.2,
+  },
+  priceValue: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  attachBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  attachBtnText: {
+    flex: 1,
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
   },

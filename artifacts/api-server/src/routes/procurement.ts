@@ -32,8 +32,10 @@ const workflowAdvanceBodySchema = z.object({
 });
 
 const approveQuotationBodySchema = z.object({
-  quotationId: z.string().min(1),
-  quotation: z.record(z.unknown()),
+  quotationId:        z.string().min(1).optional(),
+  quotation:          z.record(z.unknown()).optional(),
+  supplierResponseId: z.string().min(1).optional(),
+  supplierResponse:   z.record(z.unknown()).optional(),
 });
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -351,7 +353,12 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
       return;
     }
 
-    const { quotationId, quotation } = parsed.data;
+    const { quotationId, quotation, supplierResponseId, supplierResponse } = parsed.data;
+
+    if (!quotationId && !supplierResponseId) {
+      errorJsonResponse(res, "Either quotationId or supplierResponseId must be provided.", 400, "invalid_payload");
+      return;
+    }
 
     const db          = getAdminDb();
     const requestSnap = await db.collection("procurement_requests").doc(requestId).get();
@@ -390,33 +397,58 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
     const requestRef = db.collection("procurement_requests").doc(requestId);
     const eventRef   = db.collection("workflow_events").doc();
 
-    batch.update(requestRef, {
-      selectedQuotationAttachmentId: quotationId,
-      approvedAttachment:            quotation,
-      status:                        "quotation_selected",
-      updatedAt:                     FieldValue.serverTimestamp(),
-    });
-
-    batch.set(eventRef, {
-      id:                eventRef.id,
-      requestId,
-      requestCreatorUid: requestData["createdByUid"] ?? null,
-      actorUid:          user.uid,
-      actorName:         user.displayName,
-      actorRole:         user.role,
-      eventType:         "quotation_selected",
-      fromStatus:        currentStatus,
-      toStatus:          "quotation_selected",
-      comment:           isSuperAdmin && !isCreator ? "Super Admin override selection" : null,
-      attachments:       [],
-      createdAt:         FieldValue.serverTimestamp(),
-      metadata:          null,
-    });
+    if (supplierResponseId && supplierResponse) {
+      batch.update(requestRef, {
+        selectedSupplierResponseId: supplierResponseId,
+        approvedSupplierResponse:   supplierResponse,
+        status:                     "quotation_selected",
+        updatedAt:                  FieldValue.serverTimestamp(),
+      });
+      batch.set(eventRef, {
+        id:                eventRef.id,
+        requestId,
+        requestCreatorUid: requestData["createdByUid"] ?? null,
+        actorUid:          user.uid,
+        actorName:         user.displayName,
+        actorRole:         user.role,
+        eventType:         "requester_selected_supplier_quotation",
+        fromStatus:        currentStatus,
+        toStatus:          "quotation_selected",
+        comment:           isSuperAdmin && !isCreator
+          ? `SA override: selected quotation from ${String((supplierResponse as Record<string, unknown>)["companyName"] ?? supplierResponseId)}`
+          : `Selected quotation from ${String((supplierResponse as Record<string, unknown>)["companyName"] ?? supplierResponseId)}`,
+        attachments:       [],
+        createdAt:         FieldValue.serverTimestamp(),
+        metadata:          { supplierResponseId },
+      });
+    } else {
+      batch.update(requestRef, {
+        selectedQuotationAttachmentId: quotationId,
+        approvedAttachment:            quotation,
+        status:                        "quotation_selected",
+        updatedAt:                     FieldValue.serverTimestamp(),
+      });
+      batch.set(eventRef, {
+        id:                eventRef.id,
+        requestId,
+        requestCreatorUid: requestData["createdByUid"] ?? null,
+        actorUid:          user.uid,
+        actorName:         user.displayName,
+        actorRole:         user.role,
+        eventType:         "quotation_selected",
+        fromStatus:        currentStatus,
+        toStatus:          "quotation_selected",
+        comment:           isSuperAdmin && !isCreator ? "Super Admin override selection" : null,
+        attachments:       [],
+        createdAt:         FieldValue.serverTimestamp(),
+        metadata:          null,
+      });
+    }
 
     await batch.commit();
 
-    req.log.info({ requestId, quotationId, actorUid: user.uid }, "quotation approved");
-    safeJsonResponse(res, { requestId, quotationId, toStatus: "quotation_selected" });
+    req.log.info({ requestId, actorUid: user.uid }, "quotation/supplier-response approved");
+    safeJsonResponse(res, { requestId, toStatus: "quotation_selected" });
   } catch (err) {
     req.log.error({ err }, "approve-quotation failed");
     errorJsonResponse(res, "An internal error occurred.", 500, "server_error");
