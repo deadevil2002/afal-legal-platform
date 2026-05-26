@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Supplier Form — AF Procurement Hub</title>
+  <title>Supplier Quotation — AF Procurement Hub</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -31,186 +31,166 @@
       align-items: center;
       gap: 14px;
     }
-    header .brand {
-      display: flex;
-      flex-direction: column;
-    }
-    header .brand-name {
-      color: #fff;
-      font-size: 17px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
-    header .brand-sub {
-      color: rgba(255,255,255,0.7);
-      font-size: 12px;
-      margin-top: 2px;
-    }
-    header .accent-bar {
-      width: 4px;
-      height: 36px;
-      background: var(--accent);
-      border-radius: 2px;
-    }
-    .container {
-      max-width: 680px;
-      margin: 32px auto;
-      padding: 0 16px 48px;
-    }
+    header .accent-bar { width: 4px; height: 36px; background: var(--accent); border-radius: 2px; }
+    header .brand { display: flex; flex-direction: column; }
+    header .brand-name { color: #fff; font-size: 17px; font-weight: 700; letter-spacing: 0.3px; }
+    header .brand-sub { color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 2px; }
+    .container { max-width: 700px; margin: 28px auto; padding: 0 16px 56px; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 28px 28px;
+      padding: 28px;
+      margin-bottom: 16px;
     }
-    @media (max-width: 540px) {
-      .card { padding: 20px 16px; }
+    @media (max-width: 540px) { .card { padding: 18px 14px; } }
+    .card-title { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .card-sub { font-size: 13px; color: var(--muted); margin-bottom: 0; line-height: 1.5; }
+
+    /* Product description box */
+    .rfq-box {
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
     }
-    .card-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--primary);
-      margin-bottom: 4px;
-    }
-    .card-sub {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 24px;
-      line-height: 1.5;
-    }
-    .section-label {
-      font-size: 11px;
+    .rfq-box-label {
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
-      color: var(--secondary);
-      margin: 24px 0 12px;
-      padding-bottom: 6px;
+      color: #2563EB;
+      margin-bottom: 6px;
+    }
+    .rfq-box-text { font-size: 14px; color: #1E3A5F; line-height: 1.6; }
+
+    /* Section labels */
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--secondary);
+      margin: 22px 0 12px; padding-bottom: 6px;
       border-bottom: 1px solid var(--border);
     }
+
+    /* Fields */
     .field { margin-bottom: 14px; }
-    .field label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 5px;
-    }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
     .field label .req { color: var(--error); margin-left: 2px; }
+    .field label .opt { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
     .field input, .field select, .field textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      font-size: 14px;
-      color: #111827;
-      background: #FAFBFC;
-      transition: border-color 0.15s;
-      outline: none;
-      font-family: inherit;
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; color: #111827; background: #FAFBFC;
+      transition: border-color 0.15s; outline: none; font-family: inherit;
     }
     .field input:focus, .field select:focus, .field textarea:focus {
-      border-color: var(--primary);
-      background: #fff;
+      border-color: var(--primary); background: #fff;
     }
-    .field input.err, .field select.err, .field textarea.err {
-      border-color: var(--error);
-    }
-    .field .err-msg {
-      font-size: 12px;
-      color: var(--error);
-      margin-top: 4px;
-    }
+    .field input.err, .field select.err, .field textarea.err { border-color: var(--error); }
+    .field .err-msg { font-size: 12px; color: var(--error); margin-top: 4px; display: none; }
+    .field .err-msg.visible { display: block; }
     .field textarea { resize: vertical; min-height: 72px; }
     .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     @media (max-width: 480px) { .row-2 { grid-template-columns: 1fr; } }
+
+    /* File upload */
+    .file-row {
+      display: flex; align-items: center; gap: 10px;
+      border: 1.5px dashed var(--border); border-radius: 8px;
+      padding: 10px 12px; background: #FAFBFC; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .file-row:hover { border-color: var(--primary); background: #EFF6FF; }
+    .file-row.has-file { border-color: var(--success); border-style: solid; background: #F0FDF4; }
+    .file-row.uploading { border-color: var(--secondary); border-style: solid; background: #F0FDFF; }
+    .file-row.file-err { border-color: var(--error); border-style: solid; background: #FEF2F2; }
+    .file-icon { font-size: 18px; flex-shrink: 0; }
+    .file-text { flex: 1; min-width: 0; }
+    .file-text .file-name { font-size: 13px; font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-text .file-hint { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .file-text .file-name.done { color: var(--success); }
+    .file-text .file-name.err { color: var(--error); }
+    .file-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 20px; flex-shrink: 0;
+    }
+    .file-badge.uploading { background: #CFFAFE; color: #0E7490; }
+    .file-badge.done { background: #DCFCE7; color: var(--success); }
+    .file-badge.err { background: #FEE2E2; color: var(--error); }
+
+    /* Currency toggle */
+    .currency-row { display: flex; gap: 10px; margin-bottom: 14px; }
+    .currency-btn {
+      flex: 1; padding: 10px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: #FAFBFC; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s; font-family: inherit; color: #374151;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .currency-btn.active { border-color: var(--primary); background: #EFF6FF; color: var(--primary); }
+
+    /* VAT box */
     .vat-box {
-      background: #EFF6FF;
-      border: 1px solid #BFDBFE;
-      border-radius: 8px;
-      padding: 12px 14px;
-      margin-top: 10px;
-      display: none;
+      background: #EFF6FF; border: 1px solid #BFDBFE;
+      border-radius: 8px; padding: 12px 14px; margin-top: 10px; display: none;
     }
     .vat-box table { width: 100%; border-collapse: collapse; }
     .vat-box td { padding: 3px 0; font-size: 13px; color: #1E40AF; }
     .vat-box td:last-child { text-align: right; font-weight: 600; }
     .vat-box .total-row td { font-weight: 700; font-size: 14px; padding-top: 6px; border-top: 1px solid #93C5FD; }
-    .submit-btn {
-      width: 100%;
-      margin-top: 24px;
-      padding: 14px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
+    .usd-note {
+      background: #FFFBEB; border: 1px solid #FDE68A;
+      border-radius: 8px; padding: 10px 14px; margin-top: 10px;
+      font-size: 13px; color: #92400E; display: none;
+    }
+
+    /* Quotation highlight */
+    .quotation-highlight {
+      background: linear-gradient(135deg, #F0F4FF 0%, #EFF6FF 100%);
+      border: 1.5px solid #C7D7F8;
       border-radius: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      font-family: inherit;
+      padding: 14px 16px;
+      margin-top: 4px;
+    }
+    .quotation-highlight .qh-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 8px;
+    }
+
+    /* Submit */
+    .submit-btn {
+      width: 100%; margin-top: 8px; padding: 14px;
+      background: var(--primary); color: #fff; border: none;
+      border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.15s; font-family: inherit;
     }
     .submit-btn:hover:not(:disabled) { opacity: 0.88; }
     .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .spinner {
-      display: inline-block;
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .status-screen {
-      text-align: center;
-      padding: 40px 20px;
-    }
-    .status-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-    .status-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 8px;
-    }
-    .status-msg {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.6;
-      max-width: 360px;
-      margin: 0 auto;
-    }
-    .loading-screen {
-      text-align: center;
-      padding: 60px 20px;
-    }
+
+    /* Status / loading screens */
+    #screen-loading, #screen-form, #screen-status { display: none; }
+    .loading-screen { text-align: center; padding: 60px 20px; }
     .loading-spinner {
-      width: 36px; height: 36px;
-      border: 3px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 16px;
     }
+    .status-screen { text-align: center; padding: 48px 20px; }
+    .status-icon { font-size: 48px; margin-bottom: 16px; }
+    .status-title { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+    .status-msg { font-size: 14px; color: var(--muted); line-height: 1.6; max-width: 380px; margin: 0 auto; }
     .alert {
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 16px;
-      display: none;
+      padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none;
     }
     .alert-error { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
-    footer {
-      text-align: center;
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 20px;
-    }
-    #screen-loading, #screen-form, #screen-status { display: none; }
+    footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 24px; }
   </style>
 </head>
 <body>
@@ -237,101 +217,229 @@
     </div>
 
     <!-- Supplier Form -->
-    <div id="screen-form" class="card">
-      <div class="card-title">Supplier Quotation</div>
-      <div class="card-sub" id="form-hint">Please complete all required fields and submit your quotation.</div>
+    <div id="screen-form">
 
-      <div class="alert alert-error" id="submit-error"></div>
-
-      <form id="supplier-form" novalidate>
-        <div class="section-label">Company Information</div>
-        <div class="field">
-          <label>Company Name <span class="req">*</span></label>
-          <input type="text" name="companyName" placeholder="Full legal company name" />
-          <div class="err-msg" data-for="companyName"></div>
+      <!-- Header card -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Supplier Quotation Form</div>
+        <div class="card-sub" id="form-sub" style="margin-top:4px;">
+          Please complete all sections and submit your quotation.
         </div>
-        <div class="row-2">
+      </div>
+
+      <!-- What you are quoting for -->
+      <div id="rfq-box-wrap" class="card" style="display:none; margin-bottom:16px; padding:20px 24px;">
+        <div class="rfq-box-label" style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#2563EB;margin-bottom:8px;">
+          📋 What you are quoting for
+        </div>
+        <div class="rfq-box-text" id="rfq-description" style="font-size:14px;color:#1E3A5F;line-height:1.65;white-space:pre-wrap;"></div>
+      </div>
+
+      <!-- Main form card -->
+      <div class="card">
+        <div class="alert alert-error" id="submit-error"></div>
+        <form id="supplier-form" novalidate>
+
+          <!-- ── Company Information ─────────────────────────── -->
+          <div class="section-label">Company Information</div>
+
           <div class="field">
-            <label>Commercial Registration No. <span class="req">*</span></label>
-            <input type="text" name="commercialRegistrationNumber" placeholder="CR number" />
-            <div class="err-msg" data-for="commercialRegistrationNumber"></div>
+            <label>Company / Establishment Name <span class="req">*</span></label>
+            <input type="text" name="companyName" placeholder="Full legal company name" autocomplete="organization" />
+            <div class="err-msg" data-for="companyName"></div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label>Commercial Registration No. <span class="req">*</span></label>
+              <input type="text" name="commercialRegistrationNumber" placeholder="CR number" />
+              <div class="err-msg" data-for="commercialRegistrationNumber"></div>
+            </div>
+            <div class="field">
+              <label>Accreditation No. <span class="req">*</span></label>
+              <input type="text" name="accreditationNumber" placeholder="SAC number" />
+              <div class="err-msg" data-for="accreditationNumber"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>CR Certificate <span class="req">*</span></label>
+            <div class="file-row" id="fr-cr" onclick="triggerUpload('cr')">
+              <span class="file-icon">📎</span>
+              <div class="file-text">
+                <div class="file-name" id="fn-cr">Click to upload (PDF or image)</div>
+                <div class="file-hint">Commercial Registration certificate</div>
+              </div>
+              <span class="file-badge" id="fb-cr" style="display:none;"></span>
+            </div>
+            <input type="file" id="fi-cr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('cr',this,'commercialRegistrationAttachment')" />
+            <div class="err-msg" data-for="commercialRegistrationAttachment"></div>
+          </div>
+
+          <div class="field">
+            <label>Saudi Accreditation Center Certificate <span class="req">*</span></label>
+            <div class="file-row" id="fr-acc" onclick="triggerUpload('acc')">
+              <span class="file-icon">📎</span>
+              <div class="file-text">
+                <div class="file-name" id="fn-acc">Click to upload (PDF or image)</div>
+                <div class="file-hint">Saudi Accreditation Center (SAC) certificate</div>
+              </div>
+              <span class="file-badge" id="fb-acc" style="display:none;"></span>
+            </div>
+            <input type="file" id="fi-acc" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('acc',this,'accreditationAttachment')" />
+            <div class="err-msg" data-for="accreditationAttachment"></div>
+          </div>
+
+          <div class="field">
+            <label>ZATCA No. <span class="req">*</span></label>
+            <input type="text" name="zatcaNumber" placeholder="Zakat, Tax &amp; Customs Authority number" />
+            <div class="err-msg" data-for="zatcaNumber"></div>
+          </div>
+
+          <!-- ── Contact Details ─────────────────────────────── -->
+          <div class="section-label">Contact Details</div>
+
+          <div class="row-2">
+            <div class="field">
+              <label>Contact Person <span class="req">*</span></label>
+              <input type="text" name="contactPersonName" placeholder="Full name" autocomplete="name" />
+              <div class="err-msg" data-for="contactPersonName"></div>
+            </div>
+            <div class="field">
+              <label>Phone <span class="req">*</span></label>
+              <input type="tel" name="phone" placeholder="+966 5X XXX XXXX" autocomplete="tel" />
+              <div class="err-msg" data-for="phone"></div>
+            </div>
           </div>
           <div class="field">
-            <label>Accreditation No. <span class="req">*</span></label>
-            <input type="text" name="accreditationNumber" placeholder="Accreditation number" />
-            <div class="err-msg" data-for="accreditationNumber"></div>
+            <label>Email <span class="req">*</span></label>
+            <input type="email" name="email" placeholder="contact@company.com" autocomplete="email" />
+            <div class="err-msg" data-for="email"></div>
           </div>
-        </div>
-        <div class="field">
-          <label>ZATCA No. <span class="req">*</span></label>
-          <input type="text" name="zatcaNumber" placeholder="Tax registration number" />
-          <div class="err-msg" data-for="zatcaNumber"></div>
-        </div>
 
-        <div class="section-label">Contact Details</div>
-        <div class="row-2">
-          <div class="field">
-            <label>Contact Person <span class="req">*</span></label>
-            <input type="text" name="contactPersonName" placeholder="Full name" />
-            <div class="err-msg" data-for="contactPersonName"></div>
+          <div class="row-2">
+            <div class="field" style="grid-column: 1 / -1;">
+              <label>National Address <span class="req">*</span></label>
+              <textarea name="nationalAddressText" placeholder="Building No, Street, District, City, Postal Code" rows="3"></textarea>
+              <div class="err-msg" data-for="nationalAddressText"></div>
+            </div>
           </div>
-          <div class="field">
-            <label>Phone <span class="req">*</span></label>
-            <input type="tel" name="phone" placeholder="+966 5X XXX XXXX" />
-            <div class="err-msg" data-for="phone"></div>
-          </div>
-        </div>
-        <div class="field">
-          <label>Email <span class="req">*</span></label>
-          <input type="email" name="email" placeholder="contact@company.com" />
-          <div class="err-msg" data-for="email"></div>
-        </div>
-        <div class="field">
-          <label>National Address <span class="req">*</span></label>
-          <textarea name="nationalAddressText" placeholder="Building No, Street, District, City, Postal Code"></textarea>
-          <div class="err-msg" data-for="nationalAddressText"></div>
-        </div>
 
-        <div class="section-label">Banking &amp; Pricing</div>
-        <div class="field">
-          <label>IBAN <span class="req">*</span></label>
-          <input type="text" name="ibanText" placeholder="SA00 0000 0000 0000 0000 0000" />
-          <div class="err-msg" data-for="ibanText"></div>
-        </div>
-        <div class="row-2">
           <div class="field">
-            <label>Price (Excl. VAT) SAR <span class="req">*</span></label>
-            <input type="number" name="priceExcludingVatSar" placeholder="0.00" min="0" step="0.01" id="price-input" />
-            <div class="err-msg" data-for="priceExcludingVatSar"></div>
+            <label>National Address Document <span class="req">*</span></label>
+            <div class="file-row" id="fr-addr" onclick="triggerUpload('addr')">
+              <span class="file-icon">📎</span>
+              <div class="file-text">
+                <div class="file-name" id="fn-addr">Click to upload (PDF or image)</div>
+                <div class="file-hint">Official national address certificate</div>
+              </div>
+              <span class="file-badge" id="fb-addr" style="display:none;"></span>
+            </div>
+            <input type="file" id="fi-addr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('addr',this,'nationalAddressAttachment')" />
+            <div class="err-msg" data-for="nationalAddressAttachment"></div>
           </div>
+
+          <!-- ── Banking ──────────────────────────────────────── -->
+          <div class="section-label">Banking</div>
+
           <div class="field">
-            <label>Payment Terms <span class="req">*</span></label>
-            <select name="paymentTerms">
-              <option value="">Select…</option>
-              <option value="advance">Full Advance</option>
-              <option value="50_50">50% Advance / 50% on Delivery</option>
-              <option value="after_supply">After Supply</option>
-            </select>
-            <div class="err-msg" data-for="paymentTerms"></div>
+            <label>IBAN <span class="req">*</span></label>
+            <input type="text" name="ibanText" placeholder="SA00 0000 0000 0000 0000 0000" style="letter-spacing:0.5px;" />
+            <div class="err-msg" data-for="ibanText"></div>
           </div>
-        </div>
-        <div class="vat-box" id="vat-box">
-          <table>
-            <tr><td>Price (excl. VAT)</td><td id="vb-excl">–</td></tr>
-            <tr><td>VAT (15%)</td><td id="vb-vat">–</td></tr>
-            <tr class="total-row"><td>Total (incl. VAT)</td><td id="vb-total">–</td></tr>
-          </table>
-        </div>
 
-        <div class="section-label">Additional Notes</div>
-        <div class="field">
-          <label>Notes <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-          <textarea name="notes" placeholder="Delivery timeline, special conditions, remarks…"></textarea>
-        </div>
+          <div class="field">
+            <label>IBAN Letter / Bank Certificate <span class="req">*</span></label>
+            <div class="file-row" id="fr-iban" onclick="triggerUpload('iban')">
+              <span class="file-icon">📎</span>
+              <div class="file-text">
+                <div class="file-name" id="fn-iban">Click to upload (PDF or image)</div>
+                <div class="file-hint">Official bank IBAN confirmation letter</div>
+              </div>
+              <span class="file-badge" id="fb-iban" style="display:none;"></span>
+            </div>
+            <input type="file" id="fi-iban" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('iban',this,'ibanAttachment')" />
+            <div class="err-msg" data-for="ibanAttachment"></div>
+          </div>
 
-        <button type="submit" class="submit-btn" id="submit-btn">Submit Quotation</button>
-      </form>
-    </div>
+          <!-- ── Pricing & Quotation ──────────────────────────── -->
+          <div class="section-label">Pricing &amp; Quotation</div>
+
+          <div class="field">
+            <label>Currency <span class="req">*</span></label>
+            <div class="currency-row">
+              <button type="button" class="currency-btn active" id="cb-sar" onclick="setCurrency('SAR')">
+                🇸🇦 SAR — Saudi Riyal
+              </button>
+              <button type="button" class="currency-btn" id="cb-usd" onclick="setCurrency('USD')">
+                🇺🇸 USD — US Dollar
+              </button>
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label>Price Excl. VAT <span class="req">*</span></label>
+              <input type="number" name="priceExcludingVatSar" id="price-input" placeholder="0.00" min="0.01" step="0.01" />
+              <div class="err-msg" data-for="priceExcludingVatSar"></div>
+            </div>
+            <div class="field">
+              <label>Payment Terms <span class="req">*</span></label>
+              <select name="paymentTerms">
+                <option value="">Select…</option>
+                <option value="advance">100% Advance</option>
+                <option value="50_50">50% Advance / 50% After Supply</option>
+                <option value="after_supply">100% After Supply</option>
+              </select>
+              <div class="err-msg" data-for="paymentTerms"></div>
+            </div>
+          </div>
+
+          <!-- VAT box (SAR only) -->
+          <div class="vat-box" id="vat-box">
+            <table>
+              <tr><td>Price (excl. VAT)</td><td id="vb-excl">–</td></tr>
+              <tr><td>VAT (15%)</td><td id="vb-vat">–</td></tr>
+              <tr class="total-row"><td>Total (incl. VAT)</td><td id="vb-total">–</td></tr>
+            </table>
+          </div>
+
+          <!-- USD note -->
+          <div class="usd-note" id="usd-note">
+            ℹ️ USD-quoted prices are not subject to Saudi VAT. The procurement team may convert to SAR for comparison.
+          </div>
+
+          <!-- Quotation document -->
+          <div class="field" style="margin-top:16px;">
+            <label>Quotation Document <span class="req">*</span></label>
+            <div class="quotation-highlight">
+              <div class="qh-label">Main quotation attachment</div>
+              <div class="file-row" id="fr-quot" onclick="triggerUpload('quot')" style="border-style:dashed; background:#fff;">
+                <span class="file-icon">📄</span>
+                <div class="file-text">
+                  <div class="file-name" id="fn-quot">Click to upload your quotation (PDF recommended)</div>
+                  <div class="file-hint">This is the main document shown to the procurement team</div>
+                </div>
+                <span class="file-badge" id="fb-quot" style="display:none;"></span>
+              </div>
+            </div>
+            <input type="file" id="fi-quot" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" style="display:none" onchange="handleFileChange('quot',this,'quotationAttachment')" />
+            <div class="err-msg" data-for="quotationAttachment"></div>
+          </div>
+
+          <!-- ── Additional Notes ─────────────────────────────── -->
+          <div class="section-label">Additional Notes</div>
+          <div class="field">
+            <label>Notes <span class="opt">(optional)</span></label>
+            <textarea name="notes" placeholder="Delivery timeline, special conditions, remarks, warranty terms…" rows="3"></textarea>
+          </div>
+
+          <button type="submit" class="submit-btn" id="submit-btn" style="margin-top:24px;">
+            Submit Quotation
+          </button>
+        </form>
+      </div>
+    </div><!-- /screen-form -->
 
     <footer>Powered by AF Procurement Hub &mdash; Arabian Fal</footer>
   </div>
@@ -339,7 +447,33 @@
   <script>
     (function () {
       var token = location.pathname.split('/').filter(Boolean).pop();
-      var API = '';  // same origin
+      var API = '';
+
+      // Cloudinary credentials injected by serve.js at startup
+      var CF_CLOUD_NAME = '__CF_CLOUD_NAME__';
+      var CF_UPLOAD_PRESET = '__CF_UPLOAD_PRESET__';
+
+      // Tracks uploaded files: key → { url, name, storagePath } or null
+      var uploads = {
+        cr:   null,  // commercialRegistrationAttachment
+        acc:  null,  // accreditationAttachment
+        addr: null,  // nationalAddressAttachment
+        iban: null,  // ibanAttachment
+        quot: null,  // quotationAttachment
+      };
+
+      // Maps upload key → schema field name
+      var keyToField = {
+        cr:   'commercialRegistrationAttachment',
+        acc:  'accreditationAttachment',
+        addr: 'nationalAddressAttachment',
+        iban: 'ibanAttachment',
+        quot: 'quotationAttachment',
+      };
+
+      var currentCurrency = 'SAR';
+
+      // ── Utilities ──────────────────────────────────────────────────────────
 
       function fmt(n) {
         return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -358,109 +492,285 @@
         show('screen-status');
       }
 
-      // Load link info
+      // ── Currency selector ──────────────────────────────────────────────────
+
+      function setCurrency(c) {
+        currentCurrency = c;
+        document.getElementById('cb-sar').className = 'currency-btn' + (c === 'SAR' ? ' active' : '');
+        document.getElementById('cb-usd').className = 'currency-btn' + (c === 'USD' ? ' active' : '');
+        updateVatBox();
+      }
+
+      function updateVatBox() {
+        var priceEl = document.getElementById('price-input');
+        var v = parseFloat(priceEl ? priceEl.value : '');
+        var vatBox = document.getElementById('vat-box');
+        var usdNote = document.getElementById('usd-note');
+
+        if (currentCurrency === 'USD') {
+          vatBox.style.display = 'none';
+          usdNote.style.display = 'block';
+        } else {
+          usdNote.style.display = 'none';
+          if (!isNaN(v) && v > 0) {
+            var vat   = Math.round(v * 0.15 * 100) / 100;
+            var total = Math.round(v * 1.15 * 100) / 100;
+            document.getElementById('vb-excl').textContent  = 'SAR ' + fmt(v);
+            document.getElementById('vb-vat').textContent   = 'SAR ' + fmt(vat);
+            document.getElementById('vb-total').textContent = 'SAR ' + fmt(total);
+            vatBox.style.display = 'block';
+          } else {
+            vatBox.style.display = 'none';
+          }
+        }
+      }
+
+      document.getElementById('price-input').addEventListener('input', updateVatBox);
+
+      // ── File upload ────────────────────────────────────────────────────────
+
+      function triggerUpload(key) {
+        // Prevent re-triggering while an upload is in progress
+        if (uploads[key] && uploads[key].__uploading) return;
+        document.getElementById('fi-' + key).click();
+      }
+
+      function setFileState(key, state, label) {
+        var row  = document.getElementById('fr-' + key);
+        var name = document.getElementById('fn-' + key);
+        var badge = document.getElementById('fb-' + key);
+
+        row.className = 'file-row';
+        badge.style.display = 'none';
+        name.className = 'file-name';
+
+        if (state === 'uploading') {
+          row.classList.add('uploading');
+          name.textContent = label;
+          badge.className = 'file-badge uploading';
+          badge.textContent = 'Uploading…';
+          badge.style.display = '';
+        } else if (state === 'done') {
+          row.classList.add('has-file');
+          name.textContent = label;
+          name.classList.add('done');
+          badge.className = 'file-badge done';
+          badge.textContent = '✓ Uploaded';
+          badge.style.display = '';
+        } else if (state === 'error') {
+          row.classList.add('file-err');
+          name.textContent = label;
+          name.classList.add('err');
+          badge.className = 'file-badge err';
+          badge.textContent = 'Failed';
+          badge.style.display = '';
+        }
+      }
+
+      function handleFileChange(key, input, fieldName) {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        // Clear previous error for this field
+        clearFieldError(fieldName);
+        uploadToCloudinary(key, file, fieldName);
+      }
+
+      function uploadToCloudinary(key, file, fieldName) {
+        if (!CF_CLOUD_NAME || !CF_UPLOAD_PRESET) {
+          // Cloudinary not configured — store a stub so form can still submit
+          uploads[key] = null;
+          setFileState(key, 'error', 'Upload unavailable — contact procurement');
+          return;
+        }
+
+        uploads[key] = { __uploading: true };
+        setFileState(key, 'uploading', file.name);
+
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('upload_preset', CF_UPLOAD_PRESET);
+        fd.append('folder', 'afal/supplier-responses');
+
+        fetch('https://api.cloudinary.com/v1_1/' + CF_CLOUD_NAME + '/auto/upload', {
+          method: 'POST',
+          body: fd,
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.secure_url) {
+              uploads[key] = null;
+              setFileState(key, 'error', 'Upload failed — please try again');
+              return;
+            }
+            uploads[key] = { url: data.secure_url, name: file.name, storagePath: data.public_id };
+            setFileState(key, 'done', file.name);
+          })
+          .catch(function () {
+            uploads[key] = null;
+            setFileState(key, 'error', 'Network error — please try again');
+          });
+      }
+
+      // ── Validation ─────────────────────────────────────────────────────────
+
+      var requiredText = [
+        'companyName', 'commercialRegistrationNumber', 'accreditationNumber',
+        'zatcaNumber', 'contactPersonName', 'phone', 'email',
+        'nationalAddressText', 'ibanText', 'priceExcludingVatSar', 'paymentTerms',
+      ];
+
+      var requiredFiles = ['cr', 'acc', 'addr', 'iban', 'quot'];
+
+      function clearFieldError(fieldName) {
+        var el = document.querySelector('.err-msg[data-for="' + fieldName + '"]');
+        if (el) { el.textContent = ''; el.classList.remove('visible'); }
+        var inp = document.querySelector('[name="' + fieldName + '"]');
+        if (inp) inp.classList.remove('err');
+      }
+
+      function setFieldError(fieldName, msg) {
+        var el = document.querySelector('.err-msg[data-for="' + fieldName + '"]');
+        if (el) { el.textContent = msg; el.classList.add('visible'); }
+        var inp = document.querySelector('[name="' + fieldName + '"]');
+        if (inp) inp.classList.add('err');
+      }
+
+      function setFileFieldError(key, msg) {
+        var fieldName = keyToField[key];
+        var el = document.querySelector('.err-msg[data-for="' + fieldName + '"]');
+        if (el) { el.textContent = msg; el.classList.add('visible'); }
+        document.getElementById('fr-' + key).classList.add('file-err');
+      }
+
+      function validate(form) {
+        var hasErrors = false;
+
+        // Text fields
+        requiredText.forEach(function (name) {
+          var el = form.elements[name];
+          var v = el ? el.value.trim() : '';
+          if (!v) {
+            setFieldError(name, 'This field is required.');
+            hasErrors = true;
+          }
+        });
+
+        // Email format
+        var emailEl = form.elements['email'];
+        if (emailEl && emailEl.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) {
+          setFieldError('email', 'Please enter a valid email address.');
+          hasErrors = true;
+        }
+
+        // Price
+        var priceEl = form.elements['priceExcludingVatSar'];
+        if (priceEl && priceEl.value) {
+          var pv = parseFloat(priceEl.value);
+          if (isNaN(pv) || pv <= 0) {
+            setFieldError('priceExcludingVatSar', 'Enter a valid price greater than 0.');
+            hasErrors = true;
+          }
+        }
+
+        // File uploads
+        requiredFiles.forEach(function (key) {
+          var att = uploads[key];
+          if (!att || att.__uploading) {
+            if (att && att.__uploading) {
+              setFileFieldError(key, 'Please wait for the file to finish uploading.');
+            } else {
+              setFileFieldError(key, 'Please upload this document.');
+            }
+            hasErrors = true;
+          }
+        });
+
+        return !hasErrors;
+      }
+
+      // ── Load link info ──────────────────────────────────────────────────────
+
       show('screen-loading');
+
       fetch(API + '/api/public/supplier-link/' + encodeURIComponent(token))
         .then(function (r) { return r.json(); })
         .then(function (json) {
           var data = json.data || json;
+
           if (!data.isActive) {
             var msgs = {
-              expired:     ['⏰', 'Link Expired', 'This supplier link has expired and is no longer accepting submissions.'],
-              used:        ['✅', 'Already Submitted', 'A quotation has already been submitted for this link.'],
-              deactivated: ['🔒', 'Link Deactivated', 'This link has been deactivated by the procurement team.'],
+              expired:     ['⏰', 'Link Expired',      'This supplier link has expired and is no longer accepting submissions.'],
+              used:        ['✅', 'Already Submitted',  'A quotation has already been submitted for this link.'],
+              deactivated: ['🔒', 'Link Deactivated',   'This link has been deactivated by the procurement team.'],
             };
             var s = msgs[data.status] || ['⚠️', 'Link Unavailable', 'This supplier link is no longer active.'];
             showStatus(s[0], s[1], s[2]);
             return;
           }
-          // Active — show form
-          if (data.supplierNameHint) {
-            document.getElementById('form-hint').textContent =
-              'Quotation requested for: ' + data.supplierNameHint + '. Please complete all required fields.';
+
+          // Show RFQ description if available
+          if (data.productDescription) {
+            var box = document.getElementById('rfq-box-wrap');
+            document.getElementById('rfq-description').textContent = data.productDescription;
+            box.style.display = 'block';
           }
+
+          // Show supplier name hint in subtitle
+          if (data.supplierNameHint) {
+            document.getElementById('form-sub').textContent =
+              'Quotation requested for: ' + data.supplierNameHint + '. Please complete all sections.';
+          }
+
           show('screen-form');
         })
         .catch(function () {
           showStatus('⚠️', 'Unable to Load', 'Could not verify this supplier link. Please try again or contact the procurement team.');
         });
 
-      // VAT preview
-      document.getElementById('price-input').addEventListener('input', function () {
-        var v = parseFloat(this.value);
-        var box = document.getElementById('vat-box');
-        if (isNaN(v) || v <= 0) { box.style.display = 'none'; return; }
-        var vat = Math.round(v * 0.15 * 100) / 100;
-        var total = Math.round(v * 1.15 * 100) / 100;
-        document.getElementById('vb-excl').textContent = 'SAR ' + fmt(v);
-        document.getElementById('vb-vat').textContent = 'SAR ' + fmt(vat);
-        document.getElementById('vb-total').textContent = 'SAR ' + fmt(total);
-        box.style.display = 'block';
-      });
+      // ── Submit ──────────────────────────────────────────────────────────────
 
-      // Validation
-      function validate(form) {
-        var errors = {};
-        var required = [
-          'companyName', 'commercialRegistrationNumber', 'accreditationNumber', 'zatcaNumber',
-          'phone', 'email', 'contactPersonName', 'nationalAddressText', 'ibanText',
-          'priceExcludingVatSar', 'paymentTerms'
-        ];
-        required.forEach(function (name) {
-          var el = form.elements[name];
-          var v = el ? el.value.trim() : '';
-          if (!v) errors[name] = 'This field is required.';
-        });
-        var emailEl = form.elements['email'];
-        if (emailEl && emailEl.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) {
-          errors['email'] = 'Please enter a valid email address.';
-        }
-        var priceEl = form.elements['priceExcludingVatSar'];
-        if (priceEl && priceEl.value) {
-          var pv = parseFloat(priceEl.value);
-          if (isNaN(pv) || pv <= 0) errors['priceExcludingVatSar'] = 'Enter a valid price greater than 0.';
-        }
-        return errors;
-      }
-
-      function setErrors(errors) {
-        document.querySelectorAll('.err-msg').forEach(function (el) {
-          var name = el.getAttribute('data-for');
-          el.textContent = errors[name] || '';
-        });
-        document.querySelectorAll('input, select, textarea').forEach(function (el) {
-          if (errors[el.name]) el.classList.add('err');
-          else el.classList.remove('err');
-        });
-      }
-
-      // Submit
       document.getElementById('supplier-form').addEventListener('submit', function (e) {
         e.preventDefault();
         var form = this;
-        var errors = validate(form);
-        setErrors(errors);
-        if (Object.keys(errors).length > 0) return;
-
-        var btn = document.getElementById('submit-btn');
+        var btn    = document.getElementById('submit-btn');
         var errBox = document.getElementById('submit-error');
+
+        // Clear all previous errors
+        document.querySelectorAll('.err-msg').forEach(function (el) {
+          el.textContent = ''; el.classList.remove('visible');
+        });
+        document.querySelectorAll('input, select, textarea').forEach(function (el) {
+          el.classList.remove('err');
+        });
+        document.querySelectorAll('.file-row').forEach(function (el) {
+          el.classList.remove('file-err');
+        });
         errBox.style.display = 'none';
+
+        if (!validate(form)) return;
+
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span>Submitting…';
 
         var body = {
-          companyName: form.elements['companyName'].value.trim(),
-          commercialRegistrationNumber: form.elements['commercialRegistrationNumber'].value.trim(),
-          accreditationNumber: form.elements['accreditationNumber'].value.trim(),
-          zatcaNumber: form.elements['zatcaNumber'].value.trim(),
-          phone: form.elements['phone'].value.trim(),
-          email: form.elements['email'].value.trim(),
-          contactPersonName: form.elements['contactPersonName'].value.trim(),
-          nationalAddressText: form.elements['nationalAddressText'].value.trim(),
-          ibanText: form.elements['ibanText'].value.trim(),
-          priceExcludingVatSar: parseFloat(form.elements['priceExcludingVatSar'].value),
-          paymentTerms: form.elements['paymentTerms'].value,
-          notes: form.elements['notes'].value.trim() || null,
+          companyName:                      form.elements['companyName'].value.trim(),
+          commercialRegistrationNumber:     form.elements['commercialRegistrationNumber'].value.trim(),
+          accreditationNumber:              form.elements['accreditationNumber'].value.trim(),
+          zatcaNumber:                      form.elements['zatcaNumber'].value.trim(),
+          phone:                            form.elements['phone'].value.trim(),
+          email:                            form.elements['email'].value.trim(),
+          contactPersonName:                form.elements['contactPersonName'].value.trim(),
+          nationalAddressText:              form.elements['nationalAddressText'].value.trim(),
+          ibanText:                         form.elements['ibanText'].value.trim(),
+          priceExcludingVatSar:             parseFloat(form.elements['priceExcludingVatSar'].value),
+          paymentTerms:                     form.elements['paymentTerms'].value,
+          currency:                         currentCurrency,
+          notes:                            form.elements['notes'].value.trim() || null,
+          commercialRegistrationAttachment: uploads['cr']  || null,
+          accreditationAttachment:          uploads['acc'] || null,
+          nationalAddressAttachment:        uploads['addr']|| null,
+          ibanAttachment:                   uploads['iban']|| null,
+          quotationAttachment:              uploads['quot']|| null,
         };
 
         fetch(API + '/api/public/supplier-response/' + encodeURIComponent(token), {
@@ -476,9 +786,11 @@
               errBox.style.display = 'block';
               btn.disabled = false;
               btn.textContent = 'Submit Quotation';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
               return;
             }
-            showStatus('🎉', 'Quotation Submitted', 'Thank you! Your quotation has been received by the procurement team. You will be contacted if further information is needed.');
+            showStatus('🎉', 'Quotation Submitted!',
+              'Thank you! Your quotation has been received by the AF Procurement team. You will be contacted if any additional information is needed.');
           })
           .catch(function () {
             errBox.textContent = 'A network error occurred. Please check your connection and try again.';
@@ -487,6 +799,7 @@
             btn.textContent = 'Submit Quotation';
           });
       });
+
     })();
   </script>
 </body>

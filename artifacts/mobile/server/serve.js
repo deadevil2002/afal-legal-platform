@@ -106,8 +106,16 @@ function serveStaticFile(urlPath, res) {
 }
 
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, "utf-8");
-const supplierFormHtml = fs.readFileSync(SUPPLIER_FORM_PATH, "utf-8");
+const supplierFormTemplate = fs.readFileSync(SUPPLIER_FORM_PATH, "utf-8");
 const appName = getAppName();
+
+// Cloudinary credentials injected into the supplier form at serve time.
+// The HTML template uses __CF_CLOUD_NAME__ and __CF_UPLOAD_PRESET__ placeholders.
+const CF_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || "";
+const CF_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "";
+const supplierFormHtml = supplierFormTemplate
+  .replace(/__CF_CLOUD_NAME__/g, CF_CLOUD_NAME)
+  .replace(/__CF_UPLOAD_PRESET__/g, CF_UPLOAD_PRESET);
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);

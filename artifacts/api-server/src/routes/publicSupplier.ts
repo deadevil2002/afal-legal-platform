@@ -3,7 +3,6 @@ import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   supplierFormInputSchema,
-  attachmentRefSchema,
   calculateVat,
   calculatePriceIncludingVat,
   TERMINAL_STAGES,
@@ -11,10 +10,36 @@ import {
 import { getAdminDb } from "../lib/firebase-admin";
 import { safeJsonResponse, errorJsonResponse } from "../lib/response";
 
+// ─── Public attachment input schema ───────────────────────────────────────────
+// Suppliers upload files directly to Cloudinary from the browser and send back
+// { url, name, storagePath }. The server adds uploadedAt and uploadedBy before
+// persisting, so those fields are not accepted from the client.
+
+const publicAttachmentInputSchema = z.object({
+  url: z.string().url(),
+  name: z.string().min(1),
+  storagePath: z.string().min(1),
+});
+
+type PublicAttachmentInput = z.infer<typeof publicAttachmentInputSchema>;
+
+function enrichAttachment(
+  att: PublicAttachmentInput | undefined | null,
+) {
+  if (!att) return null;
+  return {
+    url: att.url,
+    name: att.name,
+    storagePath: att.storagePath,
+    uploadedAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+    uploadedBy: "supplier",
+  };
+}
+
 // ─── Phase C submission schema ────────────────────────────────────────────────
 // Derived from SupplierFormInput (which is SupplierResponse minus server fields).
-// Attachment fields remain optional until the file upload flow is implemented
-// (Phase D). All other required fields are enforced.
+// Attachment fields use publicAttachmentInputSchema (no uploadedAt/uploadedBy —
+// the server adds those). currency and quotationAttachment are optional.
 
 const phaseCPublicSubmissionSchema = supplierFormInputSchema
   .omit({
@@ -25,14 +50,19 @@ const phaseCPublicSubmissionSchema = supplierFormInputSchema
     extraAttachments: true,
   })
   .extend({
-    // TODO (Phase D): Make these required once /api/public/upload/:token exists
-    commercialRegistrationAttachment: attachmentRefSchema.optional(),
-    accreditationAttachment: attachmentRefSchema.optional(),
-    nationalAddressAttachment: attachmentRefSchema.optional(),
-    ibanAttachment: attachmentRefSchema.optional(),
-    extraAttachments: z.array(attachmentRefSchema).optional(),
-    // notes is optional on the public form — omitting or sending null/empty is valid
+    // Attachment fields: supplier uploads directly to Cloudinary; server enriches
+    // with uploadedAt + uploadedBy before persisting.
+    commercialRegistrationAttachment: publicAttachmentInputSchema.optional(),
+    accreditationAttachment: publicAttachmentInputSchema.optional(),
+    nationalAddressAttachment: publicAttachmentInputSchema.optional(),
+    ibanAttachment: publicAttachmentInputSchema.optional(),
+    extraAttachments: z.array(publicAttachmentInputSchema).optional(),
+    // .extend() overrides the base schema's quotationAttachment field type
+    quotationAttachment: publicAttachmentInputSchema.optional(),
+    // notes is optional on the public form
     notes: z.string().nullable().optional(),
+    // currency overrides the base default("SAR") field
+    currency: z.enum(["SAR", "USD"]).optional(),
   });
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -42,9 +72,13 @@ const router = Router();
 /**
  * GET /api/public/supplier-link/:token
  *
- * Public — no auth. Returns minimal context for the supplier form UI:
- * whether the link is valid/active/expired/used, and the optional hint.
- * Never exposes internal IDs or request details.
+ * Public — no auth. Returns context for the supplier form:
+ * - whether the link is valid/active/expired/used
+ * - optional hint label set by Procurement
+ * - productDescription from the parent procurement request (what the supplier
+ *   is quoting for)
+ *
+ * Never exposes internal IDs, user data, or financial information.
  */
 router.get("/supplier-link/:token", async (req, res) => {
   try {
@@ -79,10 +113,30 @@ router.get("/supplier-link/:token", async (req, res) => {
     else if (isExpired) status = "expired";
     else status = "active";
 
+    // Fetch productDescription from the parent request so the supplier
+    // knows what they are quoting for.
+    let productDescription: string | null = null;
+    const requestId = link["requestId"] as string | undefined;
+    if (requestId) {
+      try {
+        const requestSnap = await db
+          .collection("procurement_requests")
+          .doc(requestId)
+          .get();
+        if (requestSnap.exists) {
+          productDescription =
+            (requestSnap.data()!["productDescription"] as string | undefined) ?? null;
+        }
+      } catch {
+        // Non-fatal — form still works without description
+      }
+    }
+
     safeJsonResponse(res, {
       status,
       supplierNameHint: (link["supplierNameHint"] as string | null) ?? null,
       isActive,
+      productDescription,
     });
   } catch (err) {
     req.log.error({ err }, "supplier-link info failed");
@@ -172,7 +226,7 @@ router.post("/supplier-response/:token", async (req, res) => {
 
     const requestData = requestSnap.data()!;
 
-    if ((TERMINAL_STAGES as readonly string[]).includes(requestData["stage"] as string)) {
+    if ((TERMINAL_STAGES as readonly string[]).includes(requestData["status"] as string)) {
       errorJsonResponse(
         res,
         "The associated procurement request is closed and no longer accepting submissions.",
@@ -194,11 +248,16 @@ router.post("/supplier-response/:token", async (req, res) => {
     }
 
     const body = parsed.data;
+    const currency = body.currency ?? "SAR";
 
     // ── 7. Compute VAT server-side ────────────────────────────────────────────
-    // Never trust the client for financial calculations.
-    const vatAmountSar = calculateVat(body.priceExcludingVatSar);
-    const priceIncludingVatSar = calculatePriceIncludingVat(body.priceExcludingVatSar);
+    // VAT applies only to SAR-quoted prices. USD quotations carry 0 VAT.
+    const vatAmountSar =
+      currency === "SAR" ? calculateVat(body.priceExcludingVatSar) : 0;
+    const priceIncludingVatSar =
+      currency === "SAR"
+        ? calculatePriceIncludingVat(body.priceExcludingVatSar)
+        : body.priceExcludingVatSar;
 
     // ── 8. Prepare Firestore refs ─────────────────────────────────────────────
     const responseRef = db.collection("supplier_responses").doc();
@@ -213,9 +272,9 @@ router.post("/supplier-response/:token", async (req, res) => {
       // Company identity
       companyName: body.companyName,
       commercialRegistrationNumber: body.commercialRegistrationNumber,
-      commercialRegistrationAttachment: body.commercialRegistrationAttachment ?? null,
+      commercialRegistrationAttachment: enrichAttachment(body.commercialRegistrationAttachment),
       accreditationNumber: body.accreditationNumber,
-      accreditationAttachment: body.accreditationAttachment ?? null,
+      accreditationAttachment: enrichAttachment(body.accreditationAttachment),
       zatcaNumber: body.zatcaNumber,
       // Contact
       phone: body.phone,
@@ -223,18 +282,20 @@ router.post("/supplier-response/:token", async (req, res) => {
       contactPersonName: body.contactPersonName,
       // Address
       nationalAddressText: body.nationalAddressText,
-      nationalAddressAttachment: body.nationalAddressAttachment ?? null,
+      nationalAddressAttachment: enrichAttachment(body.nationalAddressAttachment),
       // Banking
       ibanText: body.ibanText,
-      ibanAttachment: body.ibanAttachment ?? null,
+      ibanAttachment: enrichAttachment(body.ibanAttachment),
       // Pricing — VAT computed server-side
+      currency,
       priceExcludingVatSar: body.priceExcludingVatSar,
       vatAmountSar,
       priceIncludingVatSar,
       paymentTerms: body.paymentTerms,
       // Optional
       notes: body.notes ?? null,
-      extraAttachments: body.extraAttachments ?? [],
+      quotationAttachment: enrichAttachment(body.quotationAttachment),
+      extraAttachments: (body.extraAttachments ?? []).map(enrichAttachment).filter(Boolean),
       // Review — set by Procurement after receiving
       reviewStatus: "pending",
       reviewedBy: null,
@@ -248,8 +309,8 @@ router.post("/supplier-response/:token", async (req, res) => {
       actorName: body.companyName,
       actorRole: "supplier",
       eventType: "supplier_response_received",
-      fromStage: (requestData["stage"] as string | undefined) ?? null,
-      toStage: null,
+      fromStatus: (requestData["status"] as string | undefined) ?? null,
+      toStatus: null,
       comment: `Supplier response received from ${body.companyName} (${body.contactPersonName})`,
       attachments: [],
       createdAt: FieldValue.serverTimestamp(),
@@ -269,7 +330,7 @@ router.post("/supplier-response/:token", async (req, res) => {
     batch.set(eventRef, eventDoc);
     await batch.commit();
 
-    req.log.info({ requestId, linkId, responseId }, "supplier_responses document created");
+    req.log.info({ requestId, linkId, responseId, currency }, "supplier_responses document created");
 
     safeJsonResponse(
       res,
@@ -277,10 +338,11 @@ router.post("/supplier-response/:token", async (req, res) => {
         responseId,
         status: "submitted",
         computedTotals: {
-          priceExcludingVatSar: body.priceExcludingVatSar,
-          vatAmountSar,
-          priceIncludingVatSar,
-          vatRatePercent: 15,
+          currency,
+          priceExcludingVat: body.priceExcludingVatSar,
+          vatAmount: vatAmountSar,
+          priceIncludingVat: priceIncludingVatSar,
+          vatRatePercent: currency === "SAR" ? 15 : 0,
         },
       },
       201,

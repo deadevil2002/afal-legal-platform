@@ -1902,8 +1902,9 @@ export default function ProcurementDetailScreen() {
         )}
 
         {/* ── Section E: Supplier Links ────────────────────────────────────── */}
-        {request.approvedAttachment &&
-          (isProcurementRole || (isCreator && supplierLinks.some((l) => !!l.response))) && (
+        {/* Visible to Procurement/SA on any active (non-terminal) request.  */}
+        {/* Phase 3 will add read-only response view for the original requester. */}
+        {isProcurementRole && !["closed", "terminated"].includes(request.status) && (
           <SectionCard
             icon="send"
             label={t("supplierLinkSection")}

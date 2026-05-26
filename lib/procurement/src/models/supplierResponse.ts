@@ -36,16 +36,22 @@ export const supplierResponseSchema = z.object({
   ibanAttachment: attachmentRefSchema,
 
   // ── Pricing ───────────────────────────────────────────────────────────────
-  // All amounts in Saudi Riyal (SAR).
+  // currency: SAR (default) or USD. When USD, VAT is 0 (no VAT applies).
+  currency: z.enum(["SAR", "USD"]).default("SAR"),
+  // Price is in the selected currency. Field name retains "Sar" suffix for
+  // backward compatibility — represents the quoted amount regardless of currency.
   priceExcludingVatSar: z.number().positive(),
-  // vatAmountSar and priceIncludingVatSar are always calculated server-side
-  // using calculateVat() and calculatePriceIncludingVat() helpers.
+  // vatAmountSar and priceIncludingVatSar are always calculated server-side.
+  // For USD responses, vatAmountSar = 0 and priceIncludingVatSar = priceExcludingVatSar.
   vatAmountSar: z.number().nonnegative(),
   priceIncludingVatSar: z.number().positive(),
   paymentTerms: z.enum(PAYMENT_TERMS),
 
   // ── Optional ──────────────────────────────────────────────────────────────
   notes: z.string().nullable(),
+  // Main quotation document uploaded by the supplier (PDF, image, etc.).
+  // Optional during Phase C; required from Phase D onward.
+  quotationAttachment: attachmentRefSchema.nullable().optional(),
   extraAttachments: z.array(attachmentRefSchema),
 
   // ── Procurement Review ────────────────────────────────────────────────────
