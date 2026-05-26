@@ -1,0 +1,75 @@
+Do not modify code yet.
+
+We need to audit and understand the current procurement workflow before changing anything.
+
+Context:
+The correct business flow should be:
+
+1. Requester creates a procurement request/RFQ with product/service description and optional attachments.
+2. The request goes to Procurement.
+3. Procurement should create supplier form links using Generate Supplier Link.
+4. The supplier form link should include the requester’s product/service description automatically, so the supplier knows what they are quoting for.
+5. Procurement can send links to multiple suppliers.
+6. Each supplier submits:
+   - Commercial Registration attachment + CR number
+   - Saudi Accreditation Center attachment + accreditation number
+   - ZATCA number
+   - Company/establishment name
+   - Phone
+   - Email
+   - Contact person name
+   - National Address attachment + national address text
+   - IBAN attachment + IBAN text
+   - Quotation price excluding VAT
+   - VAT should be calculated automatically
+   - Payment terms
+   - Notes optional
+   - Extra quotation/supporting attachments if needed
+7. Supplier responses should appear to Procurement under the request.
+8. Procurement reviews supplier responses and chooses which supplier quotations to send to the requester.
+9. The selected supplier responses/quotations should be converted or represented as quotation attachments/PDF-style cards.
+10. Procurement presses Send Quotations to Requester.
+11. Requester sees the submitted supplier quotations and selects one, or rejects all.
+12. If requester rejects all, the request returns to Procurement to find more suppliers.
+13. If requester approves one quotation, the workflow continues to budget approval.
+
+Current observed issue:
+A new requester-created request reaches Procurement, but the Supplier Links / Generate Supplier Link button does not appear.
+
+Audit required:
+1. Inspect the current status values used after requester creates RFQ.
+2. Inspect the conditions that show/hide:
+   - Supplier Links section
+   - Generate Supplier Link button
+   - Add Quotation button
+   - Send Quotations to Requester button
+3. Explain exactly why Generate Supplier Link does not appear on a fresh requester-created request.
+4. Inspect the public supplier form:
+   - Which required fields exist now?
+   - Which attachment upload fields exist now?
+   - Are attachment uploads implemented or only text fields?
+   - Does the form show requester product/service description?
+5. Inspect supplier response storage:
+   - Which collection stores supplier responses?
+   - Which fields are saved?
+   - Are attachments saved?
+   - Is VAT calculated?
+6. Inspect how supplier responses are shown to Procurement:
+   - Are they listed anywhere in the request detail screen?
+   - Can Procurement select which supplier response to send to requester?
+   - Is there any PDF/quotation attachment conversion currently implemented?
+7. Inspect requester quotation selection:
+   - Does requester currently select from quotationAttachments only?
+   - Can requester select supplier responses directly?
+8. Identify the exact missing pieces between current code and the correct business flow.
+9. Do not suggest broad refactor.
+10. Return a clear implementation plan in small safe phases.
+
+Return only:
+- current actual workflow from code
+- why Generate Supplier Link is hidden on fresh procurement requests
+- supplier form field coverage
+- supplier response handling coverage
+- missing features
+- recommended smallest next phase to implement
+- exact files involved
