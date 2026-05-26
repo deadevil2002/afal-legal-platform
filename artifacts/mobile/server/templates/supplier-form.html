@@ -264,29 +264,29 @@
 
           <div class="field">
             <label>CR Certificate <span class="req">*</span></label>
-            <div class="file-row" id="fr-cr" onclick="triggerUpload('cr')">
+            <label class="file-row" id="fr-cr" for="fi-cr">
               <span class="file-icon">📎</span>
               <div class="file-text">
                 <div class="file-name" id="fn-cr">Click to upload (PDF or image)</div>
                 <div class="file-hint">Commercial Registration certificate</div>
               </div>
               <span class="file-badge" id="fb-cr" style="display:none;"></span>
-            </div>
-            <input type="file" id="fi-cr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('cr',this,'commercialRegistrationAttachment')" />
+            </label>
+            <input type="file" id="fi-cr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" />
             <div class="err-msg" data-for="commercialRegistrationAttachment"></div>
           </div>
 
           <div class="field">
             <label>Saudi Accreditation Center Certificate <span class="req">*</span></label>
-            <div class="file-row" id="fr-acc" onclick="triggerUpload('acc')">
+            <label class="file-row" id="fr-acc" for="fi-acc">
               <span class="file-icon">📎</span>
               <div class="file-text">
                 <div class="file-name" id="fn-acc">Click to upload (PDF or image)</div>
                 <div class="file-hint">Saudi Accreditation Center (SAC) certificate</div>
               </div>
               <span class="file-badge" id="fb-acc" style="display:none;"></span>
-            </div>
-            <input type="file" id="fi-acc" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('acc',this,'accreditationAttachment')" />
+            </label>
+            <input type="file" id="fi-acc" accept=".pdf,.jpg,.jpeg,.png" style="display:none" />
             <div class="err-msg" data-for="accreditationAttachment"></div>
           </div>
 
@@ -327,15 +327,15 @@
 
           <div class="field">
             <label>National Address Document <span class="req">*</span></label>
-            <div class="file-row" id="fr-addr" onclick="triggerUpload('addr')">
+            <label class="file-row" id="fr-addr" for="fi-addr">
               <span class="file-icon">📎</span>
               <div class="file-text">
                 <div class="file-name" id="fn-addr">Click to upload (PDF or image)</div>
                 <div class="file-hint">Official national address certificate</div>
               </div>
               <span class="file-badge" id="fb-addr" style="display:none;"></span>
-            </div>
-            <input type="file" id="fi-addr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('addr',this,'nationalAddressAttachment')" />
+            </label>
+            <input type="file" id="fi-addr" accept=".pdf,.jpg,.jpeg,.png" style="display:none" />
             <div class="err-msg" data-for="nationalAddressAttachment"></div>
           </div>
 
@@ -350,15 +350,15 @@
 
           <div class="field">
             <label>IBAN Letter / Bank Certificate <span class="req">*</span></label>
-            <div class="file-row" id="fr-iban" onclick="triggerUpload('iban')">
+            <label class="file-row" id="fr-iban" for="fi-iban">
               <span class="file-icon">📎</span>
               <div class="file-text">
                 <div class="file-name" id="fn-iban">Click to upload (PDF or image)</div>
                 <div class="file-hint">Official bank IBAN confirmation letter</div>
               </div>
               <span class="file-badge" id="fb-iban" style="display:none;"></span>
-            </div>
-            <input type="file" id="fi-iban" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleFileChange('iban',this,'ibanAttachment')" />
+            </label>
+            <input type="file" id="fi-iban" accept=".pdf,.jpg,.jpeg,.png" style="display:none" />
             <div class="err-msg" data-for="ibanAttachment"></div>
           </div>
 
@@ -368,10 +368,10 @@
           <div class="field">
             <label>Currency <span class="req">*</span></label>
             <div class="currency-row">
-              <button type="button" class="currency-btn active" id="cb-sar" onclick="setCurrency('SAR')">
+              <button type="button" class="currency-btn active" id="cb-sar">
                 🇸🇦 SAR — Saudi Riyal
               </button>
-              <button type="button" class="currency-btn" id="cb-usd" onclick="setCurrency('USD')">
+              <button type="button" class="currency-btn" id="cb-usd">
                 🇺🇸 USD — US Dollar
               </button>
             </div>
@@ -414,16 +414,16 @@
             <label>Quotation Document <span class="req">*</span></label>
             <div class="quotation-highlight">
               <div class="qh-label">Main quotation attachment</div>
-              <div class="file-row" id="fr-quot" onclick="triggerUpload('quot')" style="border-style:dashed; background:#fff;">
+              <label class="file-row" id="fr-quot" for="fi-quot" style="border-style:dashed; background:#fff;">
                 <span class="file-icon">📄</span>
                 <div class="file-text">
                   <div class="file-name" id="fn-quot">Click to upload your quotation (PDF recommended)</div>
                   <div class="file-hint">This is the main document shown to the procurement team</div>
                 </div>
                 <span class="file-badge" id="fb-quot" style="display:none;"></span>
-              </div>
+              </label>
             </div>
-            <input type="file" id="fi-quot" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" style="display:none" onchange="handleFileChange('quot',this,'quotationAttachment')" />
+            <input type="file" id="fi-quot" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" style="display:none" />
             <div class="err-msg" data-for="quotationAttachment"></div>
           </div>
 
@@ -446,6 +446,7 @@
 
   <script>
     (function () {
+      console.log('[supplier-form] script loaded');
       var token = location.pathname.split('/').filter(Boolean).pop();
       var API = '';
 
@@ -495,6 +496,7 @@
       // ── Currency selector ──────────────────────────────────────────────────
 
       function setCurrency(c) {
+        console.log('[supplier-form] currency changed:', c);
         currentCurrency = c;
         document.getElementById('cb-sar').className = 'currency-btn' + (c === 'SAR' ? ' active' : '');
         document.getElementById('cb-usd').className = 'currency-btn' + (c === 'USD' ? ' active' : '');
@@ -527,13 +529,27 @@
 
       document.getElementById('price-input').addEventListener('input', updateVatBox);
 
-      // ── File upload ────────────────────────────────────────────────────────
+      // ── Currency buttons ───────────────────────────────────────────────────
 
-      function triggerUpload(key) {
-        // Prevent re-triggering while an upload is in progress
-        if (uploads[key] && uploads[key].__uploading) return;
-        document.getElementById('fi-' + key).click();
-      }
+      document.getElementById('cb-sar').addEventListener('click', function () { setCurrency('SAR'); });
+      document.getElementById('cb-usd').addEventListener('click', function () { setCurrency('USD'); });
+
+      // ── File inputs ────────────────────────────────────────────────────────
+      // Labels (for="fi-X") open the native file picker. Change events are
+      // wired here so they run inside the IIFE where handleFileChange lives.
+
+      var fileBindings = [
+        { key: 'cr',   field: 'commercialRegistrationAttachment' },
+        { key: 'acc',  field: 'accreditationAttachment' },
+        { key: 'addr', field: 'nationalAddressAttachment' },
+        { key: 'iban', field: 'ibanAttachment' },
+        { key: 'quot', field: 'quotationAttachment' },
+      ];
+      fileBindings.forEach(function (b) {
+        document.getElementById('fi-' + b.key).addEventListener('change', function () {
+          handleFileChange(b.key, this, b.field);
+        });
+      });
 
       function setFileState(key, state, label) {
         var row  = document.getElementById('fr-' + key);
@@ -570,6 +586,7 @@
       function handleFileChange(key, input, fieldName) {
         var file = input.files && input.files[0];
         if (!file) return;
+        console.log('[supplier-form] file selected:', key, file.name);
         // Clear previous error for this field
         clearFieldError(fieldName);
         uploadToCloudinary(key, file, fieldName);
