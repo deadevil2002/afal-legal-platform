@@ -1867,7 +1867,6 @@ export default function ProcurementDetailScreen() {
         try {
           await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
             supplierResponseId: resp.id,
-            supplierResponse: { ...resp },
           });
           setLocalSelectedSupplierResponseId(null);
           showSuccess(t("supplierQuotationApprovedSuccess"), t("success"));

@@ -31,12 +31,20 @@ const workflowAdvanceBodySchema = z.object({
   comment: z.string().nullable().optional(),
 });
 
-const approveQuotationBodySchema = z.object({
-  quotationId:        z.string().min(1).optional(),
-  quotation:          z.record(z.unknown()).optional(),
-  supplierResponseId: z.string().min(1).optional(),
-  supplierResponse:   z.record(z.unknown()).optional(),
-});
+// Mode A — legacy manual quotation: quotationId + quotation required
+// Mode B — supplier response:        supplierResponseId required only (server fetches from Firestore)
+const approveQuotationBodySchema = z.union([
+  z.object({
+    quotationId:        z.string().min(1),
+    quotation:          z.record(z.unknown()),
+    supplierResponseId: z.undefined().optional(),
+  }),
+  z.object({
+    supplierResponseId: z.string().min(1),
+    quotationId:        z.undefined().optional(),
+    quotation:          z.undefined().optional(),
+  }),
+]);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -353,12 +361,7 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
       return;
     }
 
-    const { quotationId, quotation, supplierResponseId, supplierResponse } = parsed.data;
-
-    if (!quotationId && !supplierResponseId) {
-      errorJsonResponse(res, "Either quotationId or supplierResponseId must be provided.", 400, "invalid_payload");
-      return;
-    }
+    const { quotationId, quotation, supplierResponseId } = parsed.data;
 
     const db          = getAdminDb();
     const requestSnap = await db.collection("procurement_requests").doc(requestId).get();
@@ -397,10 +400,39 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
     const requestRef = db.collection("procurement_requests").doc(requestId);
     const eventRef   = db.collection("workflow_events").doc();
 
-    if (supplierResponseId && supplierResponse) {
+    if (supplierResponseId) {
+      // Mode B — supplier response path: fetch from Firestore for validation and snapshot
+      const responseSnap = await db.collection("supplier_responses").doc(supplierResponseId).get();
+      if (!responseSnap.exists) {
+        errorJsonResponse(res, "Supplier response not found.", 404, "not_found");
+        return;
+      }
+      const responseData = responseSnap.data()!;
+      if (responseData["requestId"] !== requestId) {
+        errorJsonResponse(res, "Supplier response does not belong to this request.", 403, "forbidden");
+        return;
+      }
+      if (responseData["reviewStatus"] !== "forwarded") {
+        errorJsonResponse(res, "Supplier response has not been forwarded to the requester.", 409, "invalid_status");
+        return;
+      }
+
+      const qa = responseData["quotationAttachment"] ?? null;
+      const companyName = String(responseData["companyName"] ?? supplierResponseId);
+
+      // Serialize Firestore timestamps for the snapshot
+      const rsa = responseData["submittedAt"] as { seconds: number; nanoseconds: number } | null;
+      const snapshotData = {
+        ...responseData,
+        id: supplierResponseId,
+        submittedAt: rsa ? { seconds: rsa.seconds, nanoseconds: rsa.nanoseconds } : null,
+        reviewedAt: null,
+      };
+
       batch.update(requestRef, {
         selectedSupplierResponseId: supplierResponseId,
-        approvedSupplierResponse:   supplierResponse,
+        approvedSupplierResponse:   snapshotData,
+        approvedAttachment:         qa ?? null,
         status:                     "quotation_selected",
         updatedAt:                  FieldValue.serverTimestamp(),
       });
@@ -415,8 +447,8 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
         fromStatus:        currentStatus,
         toStatus:          "quotation_selected",
         comment:           isSuperAdmin && !isCreator
-          ? `SA override: selected quotation from ${String((supplierResponse as Record<string, unknown>)["companyName"] ?? supplierResponseId)}`
-          : `Selected quotation from ${String((supplierResponse as Record<string, unknown>)["companyName"] ?? supplierResponseId)}`,
+          ? `SA override: selected quotation from ${companyName}`
+          : `Selected quotation from ${companyName}`,
         attachments:       [],
         createdAt:         FieldValue.serverTimestamp(),
         metadata:          { supplierResponseId },
