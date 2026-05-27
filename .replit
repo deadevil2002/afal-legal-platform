@@ -29,3 +29,4 @@ timeoutMs = 20000
 
 [userenv.shared]
 EXPO_PUBLIC_API_BASE_URL = "https://suppliers.isaudi.ai"
+VITE_API_BASE_URL = "https://suppliers.isaudi.ai"

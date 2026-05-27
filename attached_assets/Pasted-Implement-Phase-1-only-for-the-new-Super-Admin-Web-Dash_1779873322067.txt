@@ -1,0 +1,89 @@
+Implement Phase 1 only for the new Super Admin Web Dashboard.
+
+Do not modify the mobile app.
+Do not change Firestore rules.
+Do not refactor existing API routes.
+Do not build all dashboard features now.
+
+Goal:
+Create a new standalone web artifact:
+
+artifacts/admin-dashboard
+
+Tech:
+- Vite
+- React
+- TypeScript
+- Tailwind CSS
+- Firebase Auth web SDK
+- Firestore web SDK for read-only views
+- Existing API server for admin actions:
+  https://suppliers.isaudi.ai
+
+Phase 1 scope only:
+
+1. Create web dashboard foundation:
+- Login page
+- Dashboard shell/layout
+- Protected routes
+- Super admin guard
+- User Management page only
+- Basic dashboard overview cards
+
+2. Login:
+Allow login using:
+- email + password
+- OR employee number + password
+
+Employee number login should reuse:
+POST /api/admin/users/lookup-employee
+
+Then sign in with Firebase Auth email/password.
+
+3. Super admin access:
+After login:
+- read users/{uid}
+- allow access only if role === "super_admin"
+- also support settings/app.superAdminEmail bootstrap fallback if already implemented safely
+- non-super_admin must see "Access denied"
+
+4. User Management page:
+- list users from Firestore users collection
+- show: displayName, email, employeeNumber, role, department, phone, isActive
+- search by name/email/employee number
+- role filter
+- no edit/delete yet in Phase 1
+
+5. Dashboard page:
+Show simple KPI cards:
+- Total users
+- Active users
+- Total procurement requests
+- Active procurement requests
+
+Read-only only.
+
+6. API / security:
+- Do not expose service account secrets in frontend.
+- No write actions yet.
+- For read-only Phase 1, use Firestore client SDK guarded by Firestore rules.
+- Add .env.example with required VITE_FIREBASE_* and VITE_API_BASE_URL variables.
+- Do not hardcode secrets.
+
+7. Cloudflare readiness:
+- Add build script.
+- Add deployment notes for Cloudflare Pages.
+- Do not deploy yet.
+- Do not modify Cloudflare settings yet.
+
+8. UI:
+- Professional enterprise style.
+- Arabic/English ready structure if easy, but English UI is acceptable for Phase 1.
+- Responsive desktop-first layout.
+
+Return:
+- files created
+- how to run locally
+- required env vars
+- how to test login as super_admin
+- confirmation that mobile app was not touched
