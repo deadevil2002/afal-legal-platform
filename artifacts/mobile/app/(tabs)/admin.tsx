@@ -1,11 +1,8 @@
 import {
   collection,
   doc,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { useDialog } from "@/context/DialogContext";
 import React, { useEffect, useState } from "react";
@@ -22,23 +19,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
-import { RequestCard, Request } from "@/components/RequestCard";
-import { UserProfileModal } from "@/components/UserProfileModal";
-import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth, UserProfile, UserRole, AnyUserRole } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { useColors } from "@/hooks/useColors";
 import { useT } from "@/hooks/useT";
-import {
-  REQUEST_STATUSES,
-  TERMINAL_STATUSES as TERMINAL_STATUS_VALUES,
-  STATUS_TRANSLATION_KEYS,
-  type RequestStatus as Status,
-} from "@/constants/requestStatuses";
-
-const STATUS_OPTIONS: Status[] = [...REQUEST_STATUSES];
 
 const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
   { role: "ceo",         color: "#7C3AED" },
@@ -49,31 +35,20 @@ const NEW_ROLES: Array<{ role: UserRole; color: string }> = [
   { role: "procurement", color: "#2D6491" },
 ];
 
-type AdminTab = "requests" | "users";
-
 export default function AdminScreen() {
   const colors = useColors();
   const { t, isRTL } = useT();
-  const { user, profile, isAdmin, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, updateUserRole, getAllUsers, deleteUserByAdmin } = useAuth();
+  const { profile, isSuperAdmin, activeSuperAdminEmail, promoteToAssistantAdmin, demoteFromAdmin, updateUserRole, getAllUsers, deleteUserByAdmin } = useAuth();
   const { showSuccess, showError, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
-
-  const [activeTab, setActiveTab] = useState<AdminTab>("requests");
-  const [requests, setRequests] = useState<Request[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loadingRequests, setLoadingRequests] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<Status | "all">("all");
   const [actionUser, setActionUser] = useState<UserProfile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
   const [deleteUserModal, setDeleteUserModal] = useState<{
     visible: boolean;
     target: UserProfile | null;
@@ -87,40 +62,18 @@ export default function AdminScreen() {
   const [editingCanSubmit, setEditingCanSubmit] = useState(false);
   const [roleUpdateLoading, setRoleUpdateLoading] = useState(false);
 
-  // ── Jump to Users tab when navigated with ?tab=users ────────────────────
+  // ── Load users on mount for super_admin ──────────────────────────────────
   useEffect(() => {
-    if (tabParam === "users" && isSuperAdmin) {
-      setActiveTab("users");
-    }
-  }, [tabParam, isSuperAdmin]);
+    if (!isSuperAdmin) return;
+    setLoadingUsers(true);
+    getAllUsers()
+      .then(setUsers)
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
+  }, [isSuperAdmin]);
 
-  // ── ALL hooks must run before any early return ──────────────────────────
-  useEffect(() => {
-    if (!isAdmin) return;
-    const q = query(collection(db, "requests"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Request)));
-        setLoadingRequests(false);
-      },
-      () => setLoadingRequests(false)
-    );
-    return unsub;
-  }, [isAdmin]);
-
-  useEffect(() => {
-    if (activeTab === "users" && isSuperAdmin) {
-      setLoadingUsers(true);
-      getAllUsers()
-        .then(setUsers)
-        .catch(() => {})
-        .finally(() => setLoadingUsers(false));
-    }
-  }, [activeTab, isSuperAdmin]);
-
-  // ── Guard: non-admins see access-denied after all hooks have run ────────
-  if (!isAdmin) {
+  // ── Guard: non-super-admins see access-denied after all hooks have run ───
+  if (!isSuperAdmin) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Icon name="lock" size={48} color={colors.border} />
@@ -131,43 +84,6 @@ export default function AdminScreen() {
       </View>
     );
   }
-
-  const TERMINAL_STATUSES = [...TERMINAL_STATUS_VALUES, "Resolved / Closed", "Escalated"];
-  const counts = {
-    total: requests.length,
-    submitted: requests.filter((r) => r.status === "Submitted").length,
-    active: requests.filter((r) => !TERMINAL_STATUSES.includes(r.status as Status)).length,
-    resolved: requests.filter((r) => TERMINAL_STATUSES.includes(r.status as Status)).length,
-  };
-
-  const filtered =
-    filterStatus === "all" ? requests : requests.filter((r) => r.status === filterStatus);
-
-  const updateStatus = async (newStatus: Status) => {
-    if (!selectedRequest) return;
-    setUpdatingStatus(true);
-    try {
-      const now = serverTimestamp();
-      const updatePayload: Record<string, unknown> = {
-        status: newStatus,
-        updatedAt: now,
-        statusChangedAt: now,
-        statusChangedBy: profile?.uid ?? null,
-      };
-      if (newStatus === "Approved / PO Issued" || newStatus === "Rejected") {
-        updatePayload.closedAt = now;
-        updatePayload.closedBy = profile?.uid ?? null;
-      }
-      await updateDoc(doc(db, "requests", selectedRequest.id), updatePayload);
-      setSelectedRequest(null);
-      showSuccess(t("requestUpdated"), t("success"));
-    } catch (e: unknown) {
-      console.error("[Admin] Status update error:", (e as Error).message);
-      showError(t("errStatusUpdate"), t("error"));
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
 
   const handlePromote = (target: UserProfile) => {
     showConfirm({
@@ -183,7 +99,6 @@ export default function AdminScreen() {
           );
           showSuccess(`${target.displayName} ${t("promotedSuccess")}`, t("success"));
         } catch (e: unknown) {
-          console.error("[Admin] Promote error:", (e as Error).message);
           showError(t("errPermission"), t("error"));
         } finally {
           setActionLoading(false);
@@ -208,7 +123,6 @@ export default function AdminScreen() {
           );
           showSuccess(`${target.displayName} ${t("demotedSuccess")}`, t("success"));
         } catch (e: unknown) {
-          console.error("[Admin] Demote error:", (e as Error).message);
           showError(t("errPermission"), t("error"));
         } finally {
           setActionLoading(false);
@@ -264,7 +178,7 @@ export default function AdminScreen() {
     if (role === "planning") return "#006485";
     if (role === "finance") return colors.secondary;
     if (role === "procurement") return colors.primary;
-    return colors.mutedForeground; // legacy roles
+    return colors.mutedForeground;
   };
 
   const handleRoleUpdate = async () => {
@@ -305,301 +219,171 @@ export default function AdminScreen() {
             <Text style={[styles.headerTitle, isRTL && styles.textRTL]}>
               {t("adminDashboard")}
             </Text>
-            {isSuperAdmin && (
-              <View style={styles.superAdminBadge}>
-                <Icon name="shield-check" size={11} color={colors.accent} />
-                <Text style={[styles.superAdminLabel, { color: colors.accent }]}>
-                  {t("superAdmin")}
-                </Text>
-              </View>
-            )}
+            <View style={styles.superAdminBadge}>
+              <Icon name="shield-check" size={11} color={colors.accent} />
+              <Text style={[styles.superAdminLabel, { color: colors.accent }]}>
+                {t("superAdmin")}
+              </Text>
+            </View>
           </View>
-          {activeTab === "users" && isSuperAdmin && (
-            <TouchableOpacity
-              style={styles.headerAddBtn}
-              onPress={() => router.push("/admin/create-user" as never)}
-              activeOpacity={0.75}
-            >
-              <Icon name="plus" size={22} color="#fff" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.headerAddBtn}
+            onPress={() => router.push("/admin/create-user" as never)}
+            activeOpacity={0.75}
+          >
+            <Icon name="plus" size={22} color="#fff" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Tab Bar */}
-      <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === "requests" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveTab("requests")}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "requests" ? colors.primary : colors.mutedForeground }]}>
-            {t("manageRequests")}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 100) },
+        ]}
+      >
+        <View style={[styles.infoBox, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
+          <Icon name="info-circle" size={14} color={colors.accent} />
+          <Text style={[styles.infoText, { color: colors.foreground }]}>
+            {t("superAdminHint")}
           </Text>
-        </TouchableOpacity>
-        {isSuperAdmin && (
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === "users" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-            onPress={() => setActiveTab("users")}
-          >
-            <Text style={[styles.tabText, { color: activeTab === "users" ? colors.primary : colors.mutedForeground }]}>
-              {t("userManagement")}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        </View>
 
-      {activeTab === "requests" ? (
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 100) },
-          ]}
-        >
-          {/* Stats */}
-          <View style={styles.statsGrid}>
-            {[
-              { label: t("statTotal"), value: counts.total, color: colors.primary },
-              { label: t("statSubmitted"), value: counts.submitted, color: "#D97706" },
-              { label: t("statActive"), value: counts.active, color: colors.secondary },
-              { label: t("statResolved"), value: counts.resolved, color: "#16A34A" },
-            ].map((s) => (
-              <View
-                key={s.label}
-                style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
-              </View>
-            ))}
-          </View>
+        {/* Search bar */}
+        <View style={[styles.searchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Icon name="search" size={16} color={colors.mutedForeground} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.foreground }]}
+            value={userSearch}
+            onChangeText={setUserSearch}
+            placeholder="Search by name, email or employee number…"
+            placeholderTextColor={colors.mutedForeground}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+          {userSearch.length > 0 && (
+            <TouchableOpacity onPress={() => setUserSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close" size={14} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-          {/* Status filter */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterRow}
-          >
-            {(["all", ...STATUS_OPTIONS] as const).map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: filterStatus === f ? colors.primary : colors.card,
-                    borderColor: filterStatus === f ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setFilterStatus(f)}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    { color: filterStatus === f ? "#fff" : colors.foreground },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {f === "all" ? t("all") : t(STATUS_TRANSLATION_KEYS[f as Status])}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        {(() => {
+          const q = userSearch.trim().toLowerCase();
+          const filteredUsers = users
+            .sort((a, b) => {
+              const order: Record<string, number> = {
+                super_admin: 0,
+                ceo: 1,
+                evp: 2,
+                operations: 3,
+                planning: 4,
+                finance: 5,
+                procurement: 6,
+                assistant_admin: 7,
+                user: 8,
+              };
+              return (order[a.role] ?? 8) - (order[b.role] ?? 8);
+            })
+            .filter((u) => {
+              if (!q) return true;
+              return (
+                u.displayName?.toLowerCase().includes(q) ||
+                u.email?.toLowerCase().includes(q) ||
+                (u.employeeNumber ?? "").toLowerCase().includes(q)
+              );
+            });
 
-          <View style={styles.requestsList}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {t("manageRequests")} ({filtered.length})
-            </Text>
-            <Text style={[styles.longPressHint, { color: colors.mutedForeground }]}>
-              {t("longPressHint")}
-            </Text>
-            {loadingRequests ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
-            ) : filtered.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>{t("noData")}</Text>
-              </View>
-            ) : (
-              filtered.map((req) => (
-                <TouchableOpacity key={req.id} onLongPress={() => setSelectedRequest(req)} activeOpacity={0.9}>
-                  <RequestCard
-                    request={req}
-                    showUser
-                    currentUserId={user?.uid}
-                    onSenderPress={(uid) => setProfileModalUserId(uid)}
-                  />
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 100) },
-          ]}
-        >
-          <View style={[styles.infoBox, { backgroundColor: colors.accent + "15", borderColor: colors.accent }]}>
-            <Icon name="info-circle" size={14} color={colors.accent} />
-            <Text style={[styles.infoText, { color: colors.foreground }]}>
-              {t("superAdminHint")}
-            </Text>
-          </View>
+          return (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                {t("userManagement")} ({filteredUsers.length}{q ? ` of ${users.length}` : ""})
+              </Text>
 
-          {/* Search bar */}
-          <View style={[styles.searchRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Icon name="search" size={16} color={colors.mutedForeground} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.foreground }]}
-              value={userSearch}
-              onChangeText={setUserSearch}
-              placeholder="Search by name, email or employee number…"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-            {userSearch.length > 0 && (
-              <TouchableOpacity onPress={() => setUserSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Icon name="close" size={14} color={colors.mutedForeground} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {(() => {
-            const q = userSearch.trim().toLowerCase();
-            const filteredUsers = users
-              .sort((a, b) => {
-                const order: Record<string, number> = {
-                  super_admin: 0,
-                  ceo: 1,
-                  evp: 2,
-                  operations: 3,
-                  planning: 4,
-                  finance: 5,
-                  procurement: 6,
-                  assistant_admin: 7,
-                  user: 8,
-                };
-                return (order[a.role] ?? 8) - (order[b.role] ?? 8);
-              })
-              .filter((u) => {
-                if (!q) return true;
-                return (
-                  u.displayName?.toLowerCase().includes(q) ||
-                  u.email?.toLowerCase().includes(q) ||
-                  (u.employeeNumber ?? "").toLowerCase().includes(q)
-                );
-              });
-
-            return (
-              <>
-                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-                  {t("userManagement")} ({filteredUsers.length}{q ? ` of ${users.length}` : ""})
-                </Text>
-
-                {loadingUsers ? (
-                  <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
-                ) : filteredUsers.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                      {q ? "No users match your search." : t("noData")}
-                    </Text>
-                  </View>
-                ) : (
-                  filteredUsers.map((u) => {
-                    const isSelf = u.uid === profile?.uid;
-                    const isSuperAdminAccount =
-                      u.email.toLowerCase() === activeSuperAdminEmail.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={u.uid}
-                        style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => {
-                          setSelectedUser(u);
-                          setEditingRole(u.role);
-                          setEditingCanSubmit(u.canSubmitRequests ?? false);
-                        }}
-                        activeOpacity={0.75}
-                      >
-                        <View style={styles.userAvatar}>
-                          <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.avatarInitial}>
-                              {u.displayName?.charAt(0)?.toUpperCase() || "?"}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <View style={styles.userNameRow}>
-                              <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>
-                                {u.displayName}
-                              </Text>
-                              {isSelf && (
-                                <Text style={[styles.selfTag, { color: colors.mutedForeground }]}>{t("you")}</Text>
-                              )}
-                            </View>
-                            <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
-                              {u.email}
-                            </Text>
-                            {u.employeeNumber ? (
-                              <Text style={[styles.userDept, { color: colors.mutedForeground }]}>
-                                #{u.employeeNumber}
-                              </Text>
-                            ) : null}
-                            {u.department ? (
-                              <Text style={[styles.userDept, { color: colors.mutedForeground }]}>
-                                {u.department}
-                              </Text>
-                            ) : null}
-                            <View style={[styles.rolePill, { backgroundColor: roleColor(u.role) + "20" }]}>
-                              <Text style={[styles.roleText, { color: roleColor(u.role) }]}>
-                                {roleLabel(u.role)}
-                              </Text>
-                            </View>
-                          </View>
-                          <Icon name="chevron-right" size={14} color={colors.mutedForeground} />
+              {loadingUsers ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+              ) : filteredUsers.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                    {q ? "No users match your search." : t("noData")}
+                  </Text>
+                </View>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isSelf = u.uid === profile?.uid;
+                  const isSuperAdminAccount =
+                    u.email.toLowerCase() === activeSuperAdminEmail.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={u.uid}
+                      style={[styles.userCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => {
+                        setSelectedUser(u);
+                        setEditingRole(u.role);
+                        setEditingCanSubmit(u.canSubmitRequests ?? false);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.userAvatar}>
+                        <View style={[styles.avatarCircle, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.avatarInitial}>
+                            {u.displayName?.charAt(0)?.toUpperCase() || "?"}
+                          </Text>
                         </View>
-
-                        {!isSelf && !isSuperAdminAccount && isSuperAdmin && (
-                          <View style={styles.userActions}>
-                            <TouchableOpacity
-                              style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
-                              onPress={(e) => { e.stopPropagation?.(); openDeleteUserModal(u); }}
-                              disabled={actionLoading}
-                            >
-                              <Icon name="trash" size={13} color={colors.destructive} />
-                              <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
-                                {t("deleteUser")}
-                              </Text>
-                            </TouchableOpacity>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.userNameRow}>
+                            <Text style={[styles.userName, { color: colors.foreground }]} numberOfLines={1}>
+                              {u.displayName}
+                            </Text>
+                            {isSelf && (
+                              <Text style={[styles.selfTag, { color: colors.mutedForeground }]}>{t("you")}</Text>
+                            )}
                           </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </>
-            );
-          })()}
-        </ScrollView>
-      )}
+                          <Text style={[styles.userEmail, { color: colors.mutedForeground }]} numberOfLines={1}>
+                            {u.email}
+                          </Text>
+                          {u.employeeNumber ? (
+                            <Text style={[styles.userDept, { color: colors.mutedForeground }]}>
+                              #{u.employeeNumber}
+                            </Text>
+                          ) : null}
+                          {u.department ? (
+                            <Text style={[styles.userDept, { color: colors.mutedForeground }]}>
+                              {u.department}
+                            </Text>
+                          ) : null}
+                          <View style={[styles.rolePill, { backgroundColor: roleColor(u.role) + "20" }]}>
+                            <Text style={[styles.roleText, { color: roleColor(u.role) }]}>
+                              {roleLabel(u.role)}
+                            </Text>
+                          </View>
+                        </View>
+                        <Icon name="chevron-right" size={14} color={colors.mutedForeground} />
+                      </View>
 
-      {/* Send to Employee FAB — only in requests tab */}
-      {activeTab === "requests" && (
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            {
-              backgroundColor: colors.secondary,
-              bottom: insets.bottom + (Platform.OS === "web" ? 100 : 90),
-            },
-          ]}
-          onPress={() => router.push("/admin/send-to-employee" as never)}
-          activeOpacity={0.85}
-        >
-          <Icon name="send-to-employee" size={20} color="#fff" />
-          <Text style={styles.fabText}>{t("sendToEmployee")}</Text>
-        </TouchableOpacity>
-      )}
-
+                      {!isSelf && !isSuperAdminAccount && isSuperAdmin && (
+                        <View style={styles.userActions}>
+                          <TouchableOpacity
+                            style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
+                            onPress={(e) => { e.stopPropagation?.(); openDeleteUserModal(u); }}
+                            disabled={actionLoading}
+                          >
+                            <Icon name="trash" size={13} color={colors.destructive} />
+                            <Text style={[styles.actionBtnText, { color: colors.destructive }]}>
+                              {t("deleteUser")}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </>
+          );
+        })()}
+      </ScrollView>
 
       {/* User Detail Modal */}
       <Modal
@@ -617,7 +401,6 @@ export default function AdminScreen() {
               const isSuperAdminAccount = u.email.toLowerCase() === activeSuperAdminEmail.toLowerCase();
               return (
                 <>
-                  {/* Avatar + name */}
                   <View style={styles.detailAvatarRow}>
                     <View style={[styles.detailAvatar, { backgroundColor: colors.primary }]}>
                       <Text style={styles.detailAvatarText}>
@@ -641,7 +424,6 @@ export default function AdminScreen() {
                     </View>
                   </View>
 
-                  {/* Fields */}
                   {[
                     { label: "Email", value: u.email },
                     { label: t("employeeNumber"), value: u.employeeNumber || "—" },
@@ -655,7 +437,6 @@ export default function AdminScreen() {
                     </View>
                   ))}
 
-                  {/* Role management + delete — super admin only, not self, not super admin account */}
                   {!isSelf && !isSuperAdminAccount && isSuperAdmin && (() => {
                     const isLegacyRole = u.role === "user" || u.role === "assistant_admin";
                     const canSave =
@@ -664,7 +445,6 @@ export default function AdminScreen() {
                       (editingRole !== u.role || editingCanSubmit !== (u.canSubmitRequests ?? false));
                     return (
                       <View style={{ marginTop: 16, gap: 10 }}>
-                        {/* Legacy role warning */}
                         {isLegacyRole && (
                           <View style={[styles.legacyBanner, { backgroundColor: "#F59E0B18", borderColor: "#F59E0B" }]}>
                             <Icon name="alert-circle" size={13} color="#F59E0B" />
@@ -674,7 +454,6 @@ export default function AdminScreen() {
                           </View>
                         )}
 
-                        {/* Role picker */}
                         <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
                           {t("assignRole")}
                         </Text>
@@ -699,7 +478,6 @@ export default function AdminScreen() {
                           })}
                         </View>
 
-                        {/* Can Submit Requests */}
                         <View style={[styles.canSubmitRow, { borderColor: colors.border }]}>
                           <View style={{ flex: 1, gap: 2 }}>
                             <Text style={[styles.detailLabel, { color: colors.foreground }]}>
@@ -717,7 +495,6 @@ export default function AdminScreen() {
                           />
                         </View>
 
-                        {/* Save */}
                         <TouchableOpacity
                           style={[
                             styles.actionBtn,
@@ -738,7 +515,6 @@ export default function AdminScreen() {
                           )}
                         </TouchableOpacity>
 
-                        {/* Delete */}
                         <TouchableOpacity
                           style={[styles.actionBtn, { backgroundColor: colors.destructive + "10", borderColor: colors.destructive }]}
                           onPress={() => openDeleteUserModal(u)}
@@ -758,65 +534,6 @@ export default function AdminScreen() {
             <TouchableOpacity
               style={[styles.cancelBtn, { borderColor: colors.border, marginTop: 16 }]}
               onPress={() => setSelectedUser(null)}
-            >
-              <Text style={[styles.cancelText, { color: colors.foreground }]}>{t("cancel")}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* User Profile Modal — from request card sender taps */}
-      <UserProfileModal userId={profileModalUserId} onClose={() => setProfileModalUserId(null)} />
-
-      {/* Status Update Modal */}
-      <Modal
-        visible={!!selectedRequest}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedRequest(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHandle} />
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-              {t("updateStatus")}
-            </Text>
-            {selectedRequest && (
-              <Text
-                style={[styles.modalSubtitle, { color: colors.mutedForeground }]}
-                numberOfLines={2}
-              >
-                {selectedRequest.title}
-              </Text>
-            )}
-            <View style={styles.statusOptions}>
-              {STATUS_OPTIONS.map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[
-                    styles.statusOption,
-                    { borderColor: colors.border, backgroundColor: colors.background },
-                    selectedRequest?.status === s && {
-                      borderColor: colors.primary,
-                      backgroundColor: colors.primary + "15",
-                    },
-                  ]}
-                  onPress={() => updateStatus(s)}
-                  disabled={updatingStatus}
-                >
-                  <StatusBadge status={s} />
-                  {selectedRequest?.status === s && (
-                    <Icon name="check" size={14} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-            {updatingStatus && (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
-            )}
-            <TouchableOpacity
-              style={[styles.cancelBtn, { borderColor: colors.border }]}
-              onPress={() => setSelectedRequest(null)}
             >
               <Text style={[styles.cancelText, { color: colors.foreground }]}>{t("cancel")}</Text>
             </TouchableOpacity>
@@ -900,45 +617,8 @@ const styles = StyleSheet.create({
   headerTitle: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
   superAdminBadge: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   superAdminLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  tabBar: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-  },
-  tabBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 8,
-  },
-  tabText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   scroll: { padding: 16 },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
-  statCard: {
-    width: "47%",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 16,
-    alignItems: "center",
-  },
-  statValue: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2, textAlign: "center" },
-  filterRow: { paddingVertical: 10, paddingHorizontal: 4, flexDirection: "row" },
-  filterChip: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    flexShrink: 0,
-    marginRight: 8,
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    flexShrink: 0,
-  },
-  requestsList: { marginTop: 8 },
-  sectionTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 4 },
-  longPressHint: { fontSize: 11, fontFamily: "Inter_400Regular", marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: 12 },
   emptyState: { alignItems: "center", marginTop: 40 },
   emptyText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   infoBox: {
@@ -1006,16 +686,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
-  modalSubtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 16 },
-  statusOptions: { gap: 10 },
-  statusOption: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    padding: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   cancelBtn: {
     marginTop: 16,
     borderWidth: 1,
@@ -1067,22 +737,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  fab: {
-    position: "absolute",
-    right: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 28,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  fabText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
 
   // ── User search ───────────────────────────────────────────────────────────
   searchRow: {

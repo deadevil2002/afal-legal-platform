@@ -23,7 +23,7 @@ const TAB_CONTENT_HEIGHT = 56;
 
 export default function TabLayout() {
   const colors = useColors();
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, isSuperAdmin, profile } = useAuth();
   const canUseProcurement = isAdmin || profile?.canSubmitRequests === true;
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -77,7 +77,7 @@ export default function TabLayout() {
         name="procurement"
         options={canUseProcurement ? { title: t("procurementRequests") } : { href: null }}
       />
-      <Tabs.Screen name="admin"       options={isAdmin ? { title: t("admin") } : { href: null }} />
+      <Tabs.Screen name="admin"       options={isSuperAdmin ? { title: t("admin") } : { href: null }} />
       <Tabs.Screen name="settings"    options={{ title: t("settings") }} />
     </Tabs>
   );
