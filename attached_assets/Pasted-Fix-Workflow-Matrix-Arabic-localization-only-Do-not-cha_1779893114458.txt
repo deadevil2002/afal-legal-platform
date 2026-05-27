@@ -1,0 +1,92 @@
+Fix Workflow Matrix Arabic localization only.
+
+Do not change backend.
+Do not change Firebase/API.
+Do not change matrix logic.
+Do not redesign the page.
+Do not affect Users page.
+
+Current issue:
+Language is set to Arabic and RTL is active, but Workflow Matrix page still shows English text:
+- Page title: Workflow Matrix
+- Subtitle
+- Filter chips
+- Legend labels
+- Column headers
+- Request type names
+- Role/stage labels inside cells
+- Action labels inside cells
+- Modal/details text if any
+
+Required fix:
+1. Connect Workflow Matrix page to the existing language/i18n system.
+2. Add Arabic translations for all visible strings.
+3. When Arabic is active:
+   - Title: مصفوفة سير العمل
+   - Subtitle: مسار الموافقات لطلبات ممثل القسم — سلسلة الإمداد
+   - Request Type: نوع الطلب
+   - Requester: مقدم الطلب
+   - Procurement / Sourcing Rep: المشتريات / ممثل التوريد
+   - Planning / Engineering: التخطيط / الهندسة
+   - Finance / Account Rep: المالية / الحسابات
+   - EVP: نائب الرئيس التنفيذي
+   - CEO: الرئيس التنفيذي
+   - Buyer Rep: ممثل الشراء
+   - Business Line Director: مدير خط الأعمال
+   - PO Closure: إغلاق أمر الشراء
+   - AFC Data Center Rep: ممثل مركز بيانات AFC
+   - All: الكل
+   - Vendor: المورد
+   - Purchase Order: أمر شراء
+   - Certification: الاعتماد
+   - Materials & Services: المواد والخدمات
+   - Click any cell for details: اضغط على أي خلية لعرض التفاصيل
+   - Policy / Closure: السياسة / الإغلاق
+   - Upload / Document: رفع / مستند
+   - Standard Approval: موافقة عادية
+   - Key Approval Step: خطوة اعتماد رئيسية
+
+4. Translate matrix row names:
+- Vendor Selection: اختيار المورد
+- Vendor Registration: تسجيل المورد
+- Material PO: أمر شراء مواد
+- Back Charge Service PO: أمر شراء خدمة تحميل تكلفة
+- Manpower Rental Services PO: أمر شراء خدمات تأجير عمالة
+- Equipment Rental Services PO: أمر شراء خدمات تأجير معدات
+- Camps Rental Services PO: أمر شراء خدمات تأجير مخيمات
+- Manpower Certification PO: أمر شراء اعتماد عمالة
+- Equipment Certification PO: أمر شراء اعتماد معدات
+- Camp Material and Services: مواد وخدمات المخيم
+- Workshop Material, Fuel & Services: مواد ووقود وخدمات الورشة
+
+5. Translate common action labels:
+- Initiate PR: إنشاء طلب شراء
+- Validation: التحقق
+- Review: مراجعة
+- Reviewer: مراجع
+- Final Approval: الاعتماد النهائي
+- Fund allocation: تخصيص الميزانية
+- Place PO: إنشاء أمر شراء
+- Upload: رفع
+- Supplier Evaluation: تقييم المورد
+- As per Signed Policy: حسب السياسة المعتمدة
+- Payment Terms: شروط الدفع
+- Vendor Competency: كفاءة المورد
+- Vendor Creation: إنشاء المورد
+- Obtain Compliance Docs from Vendor: الحصول على مستندات الامتثال من المورد
+- Confirmation: تأكيد
+- Assessment: تقييم
+- Concurrence: موافقة مبدئية
+- Contract Compliance: امتثال العقد
+
+6. In Arabic mode:
+- Keep RTL layout.
+- Keep horizontal scroll working.
+- Keep cards/cells visually clean.
+- Use Arabic labels everywhere visible.
+- Do not break English mode.
+
+Return:
+- files changed
+- translation keys added
+- confirm Arabic and English both work

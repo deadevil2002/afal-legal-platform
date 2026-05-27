@@ -3,147 +3,149 @@ import Layout from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { X, Info } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CellType = "normal" | "highlight" | "info" | "upload" | "empty";
 
 interface WorkflowCell {
-  role: string;
-  action: string;
+  role: string;   // i18n key e.g. "matrix.role.sourcingRep"
+  action: string; // i18n key e.g. "matrix.action.upload"
   type?: CellType;
-  detail?: string;
+  detail?: string; // descriptive tooltip — kept in English
 }
 
 interface WorkflowRow {
   id: string;
-  requestType: string;
-  category: string;
+  requestType: string; // i18n key e.g. "matrix.row.vendorSelection"
+  category: string;    // i18n key e.g. "matrix.cat.vendor"
   cells: (WorkflowCell | null)[];
 }
 
-// ─── Column headers (14 fixed workflow members) ───────────────────────────────
+// ─── Column definitions (14 fixed workflow stages) ────────────────────────────
+// label/sub resolved at render time via t(`matrix.col.${id}.label/sub`)
 
 const COLUMNS = [
-  { id: "c0",  label: "Requester",               sub: "Direct Manager / Initiator" },
-  { id: "c1",  label: "BL Director",              sub: "Business Line Director" },
-  { id: "c2",  label: "Dept. Director",           sub: "WS / CFMD / HR VP" },
-  { id: "c3",  label: "Engg / Planning",          sub: "Engineering & Planning VP" },
-  { id: "c4",  label: "Proc. Committee 1",        sub: "Proc Head / Sourcing Rep" },
-  { id: "c5",  label: "Committee 2",              sub: "CFO / EVP" },
-  { id: "c6",  label: "Committee 3",              sub: "EVP / Sourcing Rep" },
-  { id: "c7",  label: "Account Rep",              sub: "Finance / Account Rep" },
-  { id: "c8",  label: "Buyer Rep",                sub: "Procurement Buyer" },
-  { id: "c9",  label: "Committee 4",              sub: "CEO Final Approval" },
-  { id: "c10", label: "BL Director",              sub: "Business Line — PO Review" },
-  { id: "c11", label: "PO Closure",               sub: "As per Signed Policy" },
-  { id: "c12", label: "AFC Data Center",          sub: "AFC Data Center Rep" },
-  { id: "c13", label: "Compliance / Verify",      sub: "Additional Sign-off" },
+  { id: "c0" },
+  { id: "c1" },
+  { id: "c2" },
+  { id: "c3" },
+  { id: "c4" },
+  { id: "c5" },
+  { id: "c6" },
+  { id: "c7" },
+  { id: "c8" },
+  { id: "c9" },
+  { id: "c10" },
+  { id: "c11" },
+  { id: "c12" },
+  { id: "c13" },
 ];
 
-// ─── Matrix data (mapped from reference image) ────────────────────────────────
+// ─── Matrix data ──────────────────────────────────────────────────────────────
 
 const MATRIX: WorkflowRow[] = [
   {
     id: "vendor-selection",
-    requestType: "Vendor Selection",
-    category: "Vendor",
+    requestType: "matrix.row.vendorSelection",
+    category: "matrix.cat.vendor",
     cells: [
       null,
       null,
       null,
       null,
-      { role: "Approval Committee-1\nProc Head & CFO", action: "Vendor Competency", type: "highlight", detail: "Approval Committee-1 (Proc Head & CFO) evaluates vendor competency and commercial terms." },
-      { role: "Approval Committee-2\nEVP", action: "Payment Terms", type: "normal", detail: "EVP reviews and approves payment terms with the vendor." },
-      { role: "Reviewer", action: "Reviewer", type: "highlight", detail: "Committee Reviewer verifies compliance and completeness of vendor documentation." },
+      { role: "matrix.role.committee1ProcCFO", action: "matrix.action.vendorCompetency", type: "highlight", detail: "Approval Committee-1 (Proc Head & CFO) evaluates vendor competency and commercial terms." },
+      { role: "matrix.role.committee2EVP",     action: "matrix.action.paymentTerms",     type: "normal",    detail: "EVP reviews and approves payment terms with the vendor." },
+      { role: "matrix.role.reviewer",          action: "matrix.action.reviewer",         type: "highlight", detail: "Committee Reviewer verifies compliance and completeness of vendor documentation." },
       null,
       null,
-      { role: "Approval Committee-4\nCEO", action: "Final Approval", type: "normal", detail: "CEO provides final approval for the vendor selection." },
+      { role: "matrix.role.committee4CEO",     action: "matrix.action.finalApproval",    type: "normal",    detail: "CEO provides final approval for the vendor selection." },
       null,
       null,
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "AFC Data Center Rep uploads final documents to the system." },
+      { role: "matrix.role.afcDataRep",        action: "matrix.action.upload",           type: "upload",    detail: "AFC Data Center Rep uploads final documents to the system." },
       null,
     ],
   },
   {
     id: "vendor-registration",
-    requestType: "Vendor Registration",
-    category: "Vendor",
+    requestType: "matrix.row.vendorRegistration",
+    category: "matrix.cat.vendor",
     cells: [
-      { role: "Sourcing Rep", action: "Obtain Compliance Docs from Vendor", type: "normal", detail: "Sourcing Rep gathers all required compliance and regulatory documents from the vendor." },
+      { role: "matrix.role.sourcingRep",      action: "matrix.action.obtainComplianceDocs", type: "normal",    detail: "Sourcing Rep gathers all required compliance and regulatory documents from the vendor." },
       null,
       null,
       null,
-      { role: "Approval Committee-1\nProc Head", action: "Verify", type: "normal", detail: "Proc Head verifies vendor compliance documentation is complete and valid." },
-      { role: "Approval Committee-2\nCFO / EVP", action: "Review", type: "normal", detail: "CFO/EVP reviews vendor registration for financial and operational fitness." },
-      { role: "Sourcing Rep", action: "Vendor Creation", type: "highlight", detail: "Sourcing Rep creates the vendor record in the ERP system." },
+      { role: "matrix.role.committee1Proc",   action: "matrix.action.verify",              type: "normal",    detail: "Proc Head verifies vendor compliance documentation is complete and valid." },
+      { role: "matrix.role.committee2CFOEVP", action: "matrix.action.review",              type: "normal",    detail: "CFO/EVP reviews vendor registration for financial and operational fitness." },
+      { role: "matrix.role.sourcingRep",      action: "matrix.action.vendorCreation",      type: "highlight", detail: "Sourcing Rep creates the vendor record in the ERP system." },
       null,
       null,
-      { role: "Approval Committee-4\nCEO", action: "Final Approval", type: "normal", detail: "CEO gives final sign-off on the new vendor registration." },
+      { role: "matrix.role.committee4CEO",    action: "matrix.action.finalApproval",       type: "normal",    detail: "CEO gives final sign-off on the new vendor registration." },
       null,
       null,
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "AFC Data Center Rep uploads the final vendor registration package." },
+      { role: "matrix.role.afcDataRep",       action: "matrix.action.upload",              type: "upload",    detail: "AFC Data Center Rep uploads the final vendor registration package." },
       null,
     ],
   },
   {
     id: "material-po",
-    requestType: "Material PO",
-    category: "Purchase Order",
+    requestType: "matrix.row.materialPO",
+    category: "matrix.cat.purchaseOrder",
     cells: [
-      { role: "Direct Manager", action: "Initiate PR", type: "normal", detail: "Direct Manager (Requester) initiates the Purchase Request for materials." },
+      { role: "matrix.role.directManager",    action: "matrix.action.initiatePR",       type: "normal",    detail: "Direct Manager (Requester) initiates the Purchase Request for materials." },
       null,
       null,
-      { role: "Engg / Planning", action: "Validation", type: "normal", detail: "Engineering & Planning validates the material requirement and specification." },
-      { role: "Approval Committee-1\nProc Head", action: "Reviewer", type: "highlight", detail: "Procurement Head reviews and approves the PR before moving to sourcing." },
+      { role: "matrix.role.enggPlanning",     action: "matrix.action.validation",       type: "normal",    detail: "Engineering & Planning validates the material requirement and specification." },
+      { role: "matrix.role.committee1Proc",   action: "matrix.action.reviewer",         type: "highlight", detail: "Procurement Head reviews and approves the PR before moving to sourcing." },
       null,
       null,
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Finance / Account Rep confirms budget availability and allocates funds." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer Rep raises the Purchase Order in SAP / ERP after all approvals." },
-      { role: "Approval Committee-4\nEVP / CEO", action: "Final Approval", type: "normal", detail: "EVP or CEO provides final approval for the PO." },
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates supplier performance post-delivery." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO is closed in accordance with the company's signed procurement policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "AFC Data Center Rep uploads the completed PO documents." },
+      { role: "matrix.role.accountRep",       action: "matrix.action.fundAllocation",   type: "normal",    detail: "Finance / Account Rep confirms budget availability and allocates funds." },
+      { role: "matrix.role.buyerRep",         action: "matrix.action.placePO",          type: "highlight", detail: "Buyer Rep raises the Purchase Order in SAP / ERP after all approvals." },
+      { role: "matrix.role.committee4EVPCEO", action: "matrix.action.finalApproval",    type: "normal",    detail: "EVP or CEO provides final approval for the PO." },
+      { role: "matrix.role.blDirector",       action: "matrix.action.supplierEvaluation", type: "normal",  detail: "BL Director evaluates supplier performance post-delivery." },
+      { role: "matrix.role.poClosure",        action: "matrix.action.asPerSignedPolicy", type: "info",     detail: "PO is closed in accordance with the company's signed procurement policy." },
+      { role: "matrix.role.afcDataRep",       action: "matrix.action.upload",           type: "upload",    detail: "AFC Data Center Rep uploads the completed PO documents." },
       null,
     ],
   },
   {
     id: "back-charge-service-po",
-    requestType: "Back Charge Service PO",
-    category: "Purchase Order",
+    requestType: "matrix.row.backChargePO",
+    category: "matrix.cat.purchaseOrder",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager submits the back-charge service request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms the back-charge claim is valid." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager submits the back-charge service request." },
+      { role: "matrix.role.blDirectorShort",action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms the back-charge claim is valid." },
       null,
       null,
-      { role: "Approval Committee-1\nProc Head", action: "Contract Compliance", type: "normal", detail: "Proc Head verifies the back-charge aligns with contract terms." },
-      { role: "Approval Committee-2\nEVP", action: "Approval", type: "normal", detail: "EVP approves the back-charge service order." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.contractCompliance",type: "normal",    detail: "Proc Head verifies the back-charge aligns with contract terms." },
+      { role: "matrix.role.committee2EVP",  action: "matrix.action.approval",          type: "normal",    detail: "EVP approves the back-charge service order." },
       null,
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Account Rep allocates funds for the back-charge service." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer Rep raises the Service PO in SAP." },
-      { role: "Approval Committee-4\nCEO", action: "Final Approval", type: "normal", detail: "CEO provides final approval for back-charge service PO." },
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates the service provider." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO closed per policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "Upload completed documents." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.fundAllocation",    type: "normal",    detail: "Account Rep allocates funds for the back-charge service." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer Rep raises the Service PO in SAP." },
+      { role: "matrix.role.committee4CEO",  action: "matrix.action.finalApproval",     type: "normal",    detail: "CEO provides final approval for back-charge service PO." },
+      { role: "matrix.role.blDirector",     action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates the service provider." },
+      { role: "matrix.role.poClosure",      action: "matrix.action.asPerSignedPolicy", type: "info",      detail: "PO closed per policy." },
+      { role: "matrix.role.afcDataRep",     action: "matrix.action.upload",            type: "upload",    detail: "Upload completed documents." },
       null,
     ],
   },
   {
     id: "manpower-rental-po",
-    requestType: "Manpower Rental Services PO",
-    category: "Purchase Order",
+    requestType: "matrix.row.manpowerRentalPO",
+    category: "matrix.cat.purchaseOrder",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager submits manpower rental request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms the manpower requirement." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager submits manpower rental request." },
+      { role: "matrix.role.blDirectorShort",action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms the manpower requirement." },
       null,
-      { role: "Engg VP", action: "Assessment", type: "normal", detail: "Engineering VP assesses manpower specifications and requirements." },
-      { role: "Approval Committee-1\nProc Head", action: "Concurrence", type: "normal", detail: "Procurement Head concurs with the manpower rental proposal." },
-      { role: "Approval Committee-2\nEVP", action: "Approval", type: "normal", detail: "EVP approves the manpower rental." },
+      { role: "matrix.role.enggVP",         action: "matrix.action.assessment",        type: "normal",    detail: "Engineering VP assesses manpower specifications and requirements." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.concurrence",       type: "normal",    detail: "Procurement Head concurs with the manpower rental proposal." },
+      { role: "matrix.role.committee2EVP",  action: "matrix.action.approval",          type: "normal",    detail: "EVP approves the manpower rental." },
       null,
-      { role: "Account Rep", action: "Reviewer", type: "highlight", detail: "Finance Reviewer validates the cost and budget allocation." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer Rep issues the manpower rental PO." },
-      { role: "Approval Committee-4\nCEO", action: "Fund Allocation", type: "normal", detail: "CEO approves fund allocation for manpower rental." },
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates the manpower service provider." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.reviewer",          type: "highlight", detail: "Finance Reviewer validates the cost and budget allocation." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer Rep issues the manpower rental PO." },
+      { role: "matrix.role.committee4CEO",  action: "matrix.action.fundAllocation",    type: "normal",    detail: "CEO approves fund allocation for manpower rental." },
+      { role: "matrix.role.blDirector",     action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates the manpower service provider." },
       null,
       null,
       null,
@@ -151,20 +153,20 @@ const MATRIX: WorkflowRow[] = [
   },
   {
     id: "equipment-rental-po",
-    requestType: "Equipment Rental Services PO",
-    category: "Purchase Order",
+    requestType: "matrix.row.equipmentRentalPO",
+    category: "matrix.cat.purchaseOrder",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager initiates equipment rental request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms the equipment need." },
-      { role: "WS Director", action: "Confirmation", type: "normal", detail: "Workshop Director confirms equipment specifications." },
-      { role: "Engg VP", action: "Assessment", type: "normal", detail: "Engineering VP assesses equipment requirements." },
-      { role: "Approval Committee-1\nProc Head", action: "Concurrence", type: "normal", detail: "Proc Head concurs with equipment rental plan." },
-      { role: "Approval Committee-2\nEVP", action: "Approval", type: "normal", detail: "EVP approves equipment rental." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager initiates equipment rental request." },
+      { role: "matrix.role.blDirectorShort",action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms the equipment need." },
+      { role: "matrix.role.wsDirector",     action: "matrix.action.confirmation",      type: "normal",    detail: "Workshop Director confirms equipment specifications." },
+      { role: "matrix.role.enggVP",         action: "matrix.action.assessment",        type: "normal",    detail: "Engineering VP assesses equipment requirements." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.concurrence",       type: "normal",    detail: "Proc Head concurs with equipment rental plan." },
+      { role: "matrix.role.committee2EVP",  action: "matrix.action.approval",          type: "normal",    detail: "EVP approves equipment rental." },
       null,
-      { role: "Account Rep", action: "Reviewer", type: "highlight", detail: "Finance reviews cost and funding." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer raises the equipment rental PO." },
-      { role: "Approval Committee-4\nCEO", action: "Fund Allocation", type: "normal", detail: "CEO approves fund allocation." },
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates equipment supplier." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.reviewer",          type: "highlight", detail: "Finance reviews cost and funding." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer raises the equipment rental PO." },
+      { role: "matrix.role.committee4CEO",  action: "matrix.action.fundAllocation",    type: "normal",    detail: "CEO approves fund allocation." },
+      { role: "matrix.role.blDirector",     action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates equipment supplier." },
       null,
       null,
       null,
@@ -172,20 +174,20 @@ const MATRIX: WorkflowRow[] = [
   },
   {
     id: "camps-rental-po",
-    requestType: "Camps Rental Services PO",
-    category: "Purchase Order",
+    requestType: "matrix.row.campsRentalPO",
+    category: "matrix.cat.purchaseOrder",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager initiates camp rental request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms the camp facility need." },
-      { role: "CFMD Director", action: "Confirmation", type: "normal", detail: "Camp Facility Management Director confirms requirements." },
-      { role: "Engg VP", action: "Assessment", type: "normal", detail: "Engineering VP assesses camp setup requirements." },
-      { role: "Approval Committee-1\nProc Head", action: "Concurrence", type: "normal", detail: "Proc Head concurs with the camp rental plan." },
-      { role: "Approval Committee-2\nCFMD EVP", action: "Approval", type: "normal", detail: "CFMD EVP approves the camp rental." },
+      { role: "matrix.role.directManager",   action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager initiates camp rental request." },
+      { role: "matrix.role.blDirectorShort", action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms the camp facility need." },
+      { role: "matrix.role.cfmdDirector",    action: "matrix.action.confirmation",      type: "normal",    detail: "Camp Facility Management Director confirms requirements." },
+      { role: "matrix.role.enggVP",          action: "matrix.action.assessment",        type: "normal",    detail: "Engineering VP assesses camp setup requirements." },
+      { role: "matrix.role.committee1Proc",  action: "matrix.action.concurrence",       type: "normal",    detail: "Proc Head concurs with the camp rental plan." },
+      { role: "matrix.role.committee2CFMDEVP",action: "matrix.action.approval",         type: "normal",    detail: "CFMD EVP approves the camp rental." },
       null,
-      { role: "Account Rep", action: "Reviewer", type: "highlight", detail: "Finance reviews funding and costs." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer raises the camp rental PO." },
-      { role: "Approval Committee-4\nCEO", action: "Fund Allocation", type: "normal", detail: "CEO approves fund allocation." },
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates camp service provider." },
+      { role: "matrix.role.accountRep",      action: "matrix.action.reviewer",          type: "highlight", detail: "Finance reviews funding and costs." },
+      { role: "matrix.role.buyerRep",        action: "matrix.action.placePO",           type: "highlight", detail: "Buyer raises the camp rental PO." },
+      { role: "matrix.role.committee4CEO",   action: "matrix.action.fundAllocation",    type: "normal",    detail: "CEO approves fund allocation." },
+      { role: "matrix.role.blDirector",      action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates camp service provider." },
       null,
       null,
       null,
@@ -193,91 +195,94 @@ const MATRIX: WorkflowRow[] = [
   },
   {
     id: "manpower-cert-po",
-    requestType: "Manpower Certification PO",
-    category: "Certification",
+    requestType: "matrix.row.manpowerCertPO",
+    category: "matrix.cat.certification",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager submits manpower certification request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms certification need." },
-      { role: "HR VP", action: "Confirmation", type: "normal", detail: "HR VP confirms manpower headcount and eligibility." },
-      { role: "Engg / Planning", action: "Initiate PR", type: "normal", detail: "Planning initiates the Purchase Request for certification." },
-      { role: "Approval Committee-1\nProc Head", action: "Validation", type: "normal", detail: "Proc Head validates the certification request." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager submits manpower certification request." },
+      { role: "matrix.role.blDirectorShort",action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms certification need." },
+      { role: "matrix.role.hrVP",           action: "matrix.action.confirmation",      type: "normal",    detail: "HR VP confirms manpower headcount and eligibility." },
+      { role: "matrix.role.enggPlanning",   action: "matrix.action.initiatePR",        type: "normal",    detail: "Planning initiates the Purchase Request for certification." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.validation",        type: "normal",    detail: "Proc Head validates the certification request." },
       null,
-      { role: "Reviewer", action: "Reviewer", type: "highlight", detail: "Designated reviewer checks compliance requirements." },
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Account Rep allocates budget for certification." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer raises the certification PO." },
+      { role: "matrix.role.reviewer",       action: "matrix.action.reviewer",          type: "highlight", detail: "Designated reviewer checks compliance requirements." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.fundAllocation",    type: "normal",    detail: "Account Rep allocates budget for certification." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer raises the certification PO." },
       null,
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates certification provider." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO closed per signed policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "Upload certification documentation." },
+      { role: "matrix.role.blDirector",     action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates certification provider." },
+      { role: "matrix.role.poClosure",      action: "matrix.action.asPerSignedPolicy", type: "info",      detail: "PO closed per signed policy." },
+      { role: "matrix.role.afcDataRep",     action: "matrix.action.upload",            type: "upload",    detail: "Upload certification documentation." },
       null,
     ],
   },
   {
     id: "equipment-cert-po",
-    requestType: "Equipment Certification PO",
-    category: "Certification",
+    requestType: "matrix.row.equipmentCertPO",
+    category: "matrix.cat.certification",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager submits equipment certification request." },
-      { role: "BL Director", action: "Confirmation", type: "normal", detail: "BL Director confirms equipment certification need." },
-      { role: "WS Director", action: "Confirmation", type: "normal", detail: "Workshop Director confirms equipment inspection requirements." },
-      { role: "Engg / Planning", action: "Initiate PR", type: "normal", detail: "Planning initiates the PR for equipment certification." },
-      { role: "Approval Committee-1\nProc Head", action: "Validation", type: "normal", detail: "Proc Head validates the certification scope." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager submits equipment certification request." },
+      { role: "matrix.role.blDirectorShort",action: "matrix.action.confirmation",      type: "normal",    detail: "BL Director confirms equipment certification need." },
+      { role: "matrix.role.wsDirector",     action: "matrix.action.confirmation",      type: "normal",    detail: "Workshop Director confirms equipment inspection requirements." },
+      { role: "matrix.role.enggPlanning",   action: "matrix.action.initiatePR",        type: "normal",    detail: "Planning initiates the PR for equipment certification." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.validation",        type: "normal",    detail: "Proc Head validates the certification scope." },
       null,
-      { role: "Reviewer", action: "Reviewer", type: "highlight", detail: "Reviewer checks compliance and documentation." },
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Account Rep allocates funds for certification." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer places the equipment certification PO." },
+      { role: "matrix.role.reviewer",       action: "matrix.action.reviewer",          type: "highlight", detail: "Reviewer checks compliance and documentation." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.fundAllocation",    type: "normal",    detail: "Account Rep allocates funds for certification." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer places the equipment certification PO." },
       null,
-      { role: "Business Line Director", action: "Supplier Evaluation", type: "normal", detail: "BL Director evaluates certification body." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO closed per policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "Upload certification documents." },
+      { role: "matrix.role.blDirector",     action: "matrix.action.supplierEvaluation",type: "normal",    detail: "BL Director evaluates certification body." },
+      { role: "matrix.role.poClosure",      action: "matrix.action.asPerSignedPolicy", type: "info",      detail: "PO closed per policy." },
+      { role: "matrix.role.afcDataRep",     action: "matrix.action.upload",            type: "upload",    detail: "Upload certification documents." },
       null,
     ],
   },
   {
     id: "camp-material-services",
-    requestType: "Camp Material and Services",
-    category: "Materials & Services",
+    requestType: "matrix.row.campMaterialServices",
+    category: "matrix.cat.materials",
     cells: [
-      { role: "CFMD Director", action: "Requester", type: "normal", detail: "CFMD Director initiates camp material and services request." },
+      { role: "matrix.role.cfmdDirector",   action: "matrix.action.requester",         type: "normal",    detail: "CFMD Director initiates camp material and services request." },
       null,
-      { role: "CFMD Rep", action: "Initiate PR", type: "normal", detail: "CFMD Representative initiates the Purchase Request." },
-      { role: "Engg / Planning", action: "Validation", type: "normal", detail: "Planning validates the camp material requirements." },
-      { role: "Approval Committee-1\nProc Head", action: "Reviewer", type: "highlight", detail: "Proc Head reviews and validates the PR." },
+      { role: "matrix.role.cfmdRep",        action: "matrix.action.initiatePR",        type: "normal",    detail: "CFMD Representative initiates the Purchase Request." },
+      { role: "matrix.role.enggPlanning",   action: "matrix.action.validation",        type: "normal",    detail: "Planning validates the camp material requirements." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.reviewer",          type: "highlight", detail: "Proc Head reviews and validates the PR." },
       null,
       null,
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Account Rep allocates budget for camp materials." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer raises the camp materials PO." },
-      { role: "Approval Committee-3\nEVP", action: "Approval", type: "normal", detail: "EVP approves the camp materials spend." },
-      { role: "Approval Committee-4\nCEO", action: "Final Approval", type: "normal", detail: "CEO provides final approval." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO closed per policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "Upload completed documents." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.fundAllocation",    type: "normal",    detail: "Account Rep allocates budget for camp materials." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer raises the camp materials PO." },
+      { role: "matrix.role.committee3EVP",  action: "matrix.action.approval",          type: "normal",    detail: "EVP approves the camp materials spend." },
+      { role: "matrix.role.committee4CEO",  action: "matrix.action.finalApproval",     type: "normal",    detail: "CEO provides final approval." },
+      { role: "matrix.role.poClosure",      action: "matrix.action.asPerSignedPolicy", type: "info",      detail: "PO closed per policy." },
+      { role: "matrix.role.afcDataRep",     action: "matrix.action.upload",            type: "upload",    detail: "Upload completed documents." },
       null,
     ],
   },
   {
     id: "workshop-material-fuel",
-    requestType: "Workshop Material, Fuel & Services",
-    category: "Materials & Services",
+    requestType: "matrix.row.workshopMaterial",
+    category: "matrix.cat.materials",
     cells: [
-      { role: "Direct Manager", action: "Requester", type: "normal", detail: "Direct Manager submits workshop material, fuel or service request." },
-      { role: "WS Director", action: "Assessment & Review", type: "normal", detail: "Workshop Director assesses and reviews the request." },
-      { role: "WS Rep", action: "Initiate PR", type: "normal", detail: "Workshop Rep initiates the Purchase Request." },
-      { role: "Engg / Planning", action: "Validation", type: "normal", detail: "Planning validates the material / service need." },
-      { role: "Approval Committee-1\nProc Head", action: "Reviewer", type: "highlight", detail: "Proc Head reviews the workshop materials PR." },
+      { role: "matrix.role.directManager",  action: "matrix.action.requester",         type: "normal",    detail: "Direct Manager submits workshop material, fuel or service request." },
+      { role: "matrix.role.wsDirector",     action: "matrix.action.assessmentReview",  type: "normal",    detail: "Workshop Director assesses and reviews the request." },
+      { role: "matrix.role.wsRep",          action: "matrix.action.initiatePR",        type: "normal",    detail: "Workshop Rep initiates the Purchase Request." },
+      { role: "matrix.role.enggPlanning",   action: "matrix.action.validation",        type: "normal",    detail: "Planning validates the material / service need." },
+      { role: "matrix.role.committee1Proc", action: "matrix.action.reviewer",          type: "highlight", detail: "Proc Head reviews the workshop materials PR." },
       null,
       null,
-      { role: "Account Rep", action: "Fund Allocation", type: "normal", detail: "Account Rep allocates budget." },
-      { role: "Buyer Rep", action: "Place PO", type: "highlight", detail: "Buyer issues the PO in SAP." },
-      { role: "Approval Committee-3\nEVP", action: "Approval", type: "normal", detail: "EVP approves the PO." },
-      { role: "Approval Committee-4\nCEO", action: "Final Approval", type: "normal", detail: "CEO final sign-off." },
-      { role: "PO Closure", action: "As per Signed Policy", type: "info", detail: "PO closed per signed policy." },
-      { role: "AFC Data Center Rep", action: "Upload", type: "upload", detail: "AFC Data Center Rep uploads all documents." },
+      { role: "matrix.role.accountRep",     action: "matrix.action.fundAllocation",    type: "normal",    detail: "Account Rep allocates budget." },
+      { role: "matrix.role.buyerRep",       action: "matrix.action.placePO",           type: "highlight", detail: "Buyer issues the PO in SAP." },
+      { role: "matrix.role.committee3EVP",  action: "matrix.action.approval",          type: "normal",    detail: "EVP approves the PO." },
+      { role: "matrix.role.committee4CEO",  action: "matrix.action.finalApproval",     type: "normal",    detail: "CEO final sign-off." },
+      { role: "matrix.role.poClosure",      action: "matrix.action.asPerSignedPolicy", type: "info",      detail: "PO closed per signed policy." },
+      { role: "matrix.role.afcDataRep",     action: "matrix.action.upload",            type: "upload",    detail: "AFC Data Center Rep uploads all documents." },
       null,
     ],
   },
 ];
 
-const ALL_CATEGORIES = ["All", ...Array.from(new Set(MATRIX.map(r => r.category)))];
+const ALL_CATEGORY_KEYS = [
+  "matrix.cat.all",
+  ...Array.from(new Set(MATRIX.map(r => r.category))),
+];
 
 // ─── Cell styling ─────────────────────────────────────────────────────────────
 
@@ -293,10 +298,11 @@ function cellClass(type: CellType | undefined) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WorkflowMatrix() {
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [modal, setModal] = useState<{ cell: WorkflowCell; row: WorkflowRow; col: typeof COLUMNS[0] } | null>(null);
+  const { t } = useLanguage();
+  const [filterCategory, setFilterCategory] = useState("matrix.cat.all");
+  const [modal, setModal] = useState<{ cell: WorkflowCell; row: WorkflowRow; colId: string } | null>(null);
 
-  const filtered = filterCategory === "All"
+  const filtered = filterCategory === "matrix.cat.all"
     ? MATRIX
     : MATRIX.filter(r => r.category === filterCategory);
 
@@ -304,44 +310,42 @@ export default function WorkflowMatrix() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Workflow Matrix</h1>
-          <p className="text-muted-foreground mt-1">
-            Approval workflow for department representative requests — Supply Chain
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("matrix.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("matrix.subtitle")}</p>
         </div>
 
         {/* Legend */}
         <div className="flex flex-wrap gap-3 text-xs">
-          {[
-            { color: "bg-[#2D6491]", label: "Key Approval Step" },
-            { color: "bg-[#112B4D]", label: "Standard Approval" },
-            { color: "bg-[#16A8BA]/30 border border-[#16A8BA]/40", label: "Upload / Document" },
-            { color: "bg-[#BC9B5D]/30 border border-[#BC9B5D]/40", label: "Policy / Closure" },
-          ].map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-1.5">
+          {([
+            { color: "bg-[#2D6491]",                                    key: "matrix.legend.keyApproval" },
+            { color: "bg-[#112B4D]",                                    key: "matrix.legend.standard"    },
+            { color: "bg-[#16A8BA]/30 border border-[#16A8BA]/40",      key: "matrix.legend.upload"      },
+            { color: "bg-[#BC9B5D]/30 border border-[#BC9B5D]/40",      key: "matrix.legend.policy"      },
+          ] as const).map(({ color, key }) => (
+            <div key={key} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-sm ${color}`} />
-              <span className="text-muted-foreground">{label}</span>
+              <span className="text-muted-foreground">{t(key)}</span>
             </div>
           ))}
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1.5 ms-auto">
             <Info className="w-3 h-3 text-muted-foreground" />
-            <span className="text-muted-foreground">Click any cell for details</span>
+            <span className="text-muted-foreground">{t("matrix.clickHint")}</span>
           </div>
         </div>
 
-        {/* Filter */}
+        {/* Filter chips */}
         <div className="flex flex-wrap gap-2">
-          {ALL_CATEGORIES.map(cat => (
+          {ALL_CATEGORY_KEYS.map(catKey => (
             <button
-              key={cat}
-              onClick={() => setFilterCategory(cat)}
+              key={catKey}
+              onClick={() => setFilterCategory(catKey)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                filterCategory === cat
+                filterCategory === catKey
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted hover:bg-muted/70 text-muted-foreground"
               }`}
             >
-              {cat}
+              {t(catKey)}
             </button>
           ))}
         </div>
@@ -352,15 +356,14 @@ export default function WorkflowMatrix() {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-xs" style={{ minWidth: "1400px" }}>
                 <thead>
-                  {/* Column headers — row 1: member labels */}
                   <tr className="bg-[#0C233C]">
-                    <th className="text-left px-4 py-3 text-white font-semibold border-b border-white/10 w-48 sticky left-0 bg-[#0C233C] z-10">
-                      REQUEST TYPE
+                    <th className="text-start px-4 py-3 text-white font-semibold border-b border-white/10 w-48 sticky start-0 bg-[#0C233C] z-10">
+                      {t("matrix.requestType")}
                     </th>
                     {COLUMNS.map((col) => (
                       <th key={col.id} className="px-2 py-3 text-center border-b border-white/10 w-28">
-                        <div className="text-white font-semibold leading-tight">{col.label}</div>
-                        <div className="text-white/50 font-normal mt-0.5 text-[10px] leading-tight">{col.sub}</div>
+                        <div className="text-white font-semibold leading-tight">{t(`matrix.col.${col.id}.label`)}</div>
+                        <div className="text-white/50 font-normal mt-0.5 text-[10px] leading-tight">{t(`matrix.col.${col.id}.sub`)}</div>
                       </th>
                     ))}
                   </tr>
@@ -369,28 +372,28 @@ export default function WorkflowMatrix() {
                   {filtered.map((row, ri) => (
                     <tr key={row.id} className={ri % 2 === 0 ? "bg-muted/20" : "bg-background"}>
                       {/* Request type label */}
-                      <td className={`px-4 py-3 font-semibold text-sm border-r border-muted sticky left-0 z-10 ${ri % 2 === 0 ? "bg-muted/20" : "bg-background"}`}>
-                        <div>{row.requestType}</div>
-                        <Badge variant="outline" className="mt-1 text-[10px] font-normal">{row.category}</Badge>
+                      <td className={`px-4 py-3 font-semibold text-sm border-e border-muted sticky start-0 z-10 ${ri % 2 === 0 ? "bg-muted/20" : "bg-background"}`}>
+                        <div>{t(row.requestType)}</div>
+                        <Badge variant="outline" className="mt-1 text-[10px] font-normal">{t(row.category)}</Badge>
                       </td>
 
                       {/* Workflow cells */}
                       {COLUMNS.map((col, ci) => {
                         const cell = row.cells[ci];
                         if (!cell) {
-                          return <td key={col.id} className="px-2 py-2 text-center border-r border-muted/30 last:border-r-0" />;
+                          return <td key={col.id} className="px-2 py-2 text-center border-e border-muted/30 last:border-e-0" />;
                         }
                         return (
-                          <td key={col.id} className="px-2 py-2 border-r border-muted/30 last:border-r-0">
+                          <td key={col.id} className="px-2 py-2 border-e border-muted/30 last:border-e-0">
                             <button
-                              onClick={() => setModal({ cell, row, col })}
+                              onClick={() => setModal({ cell, row, colId: col.id })}
                               className={`w-full rounded-md border px-2 py-2 text-center transition-all ${cellClass(cell.type)}`}
                             >
                               <div className="font-semibold leading-tight whitespace-pre-wrap text-[10px]">
-                                {cell.role}
+                                {t(cell.role)}
                               </div>
                               <div className="mt-1 text-[10px] opacity-80 leading-tight">
-                                {cell.action}
+                                {t(cell.action)}
                               </div>
                             </button>
                           </td>
@@ -401,7 +404,7 @@ export default function WorkflowMatrix() {
                   {filtered.length === 0 && (
                     <tr>
                       <td colSpan={COLUMNS.length + 1} className="py-12 text-center text-muted-foreground">
-                        No request types match the selected filter.
+                        {t("matrix.noMatch")}
                       </td>
                     </tr>
                   )}
@@ -412,7 +415,7 @@ export default function WorkflowMatrix() {
         </Card>
 
         <p className="text-xs text-muted-foreground">
-          Reference: Approval for Department Representative Request Workflow — Supply Chain. Data sourced from the AF Procurement Hub workflow matrix document.
+          {t("matrix.footer")}
         </p>
       </div>
 
@@ -428,8 +431,8 @@ export default function WorkflowMatrix() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-bold">{modal.cell.action}</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">{modal.row.requestType}</p>
+                <h2 className="text-lg font-bold">{t(modal.cell.action)}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{t(modal.row.requestType)}</p>
               </div>
               <button
                 onClick={() => setModal(null)}
@@ -441,20 +444,20 @@ export default function WorkflowMatrix() {
 
             <div className="space-y-2 text-sm">
               <div className="flex gap-2">
-                <span className="font-medium text-muted-foreground w-20 shrink-0">Role:</span>
-                <span className="whitespace-pre-wrap">{modal.cell.role}</span>
+                <span className="font-medium text-muted-foreground w-20 shrink-0">{t("matrix.modal.role")}:</span>
+                <span className="whitespace-pre-wrap">{t(modal.cell.role)}</span>
               </div>
               <div className="flex gap-2">
-                <span className="font-medium text-muted-foreground w-20 shrink-0">Action:</span>
-                <span>{modal.cell.action}</span>
+                <span className="font-medium text-muted-foreground w-20 shrink-0">{t("matrix.modal.action")}:</span>
+                <span>{t(modal.cell.action)}</span>
               </div>
               <div className="flex gap-2">
-                <span className="font-medium text-muted-foreground w-20 shrink-0">Stage:</span>
-                <span>{modal.col.label} — {modal.col.sub}</span>
+                <span className="font-medium text-muted-foreground w-20 shrink-0">{t("matrix.modal.stage")}:</span>
+                <span>{t(`matrix.col.${modal.colId}.label`)} — {t(`matrix.col.${modal.colId}.sub`)}</span>
               </div>
               <div className="flex gap-2">
-                <span className="font-medium text-muted-foreground w-20 shrink-0">Category:</span>
-                <span>{modal.row.category}</span>
+                <span className="font-medium text-muted-foreground w-20 shrink-0">{t("matrix.modal.category")}:</span>
+                <span>{t(modal.row.category)}</span>
               </div>
             </div>
 
@@ -469,7 +472,7 @@ export default function WorkflowMatrix() {
                 onClick={() => setModal(null)}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90"
               >
-                Close
+                {t("matrix.modal.close")}
               </button>
             </div>
           </div>
