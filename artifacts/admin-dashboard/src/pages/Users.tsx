@@ -201,63 +201,77 @@ export default function Users() {
           </CardHeader>
           <CardContent>
             <div className="rounded-md border overflow-hidden overflow-x-auto">
-              <Table>
+              <Table className="w-full table-fixed">
+                <colgroup>
+                  <col />
+                  <col style={{ width: "140px" }} />
+                  <col style={{ width: "150px" }} />
+                  <col style={{ width: "170px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "200px" }} />
+                </colgroup>
                 <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead>{t("users.colName")}</TableHead>
-                    <TableHead>{t("users.colEmployeeNo")}</TableHead>
-                    <TableHead>{t("users.colRole")}</TableHead>
-                    <TableHead>{t("users.colDepartment")}</TableHead>
-                    <TableHead>{t("users.colStatus")}</TableHead>
-                    <TableHead className="text-end">{t("users.colActions")}</TableHead>
+                  <TableRow className="border-b border-border">
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colName")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colEmployeeNo")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colRole")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colDepartment")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colStatus")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-end">{t("users.colActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={i} className="border-b border-border/60">
                         {Array.from({ length: 6 }).map((_, j) => (
-                          <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>
+                          <TableCell key={j} className="py-3.5 px-4"><Skeleton className="h-5 w-full" /></TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : filteredUsers.length > 0 ? (
                     filteredUsers.map((u) => (
-                      <TableRow key={u.uid} className="hover:bg-muted/20">
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{u.fullName || u.displayName || "—"}</span>
-                            <span className="text-xs text-muted-foreground">{u.email}</span>
+                      <TableRow key={u.uid} className="border-b border-border/60 hover:bg-muted/30 transition-colors align-middle">
+                        <TableCell className="py-3.5 px-4">
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-sm font-semibold text-foreground leading-snug truncate">
+                              {u.fullName || u.displayName || "—"}
+                            </span>
+                            <span className="text-xs text-muted-foreground leading-snug truncate">{u.email}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-sm font-mono text-muted-foreground">{u.employeeNumber || "—"}</span>
+                        <TableCell className="py-3.5 px-4">
+                          <span className="text-sm font-mono text-muted-foreground tabular-nums">
+                            {u.employeeNumber || "—"}
+                          </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-3.5 px-4">
                           <RoleBadge role={u.role} />
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{u.department || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="py-3.5 px-4">
+                          <span className="text-sm text-muted-foreground truncate block">{u.department || "—"}</span>
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4">
                           {u.isActive !== false ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">{t("users.statusActive")}</Badge>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 whitespace-nowrap">{t("users.statusActive")}</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">{t("users.statusInactive")}</Badge>
+                            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 whitespace-nowrap">{t("users.statusInactive")}</Badge>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-2">
+                        <TableCell className="py-3.5 px-4">
+                          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                             <button
                               onClick={() => openEdit(u)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors h-7"
                               title={t("users.edit")}
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              <Pencil className="w-3 h-3 shrink-0" />
                               {t("users.edit")}
                             </button>
                             {u.uid !== user?.uid && (
                               <button
                                 onClick={() => setDeactivateTarget(u)}
-                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors h-7 ${
                                   u.isActive !== false
                                     ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
                                     : "bg-green-50 text-green-700 hover:bg-green-100"
@@ -265,8 +279,8 @@ export default function Users() {
                                 title={u.isActive !== false ? t("users.deactivate") : t("users.activate")}
                               >
                                 {u.isActive !== false
-                                  ? <><UserX className="w-3.5 h-3.5" />{t("users.deactivate")}</>
-                                  : <><UserCheck className="w-3.5 h-3.5" />{t("users.activate")}</>
+                                  ? <><UserX className="w-3 h-3 shrink-0" />{t("users.deactivate")}</>
+                                  : <><UserCheck className="w-3 h-3 shrink-0" />{t("users.activate")}</>
                                 }
                               </button>
                             )}
@@ -276,7 +290,7 @@ export default function Users() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="h-36 text-center text-sm text-muted-foreground py-10">
                         {t("users.noUsers")}
                       </TableCell>
                     </TableRow>
