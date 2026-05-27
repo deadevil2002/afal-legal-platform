@@ -1,11 +1,16 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
+
+const Login     = lazy(() => import("@/pages/Login"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Users     = lazy(() => import("@/pages/Users"));
+const NotFound  = lazy(() => import("@/pages/not-found"));
 
 function LoadingScreen() {
   return (
@@ -25,8 +30,8 @@ function AccessDenied() {
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
           <svg className="w-8 h-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-5V9m0 0V7m0 2h2m-2 0H10" />
-            <circle cx="12" cy="12" r="10" strokeWidth={2} />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">Access Restricted</h1>
@@ -58,7 +63,7 @@ function AppRoutes() {
   if (!user) {
     return (
       <Switch>
-        <Route path="/login" component={lazy(() => import("@/pages/Login"))} />
+        <Route path="/login" component={Login} />
         <Route>
           <Redirect to="/login" />
         </Route>
@@ -70,15 +75,13 @@ function AppRoutes() {
 
   return (
     <Switch>
-      <Route path="/" component={lazy(() => import("@/pages/Dashboard"))} />
-      <Route path="/dashboard" component={lazy(() => import("@/pages/Dashboard"))} />
-      <Route path="/users" component={lazy(() => import("@/pages/Users"))} />
+      <Route path="/"          component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/users"     component={Users} />
       <Route component={NotFound} />
     </Switch>
   );
 }
-
-import { lazy, Suspense } from "react";
 
 function App() {
   return (
