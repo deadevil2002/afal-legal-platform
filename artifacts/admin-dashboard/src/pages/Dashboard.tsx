@@ -1,25 +1,39 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, limit, getCountFromServer } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit, getCountFromServer, where } from "firebase/firestore";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FileText, CheckCircle2, Clock, AlertCircle } from "lucide-react";
-import { ROLE_LABELS, ROLE_COLORS, type AnyUserRole, type ProcurementRequest } from "@/types";
+import { Users, FileText, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
+import { ROLE_LABELS, ROLE_COLORS, type AnyUserRole } from "@/types";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
+
+const COLLECTION = "procurement_requests";
+
+interface DashboardRequest {
+  id: string;
+  status: string;
+  category: string;
+  title?: string;
+  requestNumber?: string | null;
+  createdByName?: string;
+  createdAt?: unknown;
+  prNumber?: string | null;
+  isTerminated?: boolean;
+}
 
 interface DashboardData {
   totalUsers: number;
   totalRequests: number;
-  pendingRequests: number;
+  activeRequests: number;
   completedRequests: number;
+  terminatedRequests: number;
   usersByRole: { name: string; value: number; color: string }[];
   requestsByCategory: { name: string; value: number; color: string }[];
-  recentRequests: ProcurementRequest[];
+  recentRequests: DashboardRequest[];
 }
 
-// Generate colors for categories
 const CATEGORY_COLORS = [
   "#2D6491", "#16A8BA", "#BC9B5D", "#112B4D", "#7C3AED", "#B45309"
 ];
@@ -35,67 +49,81 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        // 1. Total users
+        console.log("[Dashboard] Firebase projectId =", db.app.options.projectId);
+        console.log("[Dashboard] Querying collection:", COLLECTION);
+
+        // Users count
         const usersCountSnap = await getCountFromServer(collection(db, "users"));
         const totalUsers = usersCountSnap.data().count;
 
-        // 2. Total requests
-        const requestsCountSnap = await getCountFromServer(collection(db, "requests"));
-        const totalRequests = requestsCountSnap.data().count;
+        // Total procurement requests
+        const totalSnap = await getCountFromServer(collection(db, COLLECTION));
+        const totalRequests = totalSnap.data().count;
+        console.log("[Dashboard] Total docs in", COLLECTION, "=", totalRequests);
 
-        // 3. Pending requests
-        const pendingCountSnap = await getCountFromServer(query(collection(db, "requests"), where("status", "==", "pending")));
-        const pendingRequests = pendingCountSnap.data().count;
+        // Completed (closed)
+        const completedSnap = await getCountFromServer(
+          query(collection(db, COLLECTION), where("status", "==", "closed"))
+        );
+        const completedRequests = completedSnap.data().count;
 
-        // 4. Completed requests
-        const completedCountSnap = await getCountFromServer(query(collection(db, "requests"), where("status", "==", "completed")));
-        const completedRequests = completedCountSnap.data().count;
+        // Terminated
+        const terminatedSnap = await getCountFromServer(
+          query(collection(db, COLLECTION), where("status", "==", "terminated"))
+        );
+        const terminatedRequests = terminatedSnap.data().count;
 
-        // 5. Users by role
+        // Active = total minus terminal statuses
+        const activeRequests = totalRequests - completedRequests - terminatedRequests;
+
+        // Users by role
         const usersSnap = await getDocs(query(collection(db, "users"), limit(500)));
         const roleCounts: Record<string, number> = {};
-        usersSnap.forEach((doc) => {
-          const role = doc.data().role as AnyUserRole;
-          if (role) {
-            roleCounts[role] = (roleCounts[role] || 0) + 1;
-          }
+        usersSnap.forEach((d) => {
+          const role = d.data().role as AnyUserRole;
+          if (role) roleCounts[role] = (roleCounts[role] || 0) + 1;
         });
         const usersByRole = Object.entries(roleCounts).map(([role, count]) => ({
           name: ROLE_LABELS[role as AnyUserRole] || role,
           value: count,
-          color: ROLE_COLORS[role as AnyUserRole] || "#9CA3AF"
+          color: ROLE_COLORS[role as AnyUserRole] || "#9CA3AF",
         }));
 
-        // 6. Requests by category
-        const reqsSnap = await getDocs(query(collection(db, "requests"), limit(500)));
+        // Requests by category
+        const reqsSnap = await getDocs(query(collection(db, COLLECTION), limit(500)));
         const catCounts: Record<string, number> = {};
-        reqsSnap.forEach((doc) => {
-          const cat = doc.data().category as string;
-          if (cat) {
-            catCounts[cat] = (catCounts[cat] || 0) + 1;
-          }
+        reqsSnap.forEach((d) => {
+          const cat = d.data().category as string;
+          if (cat) catCounts[cat] = (catCounts[cat] || 0) + 1;
         });
         const requestsByCategory = Object.entries(catCounts).map(([cat, count], i) => ({
           name: cat,
           value: count,
-          color: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+          color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
         }));
 
-        // 7. Recent requests
-        const recentSnap = await getDocs(query(collection(db, "requests"), orderBy("createdAt", "desc"), limit(10)));
-        const recentRequests = recentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProcurementRequest));
+        // Recent requests
+        const recentSnap = await getDocs(
+          query(collection(db, COLLECTION), orderBy("createdAt", "desc"), limit(10))
+        );
+        const recentRequests = recentSnap.docs.map((d) => {
+          const raw = d.data();
+          console.log("[Dashboard] sample doc id:", d.id, "status:", raw.status, "category:", raw.category);
+          return { id: d.id, ...raw } as DashboardRequest;
+        });
 
         setData({
           totalUsers,
           totalRequests,
-          pendingRequests,
+          activeRequests,
           completedRequests,
+          terminatedRequests,
           usersByRole,
           requestsByCategory,
-          recentRequests
+          recentRequests,
         });
       } catch (err) {
-        console.error("Error loading dashboard data:", err);
+        console.error("[Dashboard] Error loading data:", err);
         setError("Failed to load dashboard metrics. Please check your connection and try again.");
       } finally {
         setLoading(false);
@@ -124,35 +152,49 @@ export default function Dashboard() {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">Live metrics and recent activity from the procurement platform.</p>
+          <p className="text-muted-foreground mt-1">
+            Live metrics from the <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{COLLECTION}</span> collection.
+          </p>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Total Users"
-            value={data?.totalUsers}
-            icon={<Users className="w-5 h-5 text-primary" />}
-            loading={loading}
-          />
-          <MetricCard
-            title="Total Requests"
-            value={data?.totalRequests}
-            icon={<FileText className="w-5 h-5 text-secondary" />}
-            loading={loading}
-          />
-          <MetricCard
-            title="Pending Requests"
-            value={data?.pendingRequests}
-            icon={<Clock className="w-5 h-5 text-accent" />}
-            loading={loading}
-          />
-          <MetricCard
-            title="Completed Requests"
-            value={data?.completedRequests}
-            icon={<CheckCircle2 className="w-5 h-5 text-green-600" />}
-            loading={loading}
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard title="Total Users"       value={data?.totalUsers}       icon={<Users       className="w-5 h-5 text-primary"   />} loading={loading} />
+          <MetricCard title="Total Requests"    value={data?.totalRequests}    icon={<FileText    className="w-5 h-5 text-secondary" />} loading={loading} />
+          <MetricCard title="Active Requests"   value={data?.activeRequests}   icon={<Clock       className="w-5 h-5 text-accent"    />} loading={loading} />
+          <MetricCard title="Closed Requests"   value={data?.completedRequests}icon={<CheckCircle2 className="w-5 h-5 text-green-600"/>} loading={loading} />
+        </div>
+
+        {/* Secondary KPI */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="shadow-sm border-l-4 border-l-red-400">
+            <CardContent className="p-4 flex items-center gap-4">
+              <XCircle className="w-8 h-8 text-red-400 shrink-0" />
+              <div>
+                <p className="text-sm text-muted-foreground">Terminated</p>
+                {loading ? <Skeleton className="h-7 w-12 mt-1" /> : (
+                  <p className="text-2xl font-bold">{data?.terminatedRequests ?? 0}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-sm border-l-4 border-l-amber-400 col-span-1 sm:col-span-2">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground mb-1">Request Categories</p>
+              {loading ? <Skeleton className="h-5 w-48" /> : (
+                <div className="flex flex-wrap gap-2">
+                  {data?.requestsByCategory.map((c, i) => (
+                    <Badge key={i} variant="outline" style={{ borderColor: c.color, color: c.color }}>
+                      {c.name}: {c.value}
+                    </Badge>
+                  ))}
+                  {(!data || data.requestsByCategory.length === 0) && (
+                    <span className="text-sm text-muted-foreground">No data yet</span>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts */}
@@ -168,27 +210,15 @@ export default function Dashboard() {
               ) : data && data.usersByRole.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={data.usersByRole}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {data.usersByRole.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                    <Pie data={data.usersByRole} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
+                      {data.usersByRole.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
                     <RechartsTooltip />
                     <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  No data available
-                </div>
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">No data available</div>
               )}
             </CardContent>
           </Card>
@@ -196,7 +226,7 @@ export default function Dashboard() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Requests by Category</CardTitle>
-              <CardDescription>Volume of requests per category</CardDescription>
+              <CardDescription>Volume per procurement category</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
               {loading ? (
@@ -204,27 +234,15 @@ export default function Dashboard() {
               ) : data && data.requestsByCategory.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={data.requestsByCategory}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {data.requestsByCategory.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                    <Pie data={data.requestsByCategory} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
+                      {data.requestsByCategory.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
                     <RechartsTooltip />
                     <Legend layout="horizontal" verticalAlign="bottom" align="center" />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  No data available
-                </div>
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">No data available</div>
               )}
             </CardContent>
           </Card>
@@ -234,7 +252,7 @@ export default function Dashboard() {
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>The 10 most recently created procurement requests</CardDescription>
+            <CardDescription>10 most recently created procurement requests</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -245,16 +263,17 @@ export default function Dashboard() {
               <div className="divide-y border rounded-md">
                 {data.recentRequests.map(req => (
                   <div key={req.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{req.category}</span>
-                        {req.prNumber && <Badge variant="outline" className="text-xs">{req.prNumber}</Badge>}
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm truncate">{req.title || req.category || "—"}</span>
+                        {req.requestNumber && <Badge variant="outline" className="text-xs shrink-0">{req.requestNumber}</Badge>}
+                        {req.category && <Badge variant="secondary" className="text-xs shrink-0">{req.category}</Badge>}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        ID: <span className="font-mono">{req.id}</span>
+                        By: {req.createdByName || "—"} &nbsp;·&nbsp; ID: <span className="font-mono">{req.id.slice(0, 8)}…</span>
                       </div>
                     </div>
-                    <div>
+                    <div className="ml-4 shrink-0">
                       <StatusBadge status={req.status} />
                     </div>
                   </div>
@@ -262,7 +281,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="p-8 text-center text-muted-foreground border rounded-md border-dashed">
-                No recent activity found.
+                No recent activity found in <code className="text-xs">{COLLECTION}</code>.
               </div>
             )}
           </CardContent>
@@ -278,15 +297,11 @@ function MetricCard({ title, value, icon, loading }: { title: string; value?: nu
       <CardContent className="p-6 flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          {loading ? (
-            <Skeleton className="h-8 w-16" />
-          ) : (
-            <p className="text-3xl font-bold">{value?.toLocaleString() || "0"}</p>
+          {loading ? <Skeleton className="h-8 w-16" /> : (
+            <p className="text-3xl font-bold">{value?.toLocaleString() ?? "0"}</p>
           )}
         </div>
-        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
-          {icon}
-        </div>
+        <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">{icon}</div>
       </CardContent>
     </Card>
   );
@@ -294,18 +309,23 @@ function MetricCard({ title, value, icon, loading }: { title: string; value?: nu
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
-    completed: "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
-    approved: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
-    rejected: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
-    under_review: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    draft:                      "bg-slate-100 text-slate-700 border-slate-200",
+    pending_procurement:        "bg-amber-100 text-amber-800 border-amber-200",
+    awaiting_quotations:        "bg-blue-100 text-blue-800 border-blue-200",
+    quotations_received:        "bg-cyan-100 text-cyan-800 border-cyan-200",
+    pending_requester_selection:"bg-violet-100 text-violet-800 border-violet-200",
+    quotation_rejected:         "bg-red-100 text-red-800 border-red-200",
+    pending_pr_entry:           "bg-orange-100 text-orange-800 border-orange-200",
+    pending_budget_approval:    "bg-yellow-100 text-yellow-800 border-yellow-200",
+    pending_po:                 "bg-teal-100 text-teal-800 border-teal-200",
+    pending_director_po_approval: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    pending_planning_po_approval: "bg-purple-100 text-purple-800 border-purple-200",
+    pending_payment:            "bg-pink-100 text-pink-800 border-pink-200",
+    closed:                     "bg-green-100 text-green-800 border-green-200",
+    terminated:                 "bg-red-200 text-red-900 border-red-300",
   };
-
-  const defaultStyle = "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
-  const className = styles[status] || defaultStyle;
-
   return (
-    <Badge variant="outline" className={`capitalize ${className}`}>
+    <Badge variant="outline" className={`text-xs capitalize whitespace-nowrap ${styles[status] || "bg-slate-100 text-slate-700"}`}>
       {status.replace(/_/g, " ")}
     </Badge>
   );

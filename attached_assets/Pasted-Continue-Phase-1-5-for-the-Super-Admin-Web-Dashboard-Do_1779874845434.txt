@@ -1,0 +1,121 @@
+Continue Phase 1.5 for the Super Admin Web Dashboard.
+
+Do not modify the mobile app.
+Do not change Firestore rules unless you prove the read issue is rules-related.
+Do not refactor the whole dashboard.
+
+Current issue:
+The admin dashboard is running and user data appears, but procurement requests from the mobile app do not appear in the web dashboard.
+Dashboard shows:
+Total Requests = 0
+Pending Requests = 0
+Completed Requests = 0
+
+This is likely a wrong collection query, wrong Firebase project/env, wrong field mapping, or Firestore read condition issue.
+
+Tasks:
+
+A) Fix request data connection first
+1. Audit the Firestore project used by admin-dashboard and confirm it matches the mobile app project:
+   projectId must be af-procurement-hub.
+2. Audit the exact collection used by the mobile app for procurement requests.
+3. Confirm whether the dashboard is querying:
+   procurement_requests
+   or old legacy requests collection.
+4. Dashboard must read the same procurement_requests collection used by the mobile app.
+5. Show real requests in:
+   - Dashboard KPI cards
+   - Recent Activity
+   - Request/Workflow pages if any
+6. Add console/debug logs temporarily:
+   - current Firebase projectId
+   - collection path queried
+   - number of docs loaded
+   - first request id/status if available
+
+B) Add Settings page in sidebar bottom
+Add a Settings item at the bottom of the left sidebar, separated from Dashboard/Users tabs.
+
+Settings page must include:
+1. Language switch:
+   - English
+   - Arabic
+   - Save preference locally
+   - Basic RTL/LTR switch if Arabic selected
+2. Profile edit:
+   - displayName
+   - phone
+   - department
+   - employeeNumber read-only if safer
+3. Transfer Super Admin:
+   - input new super admin email
+   - confirmation modal
+   - call existing or new secure API route
+   - only current super_admin can do it
+   - write audit log
+   - do not expose secrets
+
+If transfer route already exists, reuse it.
+If not, create the minimal secure API route using Firebase Admin SDK and require super_admin auth.
+
+C) Add Workflow Matrix tab
+Add a new sidebar tab near Dashboard and Users:
+Workflow Matrix
+
+Build an interactive professional table inspired by the attached supply chain workflow image.
+
+Rows should represent request types/categories such as:
+- Vendor Selection
+- Vendor Registration
+- Material PO
+- Back Charge Service PO
+- Manpower Rental Services PO
+- Equipment Rental Services PO
+- Camps Rental Services PO
+- Manpower Certification PO
+- Equipment Certification PO
+- Camp Material and Services
+- Workshop Material, Fuel & Services
+
+Columns should represent workflow members/stages:
+- Requester
+- Procurement / Sourcing Rep
+- Planning / Engineering
+- Finance / Account Rep
+- EVP
+- CEO
+- Buyer Rep
+- Business Line Director
+- PO Closure
+- AFC Data Center Rep
+
+Each cell should show:
+- role/stage name
+- action label such as Initiate PR, Review, Validate, Fund allocation, Place PO, Upload, Final Approval
+- status color if linked to real requests later
+
+For now:
+- Use a configurable matrix data object.
+- Make it visually similar to the reference image but cleaner and interactive.
+- Allow horizontal scrolling.
+- Allow filtering by request type.
+- Clicking a cell opens a small detail modal explaining role/action.
+
+D) UI requirements
+- Professional enterprise dashboard
+- Keep current AF Procurement Hub branding
+- Responsive desktop layout
+- Do not add Settings as a top tab; it must be bottom/sidebar utility item
+- Keep User Management working
+
+Return:
+- root cause of requests not showing
+- files changed
+- new routes added if any
+- how to test:
+  1. real procurement requests appear
+  2. Settings works
+  3. language switch works
+  4. profile edit works
+  5. super admin transfer flow
+  6. Workflow Matrix page

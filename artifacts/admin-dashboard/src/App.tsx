@@ -7,10 +7,12 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 const queryClient = new QueryClient();
 
-const Login     = lazy(() => import("@/pages/Login"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Users     = lazy(() => import("@/pages/Users"));
-const NotFound  = lazy(() => import("@/pages/not-found"));
+const Login          = lazy(() => import("@/pages/Login"));
+const Dashboard      = lazy(() => import("@/pages/Dashboard"));
+const Users          = lazy(() => import("@/pages/Users"));
+const WorkflowMatrix = lazy(() => import("@/pages/WorkflowMatrix"));
+const Settings       = lazy(() => import("@/pages/Settings"));
+const NotFound       = lazy(() => import("@/pages/not-found"));
 
 function LoadingScreen() {
   return (
@@ -64,9 +66,7 @@ function AppRoutes() {
     return (
       <Switch>
         <Route path="/login" component={Login} />
-        <Route>
-          <Redirect to="/login" />
-        </Route>
+        <Route><Redirect to="/login" /></Route>
       </Switch>
     );
   }
@@ -78,6 +78,8 @@ function AppRoutes() {
       <Route path="/"          component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/users"     component={Users} />
+      <Route path="/workflow"  component={WorkflowMatrix} />
+      <Route path="/settings"  component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
