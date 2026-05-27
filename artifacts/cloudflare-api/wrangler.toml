@@ -1,0 +1,19 @@
+name = "af-procurement-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# ─── Non-secret configuration ────────────────────────────────────────────────
+# These can be overridden in Cloudflare Dashboard → Workers → Settings → Variables.
+[vars]
+ALLOWED_ORIGINS = "https://admin.isaudi.ai,https://suppliers.isaudi.ai"
+PUBLIC_BASE_URL = "https://suppliers.isaudi.ai"
+
+# ─── Secrets (do NOT put values here) ────────────────────────────────────────
+# Set these via:  wrangler secret put <NAME>
+#
+#   wrangler secret put FIREBASE_PROJECT_ID
+#   wrangler secret put FIREBASE_CLIENT_EMAIL
+#   wrangler secret put FIREBASE_PRIVATE_KEY
+#
+# FIREBASE_PRIVATE_KEY: paste the full PEM block including -----BEGIN/END----- lines.
+# Wrangler stores it encrypted; it is available as env.FIREBASE_PRIVATE_KEY at runtime.
