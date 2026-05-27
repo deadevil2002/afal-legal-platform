@@ -186,7 +186,8 @@ function formatDateShort(iso: string, isRTL: boolean): string {
   }
 }
 
-function fileColorForType(mimeType: string): string {
+function fileColorForType(mimeType: string | null | undefined): string {
+  if (!mimeType) return "#6B7280";
   if (mimeType.includes("pdf")) return "#DC2626";
   if (mimeType.includes("sheet") || mimeType.includes("xlsx") || mimeType.includes("csv")) return "#16A34A";
   if (mimeType.includes("word") || mimeType.includes("document")) return "#2563EB";
@@ -194,7 +195,8 @@ function fileColorForType(mimeType: string): string {
   return "#6B7280";
 }
 
-function fileIconForType(mimeType: string): "file-doc" | "image" | "paperclip" {
+function fileIconForType(mimeType: string | null | undefined): "file-doc" | "image" | "paperclip" {
+  if (!mimeType) return "paperclip";
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.includes("pdf") || mimeType.includes("word") || mimeType.includes("document") || mimeType.includes("sheet")) return "file-doc";
   return "paperclip";
@@ -563,7 +565,7 @@ function ApprovedCard({
   t,
   isRTL,
 }: {
-  quotation: QuotationAttachment;
+  quotation: { url?: string | null; name?: string | null; type?: string | null; customLabel?: string | null };
   colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
   t: (k: never) => string;
   isRTL: boolean;
@@ -594,22 +596,24 @@ function ApprovedCard({
           {t("approvedAttachmentDesc" as never)}
         </Text>
       </View>
-      <View style={sub.qcActions}>
-        <TouchableOpacity
-          style={sub.qcActionBtn}
-          onPress={() => { openQuotationFile(quotation.url).catch(() => {}); }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Icon name="external-link" size={17} color="#16A34A" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={sub.qcActionBtn}
-          onPress={() => downloadQuotationFile(quotation.url)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Icon name="download" size={17} color="#16A34A" />
-        </TouchableOpacity>
-      </View>
+      {quotation.url ? (
+        <View style={sub.qcActions}>
+          <TouchableOpacity
+            style={sub.qcActionBtn}
+            onPress={() => { openQuotationFile(quotation.url!).catch(() => {}); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="external-link" size={17} color="#16A34A" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={sub.qcActionBtn}
+            onPress={() => downloadQuotationFile(quotation.url!)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="download" size={17} color="#16A34A" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -2442,10 +2446,14 @@ export default function ProcurementDetailScreen() {
         )}
 
         {/* ── Section D: Approved Attachment ─────────────────────────────── */}
-        {request.approvedAttachment && (
+        {(request.approvedAttachment || request.selectedSupplierResponseId) && (
           <SectionCard icon="check-circle" label={t("approvedAttachmentSection")} colors={colors}>
             <ApprovedCard
-              quotation={request.approvedAttachment as QuotationAttachment}
+              quotation={
+                request.approvedAttachment
+                  ? (request.approvedAttachment as { url?: string | null; name?: string | null; type?: string | null; customLabel?: string | null })
+                  : { url: null, name: null, type: null, customLabel: null }
+              }
               colors={colors}
               t={t as never}
               isRTL={isRTL}
