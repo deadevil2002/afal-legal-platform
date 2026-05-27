@@ -1,0 +1,62 @@
+The same error still appears after your fix.
+
+When requester selects a forwarded supplier quotation and presses Approve Selected Quotation, the app still returns:
+
+quotationId required
+quotation required
+
+This means one of these is true:
+1. Mobile button is still calling the legacy quotation approval path/body.
+2. The API server running is still the old deployed/build version.
+3. There are two approval handlers/routes and only one was updated.
+4. The request body still does not contain selectedSupplierResponseId / supplierResponseId as expected.
+5. The schema used at runtime is still the old schema.
+
+Do not guess. Trace the real runtime call.
+
+Tasks:
+1. Add temporary logs on mobile before apiPost:
+   console.log("[approve supplier] body", body)
+   console.log("[approve supplier] selectedSupplierResponseId", selectedSupplierResponseId)
+
+2. Add temporary logs in POST /api/procurement/workflow/:requestId/approve-quotation:
+   console.log("[approve-quotation] raw body", req.body)
+   console.log("[approve-quotation] parsed mode", mode)
+
+3. Verify the exact request body sent when pressing Approve Selected Quotation on a supplier response.
+
+4. Confirm the API route actually accepts one of these names:
+   - selectedSupplierResponseId
+   - supplierResponseId
+
+Pick ONE field name and use it consistently in mobile and API.
+
+Preferred field name:
+selectedSupplierResponseId
+
+5. Fix the schema so supplier approval mode accepts exactly:
+{
+  "selectedSupplierResponseId": "supplier_response_doc_id"
+}
+
+and does NOT require:
+quotationId
+quotation
+
+6. In the mobile supplier approval handler, send exactly:
+{
+  selectedSupplierResponseId: selectedSupplierResponseId
+}
+
+Do not send supplierResponse object.
+Do not send quotationId undefined.
+Do not send quotation undefined.
+
+7. Confirm the running server was restarted and the mobile bundle refreshed.
+
+8. Return:
+- exact logged mobile body
+- exact logged API body
+- which route was actually hit
+- files changed
+- test result

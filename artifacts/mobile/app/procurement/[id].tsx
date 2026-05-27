@@ -1865,9 +1865,10 @@ export default function ProcurementDetailScreen() {
       onConfirm: async () => {
         setApprovingSupplierQuotation(true);
         try {
-          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
-            supplierResponseId: resp.id,
-          });
+          const body = { selectedSupplierResponseId: resp.id };
+          console.log("[approve supplier] selectedSupplierResponseId", resp.id);
+          console.log("[approve supplier] body", JSON.stringify(body));
+          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, body);
           setLocalSelectedSupplierResponseId(null);
           showSuccess(t("supplierQuotationApprovedSuccess"), t("success"));
         } catch (err) {

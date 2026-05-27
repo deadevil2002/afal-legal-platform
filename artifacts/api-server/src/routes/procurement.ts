@@ -31,20 +31,14 @@ const workflowAdvanceBodySchema = z.object({
   comment: z.string().nullable().optional(),
 });
 
-// Mode A — legacy manual quotation: quotationId + quotation required
-// Mode B — supplier response:        supplierResponseId required only (server fetches from Firestore)
-const approveQuotationBodySchema = z.union([
-  z.object({
-    quotationId:        z.string().min(1),
-    quotation:          z.record(z.unknown()),
-    supplierResponseId: z.undefined().optional(),
-  }),
-  z.object({
-    supplierResponseId: z.string().min(1),
-    quotationId:        z.undefined().optional(),
-    quotation:          z.undefined().optional(),
-  }),
-]);
+// Flat schema — all fields optional; handler validates mode at runtime:
+//   Mode A (legacy manual quotation): quotationId + quotation required, no selectedSupplierResponseId
+//   Mode B (supplier response):       selectedSupplierResponseId required, quotationId/quotation absent
+const approveQuotationBodySchema = z.object({
+  selectedSupplierResponseId: z.string().min(1).optional(),
+  quotationId:                z.string().min(1).optional(),
+  quotation:                  z.record(z.unknown()).optional(),
+});
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -361,7 +355,20 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
       return;
     }
 
-    const { quotationId, quotation, supplierResponseId } = parsed.data;
+    const { quotationId, quotation, selectedSupplierResponseId } = parsed.data;
+    const mode = selectedSupplierResponseId ? "supplier_response" : quotationId && quotation ? "legacy_quotation" : null;
+
+    req.log.info({ body: req.body, mode, selectedSupplierResponseId, quotationId: quotationId ?? null }, "[approve-quotation] raw body + parsed mode");
+
+    if (!mode) {
+      errorJsonResponse(
+        res,
+        "Provide either selectedSupplierResponseId (supplier quotation) or quotationId + quotation (manual quotation).",
+        400,
+        "invalid_payload"
+      );
+      return;
+    }
 
     const db          = getAdminDb();
     const requestSnap = await db.collection("procurement_requests").doc(requestId).get();
@@ -400,9 +407,9 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
     const requestRef = db.collection("procurement_requests").doc(requestId);
     const eventRef   = db.collection("workflow_events").doc();
 
-    if (supplierResponseId) {
-      // Mode B — supplier response path: fetch from Firestore for validation and snapshot
-      const responseSnap = await db.collection("supplier_responses").doc(supplierResponseId).get();
+    if (mode === "supplier_response") {
+      // Mode B — fetch and validate supplier response from Firestore (server-side, no client snapshot)
+      const responseSnap = await db.collection("supplier_responses").doc(selectedSupplierResponseId!).get();
       if (!responseSnap.exists) {
         errorJsonResponse(res, "Supplier response not found.", 404, "not_found");
         return;
@@ -418,19 +425,19 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
       }
 
       const qa = responseData["quotationAttachment"] ?? null;
-      const companyName = String(responseData["companyName"] ?? supplierResponseId);
+      const companyName = String(responseData["companyName"] ?? selectedSupplierResponseId);
 
       // Serialize Firestore timestamps for the snapshot
       const rsa = responseData["submittedAt"] as { seconds: number; nanoseconds: number } | null;
       const snapshotData = {
         ...responseData,
-        id: supplierResponseId,
+        id: selectedSupplierResponseId,
         submittedAt: rsa ? { seconds: rsa.seconds, nanoseconds: rsa.nanoseconds } : null,
         reviewedAt: null,
       };
 
       batch.update(requestRef, {
-        selectedSupplierResponseId: supplierResponseId,
+        selectedSupplierResponseId,
         approvedSupplierResponse:   snapshotData,
         approvedAttachment:         qa ?? null,
         status:                     "quotation_selected",
@@ -451,7 +458,7 @@ router.post("/workflow/:requestId/approve-quotation", requireInternalAuth, async
           : `Selected quotation from ${companyName}`,
         attachments:       [],
         createdAt:         FieldValue.serverTimestamp(),
-        metadata:          { supplierResponseId },
+        metadata:          { selectedSupplierResponseId },
       });
     } else {
       batch.update(requestRef, {
