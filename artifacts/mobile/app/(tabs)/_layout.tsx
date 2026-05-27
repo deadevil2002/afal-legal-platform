@@ -14,7 +14,6 @@ interface TabIconSpec {
 
 const TAB_ICONS: Record<string, TabIconSpec> = {
   index:        { active: "home-fill",           inactive: "home" },
-  requests:     { active: "document-text-fill",  inactive: "document-text" },
   procurement:  { active: "briefcase",           inactive: "briefcase" },
   admin:        { active: "shield-check-fill",   inactive: "shield-check" },
   settings:     { active: "cog-fill",            inactive: "cog" },
@@ -73,7 +72,7 @@ export default function TabLayout() {
       })}
     >
       <Tabs.Screen name="index"       options={{ title: t("home") }} />
-      <Tabs.Screen name="requests"    options={{ title: t("requests") }} />
+      <Tabs.Screen name="requests"    options={{ href: null }} />
       <Tabs.Screen
         name="procurement"
         options={canUseProcurement ? { title: t("procurementRequests") } : { href: null }}
