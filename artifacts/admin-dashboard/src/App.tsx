@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 const queryClient = new QueryClient();
 
@@ -12,6 +13,7 @@ const Dashboard      = lazy(() => import("@/pages/Dashboard"));
 const Users          = lazy(() => import("@/pages/Users"));
 const WorkflowMatrix = lazy(() => import("@/pages/WorkflowMatrix"));
 const Settings       = lazy(() => import("@/pages/Settings"));
+const AddUser        = lazy(() => import("@/pages/AddUser"));
 const NotFound       = lazy(() => import("@/pages/not-found"));
 
 function LoadingScreen() {
@@ -37,9 +39,7 @@ function AccessDenied() {
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">Access Restricted</h1>
-        <p className="text-muted-foreground mb-2 text-sm">
-          This dashboard is for Super Administrators only.
-        </p>
+        <p className="text-muted-foreground mb-2 text-sm">This dashboard is for Super Administrators only.</p>
         {user?.email && (
           <p className="text-xs text-muted-foreground mb-6">
             Signed in as <span className="font-medium">{user.email}</span>
@@ -78,6 +78,7 @@ function AppRoutes() {
       <Route path="/"          component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/users"     component={Users} />
+      <Route path="/add-user"  component={AddUser} />
       <Route path="/workflow"  component={WorkflowMatrix} />
       <Route path="/settings"  component={Settings} />
       <Route component={NotFound} />
@@ -89,13 +90,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Suspense fallback={<LoadingScreen />}>
-              <AppRoutes />
-            </Suspense>
-          </WouterRouter>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Suspense fallback={<LoadingScreen />}>
+                <AppRoutes />
+              </Suspense>
+            </WouterRouter>
+          </AuthProvider>
+        </LanguageProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

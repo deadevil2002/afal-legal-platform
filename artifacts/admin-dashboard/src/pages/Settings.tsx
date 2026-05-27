@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { updateUser } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,53 +16,40 @@ import {
   EyeOff,
 } from "lucide-react";
 
-type Lang = "en" | "ar";
-
-function applyLanguage(lang: Lang) {
-  document.documentElement.lang = lang;
-  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-  localStorage.setItem("af_dashboard_lang", lang);
-}
-
 export default function Settings() {
-  const { user, profile, isSuperAdmin, updateMyProfile, transferSuperAdmin } = useAuth();
+  const { user, profile, isSuperAdmin, transferSuperAdmin } = useAuth();
+  const { lang, setLang, t } = useLanguage();
 
-  // ─── Language ──────────────────────────────────────────────────────────────
-  const [lang, setLang] = useState<Lang>(() => {
-    return (localStorage.getItem("af_dashboard_lang") as Lang) || "en";
-  });
-
-  const handleLangChange = (next: Lang) => {
-    setLang(next);
-    applyLanguage(next);
-  };
-
-  useEffect(() => {
-    applyLanguage(lang);
-  }, []);
-
-  // ─── Profile edit ─────────────────────────────────────────────────────────
-  const [displayName, setDisplayName] = useState(profile?.displayName || "");
-  const [phone, setPhone] = useState(profile?.phone || "");
-  const [department, setDepartment] = useState(profile?.department || "");
-  const [profileSaving, setProfileSaving] = useState(false);
+  // ─── Profile edit ──────────────────────────────────────────────────────────
+  const [displayName,    setDisplayName]    = useState("");
+  const [phone,          setPhone]          = useState("");
+  const [department,     setDepartment]     = useState("");
+  const [employeeNumber, setEmployeeNumber] = useState("");
+  const [profileSaving,  setProfileSaving]  = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
-  const [profileError, setProfileError] = useState("");
+  const [profileError,   setProfileError]   = useState("");
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.displayName || "");
       setPhone(profile.phone || "");
       setDepartment(profile.department || "");
+      setEmployeeNumber(profile.employeeNumber || "");
     }
   }, [profile]);
 
   const saveProfile = async () => {
+    if (!user || !profile) return;
     setProfileSaving(true);
     setProfileError("");
     setProfileSuccess(false);
     try {
-      await updateMyProfile({ displayName, phone, department });
+      await updateUser(user.uid, {
+        displayName:    displayName || undefined,
+        phone:          phone || undefined,
+        department:     department || undefined,
+        employeeNumber: employeeNumber || undefined,
+      });
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err) {
@@ -70,14 +59,14 @@ export default function Settings() {
     }
   };
 
-  // ─── Super Admin Transfer ─────────────────────────────────────────────────
-  const [transferEmail, setTransferEmail] = useState("");
+  // ─── Super Admin Transfer ──────────────────────────────────────────────────
+  const [transferEmail,    setTransferEmail]    = useState("");
   const [transferPassword, setTransferPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [transferring, setTransferring] = useState(false);
-  const [transferError, setTransferError] = useState("");
-  const [transferSuccess, setTransferSuccess] = useState(false);
+  const [showPassword,     setShowPassword]     = useState(false);
+  const [showConfirm,      setShowConfirm]      = useState(false);
+  const [transferring,     setTransferring]     = useState(false);
+  const [transferError,    setTransferError]    = useState("");
+  const [transferSuccess,  setTransferSuccess]  = useState(false);
 
   const handleTransfer = async () => {
     if (!transferEmail.trim() || !transferPassword) {
@@ -99,64 +88,12 @@ export default function Settings() {
     }
   };
 
-  const t = lang === "ar"
-    ? {
-        title: "الإعدادات",
-        subtitle: "تفضيلات اللغة والملف الشخصي وإدارة المشرف",
-        langTitle: "اللغة",
-        langDesc: "اختر لغة لوحة التحكم",
-        en: "English",
-        ar: "العربية",
-        profileTitle: "الملف الشخصي",
-        profileDesc: "تعديل بيانات حسابك",
-        nameLabel: "الاسم الكامل",
-        phoneLabel: "رقم الهاتف",
-        deptLabel: "القسم",
-        empLabel: "رقم الموظف",
-        emailLabel: "البريد الإلكتروني",
-        saveBtn: "حفظ",
-        saving: "جاري الحفظ...",
-        saved: "تم الحفظ بنجاح",
-        transferTitle: "نقل صلاحية المشرف الأعلى",
-        transferDesc: "انقل صلاحية المشرف الأعلى إلى مستخدم مسجل آخر. هذا الإجراء غير قابل للتراجع.",
-        targetEmail: "البريد الإلكتروني للمستخدم الجديد",
-        currentPass: "كلمة مرورك الحالية",
-        confirmBtn: "تأكيد النقل",
-        cancelBtn: "إلغاء",
-        transferBtn: "نقل الصلاحية",
-      }
-    : {
-        title: "Settings",
-        subtitle: "Language preferences, profile, and admin management",
-        langTitle: "Language",
-        langDesc: "Choose the dashboard display language",
-        en: "English",
-        ar: "Arabic (العربية)",
-        profileTitle: "Profile",
-        profileDesc: "Edit your account information",
-        nameLabel: "Full Name",
-        phoneLabel: "Phone Number",
-        deptLabel: "Department",
-        empLabel: "Employee Number",
-        emailLabel: "Email",
-        saveBtn: "Save Changes",
-        saving: "Saving…",
-        saved: "Saved successfully",
-        transferTitle: "Transfer Super Admin",
-        transferDesc: "Transfer Super Admin ownership to another registered user. This action is irreversible and writes an audit log.",
-        targetEmail: "Target user email",
-        currentPass: "Your current password",
-        confirmBtn: "Confirm Transfer",
-        cancelBtn: "Cancel",
-        transferBtn: "Initiate Transfer",
-      };
-
   return (
     <Layout>
       <div className="space-y-8 max-w-3xl">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-          <p className="text-muted-foreground mt-1">{t.subtitle}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("settings.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("settings.subtitle")}</p>
         </div>
 
         {/* ── Language ────────────────────────────────────────────────────────── */}
@@ -164,32 +101,32 @@ export default function Settings() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-primary" />
-              <CardTitle>{t.langTitle}</CardTitle>
+              <CardTitle>{t("settings.language")}</CardTitle>
             </div>
-            <CardDescription>{t.langDesc}</CardDescription>
+            <CardDescription>{t("settings.languageDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-3">
               {(["en", "ar"] as const).map((l) => (
                 <button
                   key={l}
-                  onClick={() => handleLangChange(l)}
+                  onClick={() => setLang(l)}
                   className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${
                     lang === l
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-muted hover:border-primary/40"
                   }`}
                 >
-                  {l === "en" ? t.en : t.ar}
+                  {l === "en" ? t("settings.english") : t("settings.arabic")}
                   {lang === l && (
-                    <Badge className="ml-2 bg-primary/10 text-primary text-xs">Active</Badge>
+                    <Badge className="ms-2 bg-primary/10 text-primary text-xs">{t("settings.activeLabel")}</Badge>
                   )}
                 </button>
               ))}
             </div>
             {lang === "ar" && (
               <p className="mt-3 text-sm text-muted-foreground bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                ✓ RTL layout enabled — page direction switched to right-to-left.
+                {t("settings.rtlNote")}
               </p>
             )}
           </CardContent>
@@ -200,35 +137,26 @@ export default function Settings() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
-              <CardTitle>{t.profileTitle}</CardTitle>
+              <CardTitle>{t("settings.profile")}</CardTitle>
             </div>
-            <CardDescription>{t.profileDesc}</CardDescription>
+            <CardDescription>{t("settings.profileDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Read-only fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">{t.emailLabel}</label>
-                <input
-                  readOnly
-                  value={user?.email || ""}
-                  className="w-full px-3 py-2 rounded-md border bg-muted/40 text-muted-foreground text-sm cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t.empLabel}</label>
-                <input
-                  readOnly
-                  value={profile?.employeeNumber || "—"}
-                  className="w-full px-3 py-2 rounded-md border bg-muted/40 text-muted-foreground text-sm cursor-not-allowed"
-                />
-              </div>
+            {/* Read-only email */}
+            <div>
+              <label className="block text-sm font-medium mb-1">{t("settings.emailLabel")}</label>
+              <input
+                readOnly
+                value={user?.email || ""}
+                className="w-full px-3 py-2 rounded-md border bg-muted/40 text-muted-foreground text-sm cursor-not-allowed"
+                dir="ltr"
+              />
             </div>
 
             {/* Editable fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">{t.nameLabel}</label>
+                <label className="block text-sm font-medium mb-1">{t("settings.displayName")}</label>
                 {!profile ? <Skeleton className="h-9 w-full" /> : (
                   <input
                     value={displayName}
@@ -238,7 +166,19 @@ export default function Settings() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">{t.deptLabel}</label>
+                <label className="block text-sm font-medium mb-1">{t("settings.employeeNo")}</label>
+                {!profile ? <Skeleton className="h-9 w-full" /> : (
+                  <input
+                    value={employeeNumber}
+                    onChange={e => setEmployeeNumber(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    dir="ltr"
+                    placeholder="e.g. EMP-001"
+                  />
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t("settings.department")}</label>
                 {!profile ? <Skeleton className="h-9 w-full" /> : (
                   <input
                     value={department}
@@ -248,7 +188,7 @@ export default function Settings() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">{t.phoneLabel}</label>
+                <label className="block text-sm font-medium mb-1">{t("settings.phone")}</label>
                 {!profile ? <Skeleton className="h-9 w-full" /> : (
                   <input
                     value={phone}
@@ -266,7 +206,7 @@ export default function Settings() {
             )}
             {profileSuccess && (
               <p className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> {t.saved}
+                <CheckCircle2 className="w-4 h-4" /> {t("settings.saved")}
               </p>
             )}
 
@@ -275,7 +215,7 @@ export default function Settings() {
               disabled={profileSaving || !profile}
               className="px-5 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {profileSaving ? t.saving : t.saveBtn}
+              {profileSaving ? t("settings.saving") : t("settings.save")}
             </button>
           </CardContent>
         </Card>
@@ -286,31 +226,29 @@ export default function Settings() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-accent" />
-                <CardTitle>{t.transferTitle}</CardTitle>
+                <CardTitle>{t("settings.transfer")}</CardTitle>
               </div>
-              <CardDescription>{t.transferDesc}</CardDescription>
+              <CardDescription>{t("settings.transferDesc")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {transferSuccess ? (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold">Transfer Complete</p>
-                    <p className="text-sm mt-1">Super Admin has been transferred. You have been downgraded to assistant admin and will be redirected shortly.</p>
+                    <p className="font-semibold">{t("settings.transferComplete")}</p>
+                    <p className="text-sm mt-1">{t("settings.transferCompleteDesc")}</p>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-800">
-                      You will lose Super Admin access immediately after transfer. An audit log entry will be written to Firestore.
-                    </p>
+                    <p className="text-sm text-amber-800">{t("settings.transferWarning")}</p>
                   </div>
 
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium mb-1">{t.targetEmail}</label>
+                      <label className="block text-sm font-medium mb-1">{t("settings.targetEmail")}</label>
                       <input
                         type="email"
                         value={transferEmail}
@@ -321,20 +259,20 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">{t.currentPass}</label>
+                      <label className="block text-sm font-medium mb-1">{t("settings.currentPass")}</label>
                       <div className="relative">
                         <input
                           type={showPassword ? "text" : "password"}
                           value={transferPassword}
                           onChange={e => setTransferPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-2 pr-10 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          className="w-full px-3 py-2 pe-10 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                           dir="ltr"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -358,7 +296,7 @@ export default function Settings() {
                       }}
                       className="px-5 py-2 bg-amber-500 text-white rounded-md text-sm font-medium hover:bg-amber-600 transition-colors"
                     >
-                      {t.transferBtn}
+                      {t("settings.initiate")}
                     </button>
                   ) : (
                     <div className="p-4 border-2 border-destructive/30 rounded-lg bg-destructive/5 space-y-3">
@@ -372,13 +310,13 @@ export default function Settings() {
                           disabled={transferring}
                           className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
                         >
-                          {transferring ? "Transferring…" : t.confirmBtn}
+                          {transferring ? "Transferring…" : t("settings.confirm")}
                         </button>
                         <button
                           onClick={() => { setShowConfirm(false); setTransferError(""); }}
                           className="px-4 py-2 border rounded-md text-sm hover:bg-muted transition-colors"
                         >
-                          {t.cancelBtn}
+                          {t("settings.cancel")}
                         </button>
                       </div>
                     </div>

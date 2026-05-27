@@ -1,0 +1,145 @@
+Continue Super Admin Web Dashboard Phase 1.6.
+
+Do not modify the mobile app.
+Do not change Firestore rules unless a proven permission issue appears.
+Do not refactor the dashboard from scratch.
+
+Current working state:
+- Dashboard runs.
+- Super admin login works.
+- Users list appears.
+- Settings page exists.
+- Arabic/RTL partially works.
+
+Issues to fix:
+
+1. Language/i18n incomplete
+Arabic is selected, but sidebar labels and pages still show English:
+- Dashboard
+- Users
+- Workflow Matrix
+- Settings
+- User Directory
+- Sign Out
+- headings/table labels/buttons
+
+Fix:
+- Add a proper translation dictionary for EN/AR.
+- All sidebar labels, page titles, buttons, table headers, filters, status labels, and settings labels must use translation keys.
+- When Arabic is active:
+  - all visible labels should be Arabic
+  - layout direction RTL
+  - sidebar remains visually correct
+- Persist language in localStorage.
+
+2. Settings profile edit
+Currently employeeNumber is blocked/read-only.
+For super_admin dashboard:
+- Allow editing employeeNumber.
+- Keep email read-only for now.
+- Allow editing:
+  - displayName
+  - phone
+  - department
+  - employeeNumber
+- Save changes to users/{uid}.
+- If employeeNumber changes, update user_employee_index correctly:
+  - remove old index if exists
+  - create new index doc
+  - do this via secure API route, not direct client write if rules block it
+- Add success/error messages.
+
+3. User Management actions
+The Users page currently only displays users.
+Add actions per row:
+- Edit user
+- Delete user / deactivate user
+- Reset or update role
+- Edit employee number
+- Edit phone
+- Edit department
+- Edit display name
+
+Use a professional modal form.
+Super admin must be able to change role to the same roles used by the mobile app:
+- super_admin
+- requester
+- procurement
+- planning
+- finance
+- evp
+- ceo
+- operations
+
+Important:
+- Do NOT allow changing the currently logged-in super_admin to a non-super_admin accidentally without confirmation.
+- Prefer deactivate over hard delete if safer:
+  isActive = false
+- If implementing hard delete, use existing secure admin API only.
+- All changes must write audit_logs.
+
+4. Add User tab/page
+Add a new sidebar tab:
+Add User
+
+This page allows super_admin to create employees/users exactly like the mobile app registration/admin creation flow.
+
+Fields:
+- full name / displayName
+- email
+- temporary password
+- employeeNumber
+- phone
+- department
+- role
+- canSubmitRequests boolean
+- isActive boolean
+
+Use same roles:
+- super_admin
+- requester
+- procurement
+- planning
+- finance
+- evp
+- ceo
+- operations
+
+On create:
+- Create Firebase Auth user via secure API/Admin SDK
+- Create users/{uid}
+- Create user_employee_index/{employeeNumber}
+- Create user_phone_index/{phone} if phone exists
+- Write audit_log
+- Do not expose service account secrets in frontend.
+
+If existing /api/admin/users POST can do this, reuse it.
+If not, minimally extend it.
+
+5. Super Admin transfer
+Keep Transfer Super Admin in Settings.
+Make sure it:
+- transfers to another email
+- confirms strongly
+- writes settings/app.superAdminEmail
+- updates old/new user roles if current app logic requires it
+- writes audit log
+
+6. Verify request data issue
+Previously request KPIs were 0.
+Confirm whether dashboard now reads procurement_requests correctly.
+If still 0 while mobile has requests, fix collection/query/env mismatch.
+
+Return:
+- files changed
+- API routes reused/added
+- i18n keys added
+- user actions implemented
+- how to test:
+  a) switch Arabic and verify every label changes
+  b) edit own employeeNumber
+  c) edit another user role
+  d) deactivate user
+  e) add new user
+  f) verify new user can login in mobile app
+  g) verify audit_logs created

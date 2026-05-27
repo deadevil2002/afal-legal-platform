@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, limit, getCountFromServer, where } from "firebase/firestore";
 import Layout from "@/components/Layout";
+import { useLanguage } from "@/context/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, FileText, CheckCircle2, Clock, AlertCircle, XCircle } from "lucide-react";
@@ -34,14 +35,13 @@ interface DashboardData {
   recentRequests: DashboardRequest[];
 }
 
-const CATEGORY_COLORS = [
-  "#2D6491", "#16A8BA", "#BC9B5D", "#112B4D", "#7C3AED", "#B45309"
-];
+const CATEGORY_COLORS = ["#2D6491", "#16A8BA", "#BC9B5D", "#112B4D", "#7C3AED", "#B45309"];
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { t } = useLanguage();
 
   useEffect(() => {
     async function loadData() {
@@ -49,34 +49,24 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        console.log("[Dashboard] Firebase projectId =", db.app.options.projectId);
-        console.log("[Dashboard] Querying collection:", COLLECTION);
-
-        // Users count
         const usersCountSnap = await getCountFromServer(collection(db, "users"));
         const totalUsers = usersCountSnap.data().count;
 
-        // Total procurement requests
         const totalSnap = await getCountFromServer(collection(db, COLLECTION));
         const totalRequests = totalSnap.data().count;
-        console.log("[Dashboard] Total docs in", COLLECTION, "=", totalRequests);
 
-        // Completed (closed)
         const completedSnap = await getCountFromServer(
           query(collection(db, COLLECTION), where("status", "==", "closed"))
         );
         const completedRequests = completedSnap.data().count;
 
-        // Terminated
         const terminatedSnap = await getCountFromServer(
           query(collection(db, COLLECTION), where("status", "==", "terminated"))
         );
         const terminatedRequests = terminatedSnap.data().count;
 
-        // Active = total minus terminal statuses
         const activeRequests = totalRequests - completedRequests - terminatedRequests;
 
-        // Users by role
         const usersSnap = await getDocs(query(collection(db, "users"), limit(500)));
         const roleCounts: Record<string, number> = {};
         usersSnap.forEach((d) => {
@@ -89,7 +79,6 @@ export default function Dashboard() {
           color: ROLE_COLORS[role as AnyUserRole] || "#9CA3AF",
         }));
 
-        // Requests by category
         const reqsSnap = await getDocs(query(collection(db, COLLECTION), limit(500)));
         const catCounts: Record<string, number> = {};
         reqsSnap.forEach((d) => {
@@ -102,26 +91,12 @@ export default function Dashboard() {
           color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
         }));
 
-        // Recent requests
         const recentSnap = await getDocs(
           query(collection(db, COLLECTION), orderBy("createdAt", "desc"), limit(10))
         );
-        const recentRequests = recentSnap.docs.map((d) => {
-          const raw = d.data();
-          console.log("[Dashboard] sample doc id:", d.id, "status:", raw.status, "category:", raw.category);
-          return { id: d.id, ...raw } as DashboardRequest;
-        });
+        const recentRequests = recentSnap.docs.map((d) => ({ id: d.id, ...d.data() } as DashboardRequest));
 
-        setData({
-          totalUsers,
-          totalRequests,
-          activeRequests,
-          completedRequests,
-          terminatedRequests,
-          usersByRole,
-          requestsByCategory,
-          recentRequests,
-        });
+        setData({ totalUsers, totalRequests, activeRequests, completedRequests, terminatedRequests, usersByRole, requestsByCategory, recentRequests });
       } catch (err) {
         console.error("[Dashboard] Error loading data:", err);
         setError("Failed to load dashboard metrics. Please check your connection and try again.");
@@ -129,7 +104,6 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
-
     loadData();
   }, []);
 
@@ -139,7 +113,7 @@ export default function Dashboard() {
         <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-6 h-6 text-destructive flex-shrink-0" />
           <div>
-            <h3 className="text-lg font-semibold text-destructive">Error Loading Dashboard</h3>
+            <h3 className="text-lg font-semibold text-destructive">{t("common.error")}</h3>
             <p className="text-destructive/80 mt-1">{error}</p>
           </div>
         </div>
@@ -151,18 +125,16 @@ export default function Dashboard() {
     <Layout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">
-            Live metrics from the <span className="font-mono text-xs bg-muted px-1 py-0.5 rounded">{COLLECTION}</span> collection.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("dashboard.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("dashboard.subtitle")}</p>
         </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard title="Total Users"       value={data?.totalUsers}       icon={<Users       className="w-5 h-5 text-primary"   />} loading={loading} />
-          <MetricCard title="Total Requests"    value={data?.totalRequests}    icon={<FileText    className="w-5 h-5 text-secondary" />} loading={loading} />
-          <MetricCard title="Active Requests"   value={data?.activeRequests}   icon={<Clock       className="w-5 h-5 text-accent"    />} loading={loading} />
-          <MetricCard title="Closed Requests"   value={data?.completedRequests}icon={<CheckCircle2 className="w-5 h-5 text-green-600"/>} loading={loading} />
+          <MetricCard title={t("dashboard.totalUsers")}     value={data?.totalUsers}        icon={<Users        className="w-5 h-5 text-primary"    />} loading={loading} />
+          <MetricCard title={t("dashboard.totalRequests")}  value={data?.totalRequests}     icon={<FileText     className="w-5 h-5 text-secondary"  />} loading={loading} />
+          <MetricCard title={t("dashboard.activeRequests")} value={data?.activeRequests}    icon={<Clock        className="w-5 h-5 text-accent"     />} loading={loading} />
+          <MetricCard title={t("dashboard.closedRequests")} value={data?.completedRequests} icon={<CheckCircle2 className="w-5 h-5 text-green-600" />} loading={loading} />
         </div>
 
         {/* Secondary KPI */}
@@ -171,7 +143,7 @@ export default function Dashboard() {
             <CardContent className="p-4 flex items-center gap-4">
               <XCircle className="w-8 h-8 text-red-400 shrink-0" />
               <div>
-                <p className="text-sm text-muted-foreground">Terminated</p>
+                <p className="text-sm text-muted-foreground">{t("dashboard.terminated")}</p>
                 {loading ? <Skeleton className="h-7 w-12 mt-1" /> : (
                   <p className="text-2xl font-bold">{data?.terminatedRequests ?? 0}</p>
                 )}
@@ -180,7 +152,7 @@ export default function Dashboard() {
           </Card>
           <Card className="shadow-sm border-l-4 border-l-amber-400 col-span-1 sm:col-span-2">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground mb-1">Request Categories</p>
+              <p className="text-sm text-muted-foreground mb-1">{t("dashboard.requestCategories")}</p>
               {loading ? <Skeleton className="h-5 w-48" /> : (
                 <div className="flex flex-wrap gap-2">
                   {data?.requestsByCategory.map((c, i) => (
@@ -189,7 +161,7 @@ export default function Dashboard() {
                     </Badge>
                   ))}
                   {(!data || data.requestsByCategory.length === 0) && (
-                    <span className="text-sm text-muted-foreground">No data yet</span>
+                    <span className="text-sm text-muted-foreground">{t("dashboard.noData")}</span>
                   )}
                 </div>
               )}
@@ -201,8 +173,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Users by Role</CardTitle>
-              <CardDescription>Distribution of active users across departments</CardDescription>
+              <CardTitle>{t("dashboard.usersByRole")}</CardTitle>
+              <CardDescription>{t("dashboard.usersDistribution")}</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
               {loading ? (
@@ -218,15 +190,15 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">No data available</div>
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">{t("dashboard.noData")}</div>
               )}
             </CardContent>
           </Card>
 
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Requests by Category</CardTitle>
-              <CardDescription>Volume per procurement category</CardDescription>
+              <CardTitle>{t("dashboard.requestsByCategory")}</CardTitle>
+              <CardDescription>{t("dashboard.volumePerCategory")}</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
               {loading ? (
@@ -242,7 +214,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">No data available</div>
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">{t("dashboard.noData")}</div>
               )}
             </CardContent>
           </Card>
@@ -251,8 +223,8 @@ export default function Dashboard() {
         {/* Recent Activity */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>10 most recently created procurement requests</CardDescription>
+            <CardTitle>{t("dashboard.recentActivity")}</CardTitle>
+            <CardDescription>{t("dashboard.recentActivityDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -270,10 +242,10 @@ export default function Dashboard() {
                         {req.category && <Badge variant="secondary" className="text-xs shrink-0">{req.category}</Badge>}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        By: {req.createdByName || "—"} &nbsp;·&nbsp; ID: <span className="font-mono">{req.id.slice(0, 8)}…</span>
+                        {t("dashboard.by")}: {req.createdByName || "—"} &nbsp;·&nbsp; ID: <span className="font-mono">{req.id.slice(0, 8)}…</span>
                       </div>
                     </div>
-                    <div className="ml-4 shrink-0">
+                    <div className="ms-4 shrink-0">
                       <StatusBadge status={req.status} />
                     </div>
                   </div>
@@ -281,7 +253,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="p-8 text-center text-muted-foreground border rounded-md border-dashed">
-                No recent activity found in <code className="text-xs">{COLLECTION}</code>.
+                {t("dashboard.noActivity")}
               </div>
             )}
           </CardContent>
@@ -309,20 +281,20 @@ function MetricCard({ title, value, icon, loading }: { title: string; value?: nu
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    draft:                      "bg-slate-100 text-slate-700 border-slate-200",
-    pending_procurement:        "bg-amber-100 text-amber-800 border-amber-200",
-    awaiting_quotations:        "bg-blue-100 text-blue-800 border-blue-200",
-    quotations_received:        "bg-cyan-100 text-cyan-800 border-cyan-200",
-    pending_requester_selection:"bg-violet-100 text-violet-800 border-violet-200",
-    quotation_rejected:         "bg-red-100 text-red-800 border-red-200",
-    pending_pr_entry:           "bg-orange-100 text-orange-800 border-orange-200",
-    pending_budget_approval:    "bg-yellow-100 text-yellow-800 border-yellow-200",
-    pending_po:                 "bg-teal-100 text-teal-800 border-teal-200",
+    draft:                        "bg-slate-100 text-slate-700 border-slate-200",
+    pending_procurement:          "bg-amber-100 text-amber-800 border-amber-200",
+    awaiting_quotations:          "bg-blue-100 text-blue-800 border-blue-200",
+    quotations_received:          "bg-cyan-100 text-cyan-800 border-cyan-200",
+    pending_requester_selection:  "bg-violet-100 text-violet-800 border-violet-200",
+    quotation_rejected:           "bg-red-100 text-red-800 border-red-200",
+    pending_pr_entry:             "bg-orange-100 text-orange-800 border-orange-200",
+    pending_budget_approval:      "bg-yellow-100 text-yellow-800 border-yellow-200",
+    pending_po:                   "bg-teal-100 text-teal-800 border-teal-200",
     pending_director_po_approval: "bg-indigo-100 text-indigo-800 border-indigo-200",
     pending_planning_po_approval: "bg-purple-100 text-purple-800 border-purple-200",
-    pending_payment:            "bg-pink-100 text-pink-800 border-pink-200",
-    closed:                     "bg-green-100 text-green-800 border-green-200",
-    terminated:                 "bg-red-200 text-red-900 border-red-300",
+    pending_payment:              "bg-pink-100 text-pink-800 border-pink-200",
+    closed:                       "bg-green-100 text-green-800 border-green-200",
+    terminated:                   "bg-red-200 text-red-900 border-red-300",
   };
   return (
     <Badge variant="outline" className={`text-xs capitalize whitespace-nowrap ${styles[status] || "bg-slate-100 text-slate-700"}`}>

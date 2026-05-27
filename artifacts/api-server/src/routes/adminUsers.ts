@@ -6,6 +6,18 @@ import { requireInternalAuth } from "../lib/auth";
 import { safeJsonResponse, errorJsonResponse } from "../lib/response";
 
 const roleSchema = z.enum([
+  "super_admin",
+  "ceo",
+  "evp",
+  "operations",
+  "planning",
+  "finance",
+  "procurement",
+  "assistant_admin",
+]);
+type ValidRole = z.infer<typeof roleSchema>;
+
+const createRoleSchema = z.enum([
   "ceo",
   "evp",
   "operations",
@@ -13,7 +25,6 @@ const roleSchema = z.enum([
   "finance",
   "procurement",
 ]);
-type ValidRole = z.infer<typeof roleSchema>;
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
@@ -30,7 +41,7 @@ const createUserBodySchema = z.object({
   employeeNumber: z.string().min(1, "Employee number is required"),
   phone: z.string().min(1, "Phone number is required"),
   department: z.string().optional().default(""),
-  role: roleSchema,
+  role: createRoleSchema,
   canSubmitRequests: z.boolean().default(false),
 });
 
@@ -41,6 +52,7 @@ const updateUserBodySchema = z.object({
   canSubmitRequests: z.boolean().optional(),
   phone: z.string().optional(),
   employeeNumber: z.string().min(1).optional(),
+  isActive: z.boolean().optional(),
 });
 
 const router = Router();
@@ -49,11 +61,6 @@ const router = Router();
  * POST /api/admin/users/lookup-employee
  *
  * PUBLIC — no authentication required.
- * Used by the mobile login flow: employee-number login reads user_employee_index
- * which now always stores the email field. This endpoint is the fallback for
- * older/manually-created index docs that pre-date the email field.
- *
- * Resolves an employee number → email via Admin SDK (bypasses Firestore rules).
  */
 router.post("/lookup-employee", async (req, res) => {
   try {
@@ -73,13 +80,11 @@ router.post("/lookup-employee", async (req, res) => {
 
     const empData = empSnap.data() as { uid: string; email?: string };
 
-    // If the index doc already has an email, return it directly
     if (empData.email) {
       safeJsonResponse(res, { email: empData.email.toLowerCase() }, 200);
       return;
     }
 
-    // Fallback: look up the user profile doc via uid
     const userSnap = await db.collection("users").doc(empData.uid).get();
     if (!userSnap.exists) {
       errorJsonResponse(res, "Employee profile not found.", 404, "not_found");
@@ -102,42 +107,24 @@ router.post("/lookup-employee", async (req, res) => {
 /**
  * POST /api/admin/users
  *
- * Super Admin only. Creates a new Firebase Auth user and writes all
- * associated Firestore documents atomically via Admin SDK, bypassing
- * client-side Firestore rules entirely.
- *
- * Writes:
- *   users/{uid}                      — user profile
- *   user_phone_index/{phone}         — phone uniqueness index
- *   user_employee_index/{empNum}     — employee number uniqueness index (includes email)
+ * Super Admin only. Creates a new Firebase Auth user and all Firestore docs.
  */
 router.post("/", requireInternalAuth, async (req, res) => {
   try {
     const caller = req.internalUser!;
 
     if (caller.role !== "super_admin") {
-      req.log.warn(
-        { callerUid: caller.uid, callerRole: caller.role },
-        "POST /api/admin/users: rejected — caller is not super_admin",
-      );
       errorJsonResponse(res, "Only Super Admin may create users.", 403, "not_super_admin");
       return;
     }
 
     const parsed = createUserBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      req.log.warn({ validationError: parsed.error.flatten() }, "create-user body invalid");
-      errorJsonResponse(
-        res,
-        parsed.error.errors[0]?.message ?? "Invalid payload",
-        400,
-        "invalid_payload",
-      );
+      errorJsonResponse(res, parsed.error.errors[0]?.message ?? "Invalid payload", 400, "invalid_payload");
       return;
     }
 
-    const { email, password, displayName, employeeNumber, phone, department, role, canSubmitRequests } =
-      parsed.data;
+    const { email, password, displayName, employeeNumber, phone, department, role, canSubmitRequests } = parsed.data;
 
     const normalizedPhone = normalizePhone(phone);
     const trimmedEmpNum = employeeNumber.trim();
@@ -146,14 +133,9 @@ router.post("/", requireInternalAuth, async (req, res) => {
     const db = getAdminDb();
     const adminAuth = getAdminAuth();
 
-    // ── Uniqueness pre-checks ────────────────────────────────────────────────
     const [phoneSnap, empSnap] = await Promise.all([
-      normalizedPhone
-        ? db.collection("user_phone_index").doc(normalizedPhone).get()
-        : Promise.resolve(null),
-      trimmedEmpNum
-        ? db.collection("user_employee_index").doc(trimmedEmpNum).get()
-        : Promise.resolve(null),
+      normalizedPhone ? db.collection("user_phone_index").doc(normalizedPhone).get() : Promise.resolve(null),
+      trimmedEmpNum ? db.collection("user_employee_index").doc(trimmedEmpNum).get() : Promise.resolve(null),
     ]);
 
     if (phoneSnap?.exists) {
@@ -162,16 +144,10 @@ router.post("/", requireInternalAuth, async (req, res) => {
     }
 
     if (empSnap?.exists) {
-      errorJsonResponse(
-        res,
-        "This employee number is already registered.",
-        409,
-        "employee_taken",
-      );
+      errorJsonResponse(res, "This employee number is already registered.", 409, "employee_taken");
       return;
     }
 
-    // ── Create Firebase Auth user ────────────────────────────────────────────
     let uid: string;
     try {
       const authUser = await adminAuth.createUser({
@@ -182,7 +158,7 @@ router.post("/", requireInternalAuth, async (req, res) => {
       });
       uid = authUser.uid;
     } catch (authErr: unknown) {
-      const err = authErr as { code?: string; message?: string };
+      const err = authErr as { code?: string };
       if (err.code === "auth/email-already-exists") {
         errorJsonResponse(res, "This email address is already registered.", 409, "email_taken");
         return;
@@ -192,7 +168,6 @@ router.post("/", requireInternalAuth, async (req, res) => {
       return;
     }
 
-    // ── Atomic Firestore batch ───────────────────────────────────────────────
     const now = FieldValue.serverTimestamp();
     const batch = db.batch();
 
@@ -220,8 +195,6 @@ router.post("/", requireInternalAuth, async (req, res) => {
     }
 
     if (trimmedEmpNum) {
-      // email is stored in the index so employee-number login works without
-      // a secondary Firestore read (users/{uid}) or an API fallback call.
       batch.set(db.collection("user_employee_index").doc(trimmedEmpNum), {
         uid,
         email: lowerEmail,
@@ -230,24 +203,27 @@ router.post("/", requireInternalAuth, async (req, res) => {
       });
     }
 
+    // Audit log
+    batch.set(db.collection("audit_logs").doc(), {
+      type: "user_created",
+      targetUid: uid,
+      targetEmail: lowerEmail,
+      createdByUid: caller.uid,
+      createdByEmail: caller.email,
+      role,
+      createdAt: now,
+    });
+
     try {
       await batch.commit();
     } catch (firestoreErr: unknown) {
-      req.log.error(
-        { err: firestoreErr },
-        "create-user Firestore batch failed — rolling back Auth user",
-      );
+      req.log.error({ err: firestoreErr }, "create-user Firestore batch failed — rolling back Auth user");
       try {
         await adminAuth.deleteUser(uid);
       } catch (delErr) {
         req.log.error({ err: delErr }, "Failed to delete orphaned Auth user after batch rollback");
       }
-      errorJsonResponse(
-        res,
-        "Failed to save user profile. Auth account rolled back.",
-        500,
-        "server_error",
-      );
+      errorJsonResponse(res, "Failed to save user profile. Auth account rolled back.", 500, "server_error");
       return;
     }
 
@@ -262,12 +238,7 @@ router.post("/", requireInternalAuth, async (req, res) => {
 /**
  * PATCH /api/admin/users/:uid
  *
- * Super Admin only. Updates a user's profile, atomically syncing the
- * uniqueness index documents when phone or employeeNumber changes.
- *
- * All fields are optional — only provided fields are updated.
- * Writable fields: displayName, department, role, canSubmitRequests, phone, employeeNumber.
- * Protected fields (uid, email, createdAt, isActive) cannot be changed here.
+ * Super Admin only. Updates profile, syncs uniqueness indexes, writes audit log.
  */
 router.patch("/:uid", requireInternalAuth, async (req, res) => {
   try {
@@ -286,13 +257,7 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
 
     const parsed = updateUserBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      req.log.warn({ validationError: parsed.error.flatten() }, "update-user body invalid");
-      errorJsonResponse(
-        res,
-        parsed.error.errors[0]?.message ?? "Invalid payload",
-        400,
-        "invalid_payload",
-      );
+      errorJsonResponse(res, parsed.error.errors[0]?.message ?? "Invalid payload", 400, "invalid_payload");
       return;
     }
 
@@ -304,7 +269,6 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
 
     const db = getAdminDb();
 
-    // ── Read current profile ─────────────────────────────────────────────────
     const userRef = db.collection("users").doc(uid);
     const userSnap = await userRef.get();
     if (!userSnap.exists) {
@@ -317,11 +281,13 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
       phone?: string;
       employeeNumber?: string;
       role?: ValidRole;
+      isActive?: boolean;
       [key: string]: unknown;
     };
 
     const now = FieldValue.serverTimestamp();
     const batch = db.batch();
+    const auditFields: Record<string, unknown> = {};
 
     // ── Phone index sync ─────────────────────────────────────────────────────
     if (updates.phone !== undefined) {
@@ -335,18 +301,14 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
             errorJsonResponse(res, "This phone number is already registered.", 409, "phone_taken");
             return;
           }
-          batch.set(db.collection("user_phone_index").doc(newPhone), {
-            uid,
-            phone: newPhone,
-            createdAt: now,
-          });
+          batch.set(db.collection("user_phone_index").doc(newPhone), { uid, phone: newPhone, createdAt: now });
         }
         if (oldPhone) {
           batch.delete(db.collection("user_phone_index").doc(oldPhone));
         }
         updates.phone = newPhone;
       } else {
-        delete updates.phone; // no change, skip field
+        delete updates.phone;
       }
     }
 
@@ -359,12 +321,7 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
         if (newEmpNum) {
           const existingSnap = await db.collection("user_employee_index").doc(newEmpNum).get();
           if (existingSnap.exists && (existingSnap.data() as { uid?: string })?.uid !== uid) {
-            errorJsonResponse(
-              res,
-              "This employee number is already registered.",
-              409,
-              "employee_taken",
-            );
+            errorJsonResponse(res, "This employee number is already registered.", 409, "employee_taken");
             return;
           }
           batch.set(db.collection("user_employee_index").doc(newEmpNum), {
@@ -379,20 +336,42 @@ router.patch("/:uid", requireInternalAuth, async (req, res) => {
         }
         updates.employeeNumber = newEmpNum;
       } else {
-        delete updates.employeeNumber; // no change, skip field
+        delete updates.employeeNumber;
       }
     }
 
     // ── Build update payload ─────────────────────────────────────────────────
     const updatePayload: Record<string, unknown> = { updatedAt: now };
-    if (updates.displayName !== undefined) updatePayload.displayName = updates.displayName;
-    if (updates.department !== undefined) updatePayload.department = updates.department;
-    if (updates.role !== undefined) updatePayload.role = updates.role;
+    if (updates.displayName !== undefined)      updatePayload.displayName = updates.displayName;
+    if (updates.department !== undefined)       updatePayload.department = updates.department;
     if (updates.canSubmitRequests !== undefined) updatePayload.canSubmitRequests = updates.canSubmitRequests;
-    if (updates.phone !== undefined) updatePayload.phone = updates.phone;
-    if (updates.employeeNumber !== undefined) updatePayload.employeeNumber = updates.employeeNumber;
+    if (updates.phone !== undefined)            updatePayload.phone = updates.phone;
+    if (updates.employeeNumber !== undefined)   updatePayload.employeeNumber = updates.employeeNumber;
+    if (updates.isActive !== undefined)         updatePayload.isActive = updates.isActive;
+
+    if (updates.role !== undefined) {
+      updatePayload.role = updates.role;
+      auditFields.oldRole = current.role;
+      auditFields.newRole = updates.role;
+    }
+    if (updates.isActive !== undefined) {
+      auditFields.isActive = updates.isActive;
+    }
 
     batch.update(userRef, updatePayload);
+
+    // Write audit log for significant actions
+    if (Object.keys(auditFields).length > 0) {
+      batch.set(db.collection("audit_logs").doc(), {
+        type: updates.role !== undefined ? "role_change" : "user_status_change",
+        targetUid: uid,
+        targetEmail: current.email,
+        changedByUid: caller.uid,
+        changedByEmail: caller.email,
+        ...auditFields,
+        changedAt: now,
+      });
+    }
 
     try {
       await batch.commit();
