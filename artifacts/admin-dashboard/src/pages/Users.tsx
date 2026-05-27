@@ -18,7 +18,7 @@ const EDITABLE_ROLES: AnyUserRole[] = ["ceo", "evp", "operations", "planning", "
 
 export default function Users() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,14 +202,25 @@ export default function Users() {
           <CardContent>
             <div className="rounded-md border overflow-hidden overflow-x-auto">
               <Table className="w-full table-fixed">
-                <colgroup>
-                  <col />
-                  <col style={{ width: "140px" }} />
-                  <col style={{ width: "150px" }} />
-                  <col style={{ width: "170px" }} />
-                  <col style={{ width: "110px" }} />
-                  <col style={{ width: "200px" }} />
-                </colgroup>
+                {isRTL ? (
+                  <colgroup>
+                    <col />
+                    <col style={{ width: "130px" }} />
+                    <col style={{ width: "150px" }} />
+                    <col style={{ width: "170px" }} />
+                    <col style={{ width: "110px" }} />
+                    <col style={{ width: "150px" }} />
+                  </colgroup>
+                ) : (
+                  <colgroup>
+                    <col />
+                    <col style={{ width: "140px" }} />
+                    <col style={{ width: "150px" }} />
+                    <col style={{ width: "170px" }} />
+                    <col style={{ width: "110px" }} />
+                    <col style={{ width: "200px" }} />
+                  </colgroup>
+                )}
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-b border-border">
                     <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colName")}</TableHead>
