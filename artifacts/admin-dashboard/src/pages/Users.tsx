@@ -223,12 +223,12 @@ export default function Users() {
                 )}
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-b border-border">
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colName")}</TableHead>
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colEmployeeNo")}</TableHead>
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colRole")}</TableHead>
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colDepartment")}</TableHead>
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("users.colStatus")}</TableHead>
-                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-end">{t("users.colActions")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-start">{t("users.colName")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">{t("users.colEmployeeNo")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">{t("users.colRole")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">{t("users.colDepartment")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">{t("users.colStatus")}</TableHead>
+                    <TableHead className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">{t("users.colActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -243,7 +243,7 @@ export default function Users() {
                   ) : filteredUsers.length > 0 ? (
                     filteredUsers.map((u) => (
                       <TableRow key={u.uid} className="border-b border-border/60 hover:bg-muted/30 transition-colors align-middle">
-                        <TableCell className="py-3.5 px-4">
+                        <TableCell className="py-3.5 px-4 text-start">
                           <div className="flex flex-col gap-0.5 min-w-0">
                             <span className="text-sm font-semibold text-foreground leading-snug truncate">
                               {u.fullName || u.displayName || "—"}
@@ -251,26 +251,26 @@ export default function Users() {
                             <span className="text-xs text-muted-foreground leading-snug truncate">{u.email}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3.5 px-4">
+                        <TableCell className="py-3.5 px-4 text-center">
                           <span className="text-sm font-mono text-muted-foreground tabular-nums">
                             {u.employeeNumber || "—"}
                           </span>
                         </TableCell>
-                        <TableCell className="py-3.5 px-4">
+                        <TableCell className="py-3.5 px-4 text-center">
                           <RoleBadge role={u.role} />
                         </TableCell>
-                        <TableCell className="py-3.5 px-4">
-                          <span className="text-sm text-muted-foreground truncate block">{u.department || "—"}</span>
+                        <TableCell className="py-3.5 px-4 text-center">
+                          <span className="text-sm text-muted-foreground truncate">{u.department || "—"}</span>
                         </TableCell>
-                        <TableCell className="py-3.5 px-4">
+                        <TableCell className="py-3.5 px-4 text-center">
                           {u.isActive !== false ? (
                             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 whitespace-nowrap">{t("users.statusActive")}</Badge>
                           ) : (
                             <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 whitespace-nowrap">{t("users.statusInactive")}</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="py-3.5 px-4">
-                          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                        <TableCell className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                             <button
                               onClick={() => openEdit(u)}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors h-7"
