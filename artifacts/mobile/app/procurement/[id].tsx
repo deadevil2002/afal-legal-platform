@@ -28,7 +28,7 @@ import {
   View,
 } from "react-native";
 import { useDialog } from "@/context/DialogContext";
-import { apiGet, apiPost } from "@/lib/apiClient";
+import { apiGet, apiPost, cfApiGet, cfApiPost } from "@/lib/apiClient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AttachmentViewer } from "@/components/AttachmentViewer";
 import { ProcurementStageBadge } from "@/components/ProcurementStageBadge";
@@ -1640,7 +1640,8 @@ export default function ProcurementDetailScreen() {
     let cancelled = false;
     console.log("[refreshLinks] requestId:", id, "key:", linksRefreshKey);
     setLoadingLinks(true);
-    apiGet<{ links: SupplierLink[] }>(`/api/procurement/supplier-links/${id}`)
+    console.log("[Cloudflare Procurement API] GET /api/procurement/supplier-links/" + id);
+    cfApiGet<{ links: SupplierLink[] }>(`/api/procurement/supplier-links/${id}`)
       .then(({ links }) => {
         console.log("[refreshLinks] returned links:", links.length);
         if (!cancelled) setSupplierLinks(links);
@@ -1910,7 +1911,8 @@ export default function ProcurementDetailScreen() {
     if (!id) return;
     setGeneratingLink(true);
     try {
-      const result = await apiPost<{
+      console.log("[Cloudflare Procurement API] POST /api/procurement/supplier-links requestId:", id);
+      const result = await cfApiPost<{
         id: string;
         token: string;
         requestId: string;
@@ -1965,7 +1967,8 @@ export default function ProcurementDetailScreen() {
       destructive: true,
       onConfirm: async () => {
         try {
-          await apiPost(`/api/procurement/supplier-links/${linkId}/deactivate`, {});
+          console.log("[Cloudflare Procurement API] POST /api/procurement/supplier-links/" + linkId + "/deactivate");
+          await cfApiPost(`/api/procurement/supplier-links/${linkId}/deactivate`, {});
           refreshLinks();
         } catch (err) {
           showError((err as Error).message, t("error"));
@@ -1987,7 +1990,8 @@ export default function ProcurementDetailScreen() {
       onConfirm: async () => {
         setForwardingResponses(true);
         try {
-          await apiPost(`/api/procurement/supplier-responses/${id}/forward`, {
+          console.log("[Cloudflare Procurement API] POST /api/procurement/supplier-responses/" + id + "/forward ids:", ids);
+          await cfApiPost(`/api/procurement/supplier-responses/${id}/forward`, {
             responseIds: ids,
           });
           setSelectedResponseIds(new Set());
