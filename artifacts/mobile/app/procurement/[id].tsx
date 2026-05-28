@@ -1320,7 +1320,8 @@ function WorkflowActionBanner({
   const act = async (action: string) => {
     setActing(true);
     try {
-      await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
+      console.log("[Cloudflare Workflow API] advance", action, "requestId:", requestId);
+      await cfApiPost(`/api/procurement/workflow/${requestId}/advance`, {
         action,
         comment: comment.trim() || null,
       });
@@ -1422,7 +1423,8 @@ function SuperAdminEarlyAdvance({
       onConfirm: async () => {
         setActing(true);
         try {
-          await apiPost(`/api/procurement/workflow/${requestId}/advance`, {
+          console.log("[Cloudflare Workflow API] SA early advance", entry.action, "requestId:", requestId);
+          await cfApiPost(`/api/procurement/workflow/${requestId}/advance`, {
             action: entry.action,
             comment: "Super Admin override",
           });
@@ -1804,7 +1806,8 @@ export default function ProcurementDetailScreen() {
       onConfirm: async () => {
         setSendingToRequester(true);
         try {
-          await apiPost(`/api/procurement/workflow/${id}/advance`, {
+          console.log("[Cloudflare Workflow API] send_quotations_to_requester id:", id);
+          await cfApiPost(`/api/procurement/workflow/${id}/advance`, {
             action: "send_quotations_to_requester",
             comment: null,
           });
@@ -1838,7 +1841,8 @@ export default function ProcurementDetailScreen() {
       onConfirm: async () => {
         setApprovingQuotation(true);
         try {
-          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
+          console.log("[Cloudflare Workflow API] approve-quotation (Mode A) id:", id, "quotationId:", quotation.id);
+          await cfApiPost(`/api/procurement/workflow/${id}/approve-quotation`, {
             quotationId: quotation.id,
             quotation,
           });
@@ -1871,9 +1875,8 @@ export default function ProcurementDetailScreen() {
         setApprovingSupplierQuotation(true);
         try {
           const body = { selectedSupplierResponseId: resp.id };
-          console.log("[approve supplier] selectedSupplierResponseId", resp.id);
-          console.log("[approve supplier] body", JSON.stringify(body));
-          await apiPost(`/api/procurement/workflow/${id}/approve-quotation`, body);
+          console.log("[Cloudflare Workflow API] approve-quotation (Mode B) id:", id, "responseId:", resp.id);
+          await cfApiPost(`/api/procurement/workflow/${id}/approve-quotation`, body);
           setLocalSelectedSupplierResponseId(null);
           showSuccess(t("supplierQuotationApprovedSuccess"), t("success"));
         } catch (err) {
@@ -2012,7 +2015,8 @@ export default function ProcurementDetailScreen() {
       confirmText: t("submitApproval"),
       onConfirm: async () => {
         try {
-          await apiPost(`/api/procurement/workflow/${id}/advance`, {
+          console.log("[Cloudflare Workflow API] procurement_advance id:", id);
+          await cfApiPost(`/api/procurement/workflow/${id}/advance`, {
             action: "procurement_advance",
             comment: null,
           });
