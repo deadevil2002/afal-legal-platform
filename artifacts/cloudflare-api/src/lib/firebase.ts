@@ -60,11 +60,17 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FIRESTORE_SCOPE = "https://www.googleapis.com/auth/datastore";
 const FIRESTORE_BASE = "https://firestore.googleapis.com/v1";
 
+/** Scope required for Firebase Auth Admin REST API (create/delete users). */
+export const FIREBASE_AUTH_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
+
 /**
  * Returns a short-lived Google OAuth2 access token for the given service account.
  * Valid for 1 hour — Workers are short-lived so per-request is fine.
  */
-export async function getAccessToken(env: FirebaseEnv): Promise<string> {
+export async function getAccessToken(
+  env: FirebaseEnv,
+  scope: string = FIRESTORE_SCOPE,
+): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
   const header = { alg: "RS256", typ: "JWT" };
@@ -74,7 +80,7 @@ export async function getAccessToken(env: FirebaseEnv): Promise<string> {
     aud: GOOGLE_TOKEN_URL,
     iat: now,
     exp: now + 3600,
-    scope: FIRESTORE_SCOPE,
+    scope,
   };
 
   const signingInput = `${jsonB64url(header)}.${jsonB64url(payload)}`;
@@ -116,6 +122,90 @@ export async function getAccessToken(env: FirebaseEnv): Promise<string> {
     throw new Error("Google token response missing access_token");
   }
   return data.access_token;
+}
+
+// ─── Firebase Auth Admin REST helpers ────────────────────────────────────────
+
+const FIREBASE_AUTH_BASE = "https://identitytoolkit.googleapis.com/v1";
+
+/**
+ * Create a Firebase Auth user via the Identity Toolkit Admin REST API.
+ * Requires a token with FIREBASE_AUTH_SCOPE.
+ * Throws "auth/email-already-exists" if the email is taken.
+ */
+export async function createFirebaseAuthUser(
+  projectId: string,
+  authToken: string,
+  opts: {
+    email: string;
+    password: string;
+    displayName: string;
+  },
+): Promise<{ uid: string }> {
+  const res = await fetch(
+    `${FIREBASE_AUTH_BASE}/projects/${projectId}/accounts`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: opts.email,
+        password: opts.password,
+        displayName: opts.displayName,
+        emailVerified: false,
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const body = (await res.json()) as {
+      error?: { message?: string };
+    };
+    const msg = body?.error?.message ?? "";
+    if (msg === "EMAIL_EXISTS") {
+      throw new Error("auth/email-already-exists");
+    }
+    throw new Error(
+      `Firebase Auth createUser failed (${res.status}): ${msg || JSON.stringify(body)}`,
+    );
+  }
+
+  const data = (await res.json()) as { localId?: string };
+  if (!data.localId) {
+    throw new Error("Firebase Auth createUser: response missing localId");
+  }
+  return { uid: data.localId };
+}
+
+/**
+ * Delete a Firebase Auth user by UID via the Identity Toolkit Admin REST API.
+ * Requires a token with FIREBASE_AUTH_SCOPE.
+ * Best-effort — logs on failure but does not throw (used for Auth rollback).
+ */
+export async function deleteFirebaseAuthUser(
+  projectId: string,
+  authToken: string,
+  uid: string,
+): Promise<void> {
+  const res = await fetch(
+    `${FIREBASE_AUTH_BASE}/projects/${projectId}/accounts:delete`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ localId: uid }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(
+      `deleteFirebaseAuthUser uid=${uid} failed (${res.status}): ${body}`,
+    );
+  }
 }
 
 // ─── Document ID generation ───────────────────────────────────────────────────
@@ -399,6 +489,11 @@ export type BatchOp =
       collection: string;
       id: string;
       data: Record<string, unknown | ServerTimestampSentinel>;
+    }
+  | {
+      type: "delete";
+      collection: string;
+      id: string;
     };
 
 /**
@@ -420,6 +515,12 @@ export async function firestoreBatchWrite(
 
   const writes = ops.map((op) => {
     const name = docName(projectId, `${op.collection}/${op.id}`);
+
+    // Delete write — no data needed
+    if (op.type === "delete") {
+      return { delete: name };
+    }
+
     const fields = toFirestoreFields(op.data);
     const tsPaths = collectTimestampKeys(op.data);
 
