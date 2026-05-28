@@ -10,11 +10,13 @@
  * No Node.js APIs are used — this runs natively in the V8 isolate.
  */
 
-export interface FirebaseEnv {
-  FIREBASE_PROJECT_ID: string;
-  FIREBASE_CLIENT_EMAIL: string;
-  FIREBASE_PRIVATE_KEY: string;
-}
+import type { Env } from "./types";
+
+/** Minimal env subset needed by getAccessToken and firestorePing. */
+export type FirebaseEnv = Pick<
+  Env,
+  "FIREBASE_PROJECT_ID" | "FIREBASE_CLIENT_EMAIL" | "FIREBASE_PRIVATE_KEY"
+>;
 
 // ─── JWT helpers ──────────────────────────────────────────────────────────────
 
@@ -129,6 +131,27 @@ export function generateDocId(): string {
     .join("");
 }
 
+// ─── Firestore timestamp ──────────────────────────────────────────────────────
+
+/**
+ * Marker object for Firestore timestamp values.
+ * Pass to document data fields that should be stored as Firestore timestampValue.
+ * Distinguished from plain objects by the __firestoreTimestamp flag.
+ */
+export interface FirestoreTimestamp {
+  readonly __firestoreTimestamp: true;
+  readonly seconds: number;
+  readonly nanoseconds: number;
+}
+
+/**
+ * Create a FirestoreTimestamp value for use in document writes.
+ * The Worker serialises it to `{ "timestampValue": "ISO-8601" }` in REST calls.
+ */
+export function makeTimestamp(seconds: number, nanoseconds = 0): FirestoreTimestamp {
+  return { __firestoreTimestamp: true, seconds, nanoseconds };
+}
+
 // ─── Server timestamp sentinel ────────────────────────────────────────────────
 
 /**
@@ -146,10 +169,15 @@ type RestValue =
   | { integerValue: string }
   | { doubleValue: number }
   | { stringValue: string }
+  | { timestampValue: string }
   | { arrayValue: { values: RestValue[] } }
   | { mapValue: { fields: Record<string, RestValue> } };
 
-/** Convert a JS value to Firestore REST typed format. SERVER_TIMESTAMP → null (stripped). */
+/**
+ * Convert a JS value to Firestore REST typed format.
+ * SERVER_TIMESTAMP → null (stripped; handled separately via updateTransforms).
+ * FirestoreTimestamp → timestampValue ISO string.
+ */
 function toRestValue(val: unknown): RestValue | null {
   if (val === null || val === undefined) return { nullValue: null };
   if (val === SERVER_TIMESTAMP) return null;
@@ -170,8 +198,16 @@ function toRestValue(val: unknown): RestValue | null {
     };
   }
   if (typeof val === "object") {
+    // FirestoreTimestamp — serialize as timestampValue
+    const obj = val as Record<string, unknown>;
+    if (obj["__firestoreTimestamp"] === true) {
+      const ts = val as FirestoreTimestamp;
+      const ms = ts.seconds * 1000 + Math.floor(ts.nanoseconds / 1_000_000);
+      return { timestampValue: new Date(ms).toISOString() };
+    }
+    // Plain object — serialize as mapValue
     const fields: Record<string, RestValue> = {};
-    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+    for (const [k, v] of Object.entries(obj)) {
       if (v === SERVER_TIMESTAMP) continue;
       const converted = toRestValue(v);
       if (converted !== null) fields[k] = converted;
@@ -197,10 +233,7 @@ function toFirestoreFields(
   return fields;
 }
 
-/**
- * Collect top-level keys whose value is SERVER_TIMESTAMP.
- * Used to build `updateTransforms` for server timestamp fields.
- */
+/** Collect top-level keys whose value is SERVER_TIMESTAMP. */
 function collectTimestampKeys(obj: Record<string, unknown>): string[] {
   return Object.entries(obj)
     .filter(([, v]) => v === SERVER_TIMESTAMP)
@@ -260,6 +293,8 @@ export interface FirestoreDoc {
 /**
  * Run a single-field equality query against a collection.
  * Returns parsed documents — never raw REST format.
+ *
+ * @param limitCount  Max results. Omit or pass undefined for no limit.
  */
 export async function firestoreQueryWhere(
   projectId: string,
@@ -267,9 +302,23 @@ export async function firestoreQueryWhere(
   collectionId: string,
   field: string,
   value: string,
-  limitCount = 1,
+  limitCount?: number,
 ): Promise<FirestoreDoc[]> {
   const url = `${FIRESTORE_BASE}/projects/${projectId}/databases/(default)/documents:runQuery`;
+
+  const structuredQuery: Record<string, unknown> = {
+    from: [{ collectionId }],
+    where: {
+      fieldFilter: {
+        field: { fieldPath: field },
+        op: "EQUAL",
+        value: { stringValue: value },
+      },
+    },
+  };
+  if (limitCount !== undefined) {
+    structuredQuery["limit"] = limitCount;
+  }
 
   const res = await fetch(url, {
     method: "POST",
@@ -277,19 +326,7 @@ export async function firestoreQueryWhere(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath: field },
-            op: "EQUAL",
-            value: { stringValue: value },
-          },
-        },
-        limit: limitCount,
-      },
-    }),
+    body: JSON.stringify({ structuredQuery }),
   });
 
   if (!res.ok) {
@@ -338,9 +375,14 @@ export async function firestoreGetDoc(
       `Firestore GET "${docPath}" failed (${res.status}): ${body}`,
     );
   }
-  const doc = (await res.json()) as { fields?: Record<string, unknown> };
-  if (!doc.fields) return null;
-  return fromFirestoreFields(doc.fields);
+  const doc = (await res.json()) as {
+    name?: string;
+    fields?: Record<string, unknown>;
+  };
+  // A Firestore document with no fields still has a `name` but empty `fields`.
+  // Treat missing `name` as a missing doc (shouldn't happen on 200, but be safe).
+  if (!doc.name) return null;
+  return fromFirestoreFields(doc.fields ?? {});
 }
 
 // ─── Batch write ──────────────────────────────────────────────────────────────
@@ -363,8 +405,8 @@ export type BatchOp =
  * Execute an atomic batch write using the Firestore REST batchWrite endpoint.
  *
  * Any field value equal to SERVER_TIMESTAMP is automatically converted to a
- * `setToServerValue: "REQUEST_TIME"` field transform — matching the behavior
- * of FieldValue.serverTimestamp() in the Admin SDK.
+ * `setToServerValue: "REQUEST_TIME"` field transform.
+ * FirestoreTimestamp values are stored as Firestore `timestampValue` fields.
  *
  * "set"    → creates or fully replaces the document (no updateMask)
  * "update" → patches only the listed fields (updateMask + currentDocument:exists)
@@ -419,7 +461,7 @@ export async function firestoreBatchWrite(
   }
 }
 
-// ─── Connectivity probe (used by /api/debug/firebase) ─────────────────────────
+// ─── Connectivity probe ───────────────────────────────────────────────────────
 
 export async function firestorePing(
   env: FirebaseEnv,

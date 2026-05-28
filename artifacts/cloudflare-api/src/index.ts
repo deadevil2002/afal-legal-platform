@@ -1,18 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { Env, Variables } from "./lib/types";
 import healthRouter from "./routes/health";
 import debugRouter from "./routes/debug";
 import publicSupplierRouter from "./routes/publicSupplier";
+import procurementRouter from "./routes/procurement";
 
-export interface Env {
-  FIREBASE_PROJECT_ID: string;
-  FIREBASE_CLIENT_EMAIL: string;
-  FIREBASE_PRIVATE_KEY: string;
-  ALLOWED_ORIGINS: string;
-  PUBLIC_BASE_URL: string;
-}
+export type { Env, Variables };
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 app.use("*", async (c, next) => {
   const raw = c.env.ALLOWED_ORIGINS ?? "";
@@ -36,6 +32,7 @@ app.use("*", async (c, next) => {
 app.route("/api/healthz", healthRouter);
 app.route("/api/debug", debugRouter);
 app.route("/api/public", publicSupplierRouter);
+app.route("/api/procurement", procurementRouter);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
