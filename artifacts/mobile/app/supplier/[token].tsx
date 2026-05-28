@@ -238,7 +238,9 @@ export default function SupplierFormScreen() {
   const [errors, setErrors] = useState<FormErrors>({});
   const scrollRef = useRef<ScrollView>(null);
 
-  const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+  // Public supplier API calls go to the Cloudflare Worker, not the Replit server.
+  // Authenticated procurement routes (apiClient.ts) still use EXPO_PUBLIC_API_BASE_URL.
+  const CF_API = (process.env.EXPO_PUBLIC_CLOUDFLARE_API_URL ?? "").replace(/\/$/, "");
 
   useEffect(() => {
     if (!token) {
@@ -246,7 +248,9 @@ export default function SupplierFormScreen() {
       setLinkLoading(false);
       return;
     }
-    fetch(`${API_BASE}/api/public/supplier-link/${token}`)
+    const url = `${CF_API}/api/public/supplier-link/${token}`;
+    console.log("[SupplierForm] GET", url, "(Cloudflare Worker)");
+    fetch(url)
       .then((r) => r.json())
       .then((data: { status?: string; supplierNameHint?: string | null }) => {
         setLinkStatus((data.status as LinkStatus) ?? "expired");
@@ -254,7 +258,7 @@ export default function SupplierFormScreen() {
       })
       .catch(() => setLinkStatus("expired"))
       .finally(() => setLinkLoading(false));
-  }, [token, API_BASE]);
+  }, [token, CF_API]);
 
   const priceNum = parseFloat(form.priceExcludingVatSar) || 0;
   const vatAmount = priceNum > 0 ? calcVat(priceNum) : 0;
@@ -313,7 +317,9 @@ export default function SupplierFormScreen() {
         paymentTerms: form.paymentTerms,
         notes: form.notes.trim() || null,
       };
-      const res = await fetch(`${API_BASE}/api/public/supplier-response/${token}`, {
+      const postUrl = `${CF_API}/api/public/supplier-response/${token}`;
+      console.log("[SupplierForm] POST", postUrl, "(Cloudflare Worker)");
+      const res = await fetch(postUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

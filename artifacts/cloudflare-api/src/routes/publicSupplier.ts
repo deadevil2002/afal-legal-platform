@@ -162,14 +162,12 @@ router.get("/supplier-link/:token", async (c) => {
       }
     }
 
+    // Return flat — the supplier form reads status/supplierNameHint at top level.
     return c.json({
-      ok: true,
-      data: {
-        status,
-        supplierNameHint: (link["supplierNameHint"] as string | null) ?? null,
-        isActive,
-        productDescription,
-      },
+      status,
+      supplierNameHint: (link["supplierNameHint"] as string | null) ?? null,
+      isActive,
+      productDescription,
     });
   } catch (err) {
     console.error("supplier-link info failed:", err);
