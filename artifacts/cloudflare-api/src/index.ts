@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import healthRouter from "./routes/health";
 import debugRouter from "./routes/debug";
+import publicSupplierRouter from "./routes/publicSupplier";
 
 export interface Env {
   FIREBASE_PROJECT_ID: string;
@@ -34,6 +35,7 @@ app.use("*", async (c, next) => {
 
 app.route("/api/healthz", healthRouter);
 app.route("/api/debug", debugRouter);
+app.route("/api/public", publicSupplierRouter);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
