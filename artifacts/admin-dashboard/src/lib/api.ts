@@ -6,10 +6,9 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ""
  * Cloudflare Worker base URL for admin user management routes (Phase 2D/2E).
  * Covers: POST /api/admin/users/lookup-employee, POST /api/admin/users, PATCH /api/admin/users/:uid
  *
- * Uses VITE_CLOUDFLARE_API_URL env var. The custom domain procurement-api.isaudi.ai
- * currently has no DNS record (managed in Cloudflare Dashboard).
- * Once the DNS CNAME is restored, set VITE_CLOUDFLARE_API_URL=https://procurement-api.isaudi.ai.
- * Fallback to Replit: swap CF_ADMIN_BASE → API_BASE in each function.
+ * Primary: VITE_CLOUDFLARE_API_URL env var → https://procurement-api.isaudi.ai
+ * Emergency fallback: direct workers.dev URL (workers_dev = true in wrangler.toml keeps it live)
+ * Replit fallback: swap CF_ADMIN_BASE → API_BASE in each function.
  */
 const CF_ADMIN_BASE =
   ((import.meta.env.VITE_CLOUDFLARE_API_URL as string | undefined) ?? "").replace(/\/$/, "") ||

@@ -44,10 +44,9 @@ export const INITIAL_SUPER_ADMIN_EMAIL = "Naimi.salem@gmail.com";
  * Cloudflare Worker base URL for admin user management routes (Phase 2D/2E).
  * Covers: POST /api/admin/users/lookup-employee, POST /api/admin/users, PATCH /api/admin/users/:uid
  *
- * Uses the direct worker URL. The custom domain procurement-api.isaudi.ai currently
- * has no DNS record (managed separately in Cloudflare Dashboard).
- * Once the DNS CNAME is restored, change this to "https://procurement-api.isaudi.ai".
- * Fallback to Replit: replace with `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`.
+ * Primary: EXPO_PUBLIC_CLOUDFLARE_API_URL env var → https://procurement-api.isaudi.ai
+ * Emergency fallback: direct workers.dev URL (workers_dev = true in wrangler.toml keeps it live)
+ * Replit fallback: swap CF_ADMIN_BASE → `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`.
  */
 const CF_ADMIN_BASE =
   process.env["EXPO_PUBLIC_CLOUDFLARE_API_URL"]?.replace(/\/$/, "") ||
