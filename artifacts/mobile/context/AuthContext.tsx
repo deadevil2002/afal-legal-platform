@@ -40,6 +40,19 @@ import { auth, db } from "@/lib/firebase";
  */
 export const INITIAL_SUPER_ADMIN_EMAIL = "Naimi.salem@gmail.com";
 
+/**
+ * Cloudflare Worker base URL for admin user management routes (Phase 2D/2E).
+ * Covers: POST /api/admin/users/lookup-employee, POST /api/admin/users, PATCH /api/admin/users/:uid
+ *
+ * Uses the direct worker URL. The custom domain procurement-api.isaudi.ai currently
+ * has no DNS record (managed separately in Cloudflare Dashboard).
+ * Once the DNS CNAME is restored, change this to "https://procurement-api.isaudi.ai".
+ * Fallback to Replit: replace with `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`.
+ */
+const CF_ADMIN_BASE =
+  process.env["EXPO_PUBLIC_CLOUDFLARE_API_URL"]?.replace(/\/$/, "") ||
+  "https://af-procurement-api.isaudi-official.workers.dev";
+
 /** Active AF Procurement Hub organizational roles */
 export type UserRole = "super_admin" | "ceo" | "evp" | "operations" | "planning" | "finance" | "procurement";
 
@@ -437,11 +450,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!resolvedEmail) {
       // Fallback for older index docs that pre-date the email field.
-      // The api-server uses Admin SDK so it can read users/{uid} without Firestore rules.
-      const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
-        ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
-        : "";
-      const resp = await fetch(`${apiBase}/api/admin/users/lookup-employee`, {
+      // Cloudflare Worker reads users/{uid} without Firestore client rules.
+      console.log("[Cloudflare Admin API] POST /api/admin/users/lookup-employee (email fallback)");
+      const resp = await fetch(`${CF_ADMIN_BASE}/api/admin/users/lookup-employee`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeNumber: trimmed }),
@@ -449,9 +460,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!resp.ok) {
         throw new Error("employee_not_found");
       }
-      const data = (await resp.json()) as { email?: string };
-      if (!data.email) throw new Error("employee_not_found");
-      resolvedEmail = data.email;
+      // CF Worker wraps response as { ok: true, data: { email } }
+      const envelope = (await resp.json()) as { ok?: boolean; data?: { email?: string } };
+      const email = envelope.data?.email;
+      if (!email) throw new Error("employee_not_found");
+      resolvedEmail = email;
     }
 
     try {
@@ -462,17 +475,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * SUPER ADMIN ONLY — create a new user via the api-server (Admin SDK).
-   * The api-server creates the Firebase Auth account + all Firestore index docs
+   * SUPER ADMIN ONLY — create a new user via the Cloudflare Worker.
+   * The Worker creates the Firebase Auth account + all Firestore index docs
    * atomically, bypassing client-side Firestore security rules.
+   * Fallback: swap CF_ADMIN_BASE → apiBase (EXPO_PUBLIC_DOMAIN) to route back to Replit.
    */
   const adminCreateUser = async (params: AdminCreateUserParams): Promise<void> => {
     if (!isSuperAdmin || !user) throw new Error("Unauthorized: Super Admin only.");
     const token = await user.getIdToken();
-    const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
-      ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
-      : "";
-    const response = await fetch(`${apiBase}/api/admin/users`, {
+    console.log("[Cloudflare Admin API] POST /api/admin/users");
+    const response = await fetch(`${CF_ADMIN_BASE}/api/admin/users`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -491,17 +503,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * SUPER ADMIN ONLY — update a user's profile via the api-server (Admin SDK).
-   * Routes through the server so phone/employeeNumber index documents are
+   * SUPER ADMIN ONLY — update a user's profile via the Cloudflare Worker.
+   * Routes through the Worker so phone/employeeNumber index documents are
    * atomically synced when those values change.
+   * Fallback: swap CF_ADMIN_BASE → apiBase (EXPO_PUBLIC_DOMAIN) to route back to Replit.
    */
   const adminUpdateUser = async (uid: string, params: AdminUpdateUserParams): Promise<void> => {
     if (!isSuperAdmin || !user) throw new Error("Unauthorized: Super Admin only.");
     const token = await user.getIdToken();
-    const apiBase = process.env["EXPO_PUBLIC_DOMAIN"]
-      ? `https://${process.env["EXPO_PUBLIC_DOMAIN"]}`
-      : "";
-    const response = await fetch(`${apiBase}/api/admin/users/${uid}`, {
+    console.log(`[Cloudflare Admin API] PATCH /api/admin/users/${uid}`);
+    const response = await fetch(`${CF_ADMIN_BASE}/api/admin/users/${uid}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",

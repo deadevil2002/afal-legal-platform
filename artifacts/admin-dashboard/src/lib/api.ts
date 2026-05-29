@@ -2,6 +2,19 @@ import { auth } from "@/lib/firebase";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
+/**
+ * Cloudflare Worker base URL for admin user management routes (Phase 2D/2E).
+ * Covers: POST /api/admin/users/lookup-employee, POST /api/admin/users, PATCH /api/admin/users/:uid
+ *
+ * Uses VITE_CLOUDFLARE_API_URL env var. The custom domain procurement-api.isaudi.ai
+ * currently has no DNS record (managed in Cloudflare Dashboard).
+ * Once the DNS CNAME is restored, set VITE_CLOUDFLARE_API_URL=https://procurement-api.isaudi.ai.
+ * Fallback to Replit: swap CF_ADMIN_BASE → API_BASE in each function.
+ */
+const CF_ADMIN_BASE =
+  ((import.meta.env.VITE_CLOUDFLARE_API_URL as string | undefined) ?? "").replace(/\/$/, "") ||
+  "https://af-procurement-api.isaudi-official.workers.dev";
+
 async function getIdToken(): Promise<string> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error("Not authenticated — no ID token available.");
@@ -33,18 +46,49 @@ async function apiRequest<T>(
   return json;
 }
 
+/**
+ * Cloudflare Worker request helper — unwraps { ok, data } envelope.
+ * Used for all three admin user routes.
+ * On error, throws with the code field when present (e.g. "phone_taken") so callers
+ * can match it, then falls back to the error string.
+ */
+async function cfAdminRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const token = await getIdToken();
+  console.log(`[Cloudflare Admin API] ${method} ${path}`);
+  const res = await fetch(`${CF_ADMIN_BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const json = (await res.json()) as { ok: boolean; data?: T; error?: string; code?: string };
+  if (!res.ok) {
+    throw new Error(json.code ?? json.error ?? `Request failed with status ${res.status}`);
+  }
+  return (json.data ?? json) as T;
+}
+
 export async function lookupEmployee(
   employeeNumber: string,
 ): Promise<{ email: string } | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/admin/users/lookup-employee`, {
+    console.log("[Cloudflare Admin API] POST /api/admin/users/lookup-employee");
+    const res = await fetch(`${CF_ADMIN_BASE}/api/admin/users/lookup-employee`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employeeNumber }),
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { email?: string };
-    return data.email ? { email: data.email } : null;
+    // CF Worker wraps response as { ok: true, data: { email } }
+    const json = (await res.json()) as { ok?: boolean; data?: { email?: string } };
+    const email = json.data?.email;
+    return email ? { email } : null;
   } catch {
     return null;
   }
@@ -69,7 +113,7 @@ export interface CreateUserResponse {
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<CreateUserResponse> {
-  return apiRequest<CreateUserResponse>("POST", "/api/admin/users", payload);
+  return cfAdminRequest<CreateUserResponse>("POST", "/api/admin/users", payload);
 }
 
 export interface UpdateUserPayload {
@@ -88,5 +132,5 @@ export interface UpdateUserResponse {
 }
 
 export async function updateUser(uid: string, payload: UpdateUserPayload): Promise<UpdateUserResponse> {
-  return apiRequest<UpdateUserResponse>("PATCH", `/api/admin/users/${uid}`, payload);
+  return cfAdminRequest<UpdateUserResponse>("PATCH", `/api/admin/users/${uid}`, payload);
 }

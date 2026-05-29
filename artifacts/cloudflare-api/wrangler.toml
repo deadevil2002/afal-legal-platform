@@ -1,9 +1,18 @@
 name = "af-procurement-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+workers_dev = true
+
+# ─── Custom domain ────────────────────────────────────────────────────────────
+# procurement-api.isaudi.ai is registered as a Cloudflare Workers Custom Domain
+# for this worker via the account-level Workers Domains API.
+# The DNS CNAME is managed automatically by Cloudflare.
+# Zone: isaudi.ai (ba5fe902a10311b7620231be05bf5668)
+# Domain record ID: 43fdb9839c4b95abc4c744d3b5e79e0aca48b1e9
+#
+# To revert: DELETE /accounts/{accountId}/workers/domains/43fdb9839c4b95abc4c744d3b5e79e0aca48b1e9
 
 # ─── Non-secret configuration ────────────────────────────────────────────────
-# These can be overridden in Cloudflare Dashboard → Workers → Settings → Variables.
 [vars]
 ALLOWED_ORIGINS = "https://admin.isaudi.ai,https://suppliers.isaudi.ai"
 PUBLIC_BASE_URL = "https://suppliers.isaudi.ai"
@@ -14,6 +23,3 @@ PUBLIC_BASE_URL = "https://suppliers.isaudi.ai"
 #   wrangler secret put FIREBASE_PROJECT_ID
 #   wrangler secret put FIREBASE_CLIENT_EMAIL
 #   wrangler secret put FIREBASE_PRIVATE_KEY
-#
-# FIREBASE_PRIVATE_KEY: paste the full PEM block including -----BEGIN/END----- lines.
-# Wrangler stores it encrypted; it is available as env.FIREBASE_PRIVATE_KEY at runtime.
