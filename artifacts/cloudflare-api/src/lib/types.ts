@@ -12,6 +12,10 @@ export interface Env {
   FIREBASE_PRIVATE_KEY: string;
   ALLOWED_ORIGINS: string;
   PUBLIC_BASE_URL: string;
+  /** Cloudinary cloud name — used by the supplier HTML page for unsigned uploads */
+  CLOUDINARY_CLOUD_NAME: string;
+  /** Cloudinary unsigned upload preset — used by the supplier HTML page */
+  CLOUDINARY_UPLOAD_PRESET: string;
 }
 
 // ─── Authenticated user attached by requireInternalAuth ──────────────────────

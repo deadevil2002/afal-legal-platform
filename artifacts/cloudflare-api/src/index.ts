@@ -6,6 +6,7 @@ import debugRouter from "./routes/debug";
 import publicSupplierRouter from "./routes/publicSupplier";
 import procurementRouter from "./routes/procurement";
 import adminUsersRouter from "./routes/adminUsers";
+import supplierPageRouter from "./routes/supplierPage";
 
 export type { Env, Variables };
 
@@ -35,6 +36,11 @@ app.route("/api/debug", debugRouter);
 app.route("/api/public", publicSupplierRouter);
 app.route("/api/procurement", procurementRouter);
 app.route("/api/admin/users", adminUsersRouter);
+// Supplier HTML form — served directly by the Worker
+// /supplier-test/:token  → temp test URL (no DNS changes needed)
+// /supplier/:token       → production URL (after suppliers.isaudi.ai DNS cutover)
+app.route("/supplier-test", supplierPageRouter);
+app.route("/supplier", supplierPageRouter);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

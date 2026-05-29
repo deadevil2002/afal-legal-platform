@@ -158,7 +158,7 @@ router.post("/supplier-links", requireInternalAuth, async (req, res) => {
       token,
       requestId,
       supplierNameHint: supplierNameHint ?? null,
-      publicFormUrl: `/supplier/${token}`,
+      publicFormUrl: `https://suppliers.isaudi.ai/supplier/${token}`,
       expiresAt: { seconds: expiresAt.seconds, nanoseconds: expiresAt.nanoseconds },
     }, 201);
   } catch (err) {

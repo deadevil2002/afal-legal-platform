@@ -14,8 +14,11 @@ workers_dev = true
 
 # ─── Non-secret configuration ────────────────────────────────────────────────
 [vars]
-ALLOWED_ORIGINS = "https://admin.isaudi.ai,https://suppliers.isaudi.ai"
+ALLOWED_ORIGINS = "https://admin.isaudi.ai,https://suppliers.isaudi.ai,https://procurement-api.isaudi.ai"
 PUBLIC_BASE_URL = "https://suppliers.isaudi.ai"
+# Cloudinary — public values (safe in [vars]; they are embedded in the supplier page HTML)
+CLOUDINARY_CLOUD_NAME = "dd8crithl"
+CLOUDINARY_UPLOAD_PRESET = "afal_uploads"
 
 # ─── Secrets (do NOT put values here) ────────────────────────────────────────
 # Set these via:  wrangler secret put <NAME>

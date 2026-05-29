@@ -263,7 +263,7 @@ router.post("/supplier-links", async (c) => {
           token,
           requestId,
           supplierNameHint: supplierNameHint ?? null,
-          publicFormUrl: `/supplier/${token}`,
+          publicFormUrl: `${c.env.PUBLIC_BASE_URL}/supplier/${token}`,
           expiresAt: { seconds: expirySeconds, nanoseconds: expiryNanoseconds },
         },
       },
